@@ -1,6 +1,7 @@
 // The display model: live aircraft (live.mjs: adsb.fi + ADSB.lol routes) enriched
 // with operator, cargo brand, look-up angles, closest approach, trend and a daily
-// logbook. ?demo=1 makes a synthetic sky around whatever home is set.
+// logbook. ?demo=1 makes a synthetic sky around whatever home is set (&scene=emergency:
+// a 7700 squawk; &scene=quiet: nothing in range).
 import {IDS,airspace,recentSightings,number} from './core.mjs';
 import {RouteLookup} from './routes.mjs';
 import {startLive,haversine,store} from './live.mjs';
@@ -209,7 +210,7 @@ function demoSource(config,onModel,airports){
       a.distance_mi=Math.hypot(east,north);a.inside=a.distance_mi<=config.radiusMiles;
       const raw={ownOp,year,squawk:scene==='emergency'&&hex==='a2b150'?'7700':'2214',baro_rate:fpm};
       return enrich(a,raw,route?{...route,flight:callsign}:null,now);
-    }).filter(a=>a.distance_mi<config.rangeMiles+3)
+    }).filter(a=>a.distance_mi<config.rangeMiles+3&&scene!=='quiet')
       .sort((a,b)=>Number(b.inside)-Number(a.inside)||a.distance_mi-b.distance_mi);
     const recent=recentRows.map(([hex,flight,code,route,mins])=>({hex,flight,callsign:flight,aircraft_type:code,
       type:typeName(code),route,cargo:cargoBrand(flight,flight.startsWith('ATN')?'AMAZON':''),last_seen:now/1000-mins*60}));

@@ -13,58 +13,17 @@
 </head>
 <body>
 <div class="stage" id="stage">
-  <div class="scope-wrap">
-    <div class="sweep"></div>
-    <svg id="scope" class="scope" viewBox="0 0 540 540" aria-hidden="true">
-      <defs><clipPath id="clip"><circle cx="270" cy="270" r="250"/></clipPath></defs>
-      <g clip-path="url(#clip)"><g id="map-base"></g></g>
-      <g id="rings"></g><g id="map-labels"></g><g id="trails"></g><g id="blips"></g><g id="blocks"></g>
-    </svg>
-    <div class="scope-note" id="scope-note"></div>
-    <div class="corner tl">Aircraft adsb.fi<br>Routes ADSB.lol</div>
-    <div class="corner bl" id="map-credit">© OpenFreeMap<br>© OpenMapTiles<br>© OpenStreetMap contributors</div>
-    <div class="corner br" id="ring-note"></div>
-    <div class="corner tr">Select ▸ Settings</div>
+  <!-- The chosen layout (web/layouts/<id>.mjs) draws everything here. -->
+  <div class="layout" id="layout"></div>
+  <div class="layout-note" id="layout-note"></div>
+
+  <!-- Adjust position: a close-up street map with a fixed dot; arrows move the map. -->
+  <div class="adjust-view" id="adjust-view">
+    <div class="adjust-map" id="adjust-map"></div>
+    <svg class="adjust-svg" viewBox="0 0 540 540" aria-hidden="true"><g id="adjust-marks"></g></svg>
+    <div class="adjust-note" id="adjust-note"></div>
+    <div class="adjust-credit">© OpenFreeMap © OpenMapTiles<br>© OpenStreetMap contributors</div>
   </div>
-
-  <section class="panel" id="panel">
-    <header class="head">
-      <div class="brand">What's Up</div>
-      <div class="clock" id="clock"></div>
-    </header>
-    <div class="where"><span id="city"></span><span class="status" id="status"></span></div>
-
-    <div class="hero" id="hero">
-      <div class="label" id="hero-label">Nearest</div>
-      <div class="alert" id="alert" hidden></div>
-      <div class="flight"><b id="flight">—</b><span id="operator"></span></div>
-      <div class="route" id="route"></div>
-      <div class="progress" id="progress-row"><span class="bar"><i id="bar"></i></span><span id="progress"></span></div>
-      <div class="stats">
-        <div><span>Altitude</span><b id="alt"></b></div>
-        <div><span>Speed</span><b id="spd"></b></div>
-        <div><span>Look</span><b id="look"></b></div>
-        <div><span>Closest</span><b id="cpa"></b></div>
-      </div>
-      <div class="aircraft" id="aircraft"></div>
-    </div>
-    <div class="empty-sky" id="empty-sky" hidden>Quiet skies. Nothing within range right now.</div>
-
-    <div class="lower">
-      <div class="cargo">
-        <div class="label" id="cargo-label">Cargo tonight</div>
-        <div class="cargo-row"><b id="cargo"></b><div class="cargo-by" id="cargo-by"></div></div>
-      </div>
-      <div class="today">
-        <div class="label">Today</div>
-        <div class="log" id="log"></div>
-      </div>
-    </div>
-    <div class="recent-wrap">
-      <div class="label">Recently overhead</div>
-      <div class="recent" id="recent"></div>
-    </div>
-  </section>
 
   <!-- First launch: the location found from the connection. -->
   <div class="overlay" id="welcome" hidden>
@@ -82,6 +41,7 @@
   <div class="overlay" id="settings" hidden>
     <div class="card wide">
       <div class="title">Settings</div>
+      <button class="row" id="set-layout" data-focus data-adjust><span>Layout</span><b id="set-layout-v"></b><i>‹ ›</i></button>
       <button class="row" id="set-location" data-focus><span>Location</span><b id="set-location-v"></b><i>Change ›</i></button>
       <button class="row" id="set-adjust" data-focus><span>Fine-tune</span><b>Adjust position</b><i>›</i></button>
       <button class="row" id="set-radius" data-focus data-adjust><span>Alert radius</span><b id="set-radius-v"></b><i>‹ ›</i></button>
@@ -114,6 +74,14 @@
     <div class="adjust-moved" id="adjust-moved"></div>
     <p class="keys-help"><kbd>OK</kbd> save &nbsp; <kbd>Back</kbd> cancel</p>
     <p class="note small">Your exact position stays on this device. Aircraft are fetched for the area rounded to about 1 km.</p>
+  </div>
+
+  <!-- Layout picker: the layout behind it is live; arrows switch, OK keeps, Back reverts. -->
+  <div class="picker" id="picker" hidden>
+    <button class="pick-arrow" id="pick-prev" data-focus>‹</button>
+    <div class="pick-body"><div class="pick-count" id="pick-count"></div><div class="pick-name" id="pick-name"></div>
+      <div class="pick-help"><kbd>‹ ›</kbd> preview &nbsp; <kbd>OK</kbd> keep &nbsp; <kbd>Back</kbd> cancel</div></div>
+    <button class="pick-arrow" id="pick-next" data-focus>›</button>
   </div>
 
   <div class="overlay" id="locate" hidden>

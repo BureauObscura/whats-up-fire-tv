@@ -1,0 +1,189 @@
+// Shared toolkit for layouts (web/layouts/<id>.mjs + <id>.css). The app owns the
+// data (feed model, settings, maps); a layout only draws it. Each layout module ends
+// with `export default {...}`:
+//   name   'Glass'                      shown in Settings
+//   map    'base' | 'detail'            detail = streets, landuse, buildings (built on demand)
+//   mount(root,ctx)                     build DOM into root (the 960x540 stage)
+//   setMap(maps)                        {base,detail}; either may be null until built
+//   render(m)                           every model tick (1 s demo, 5 s live)
+//   refresh()                           units or alert radius changed
+//   unmount()                           stop timers; the app empties root afterwards
+// ctx: {settings(), place(), demo, needs(kind)}. The model m: {now, live, fresh,
+// connecting, planes[], hero, recent[], log}. Planes carry hex, flight, callsign,
+// registration, aircraft_type, type (name), operator, cargo (brand), latitude,
+// longitude, altitude_ft, speed_kt, heading, vertical (fpm), squawk, emergency,
+// route {origin,destination,from,to}, progress {flown,left,share}, x/y (miles east/
+// north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
+// receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
+// hero also has status ('Overhead now', 'Approaching', 'Nearest', 'Emergency').
+import {number} from './core.mjs';
+import {MAP_ATTRIBUTION} from './mapgen.mjs';
+import {placeLabel} from './place.mjs';
+import {tz,compass,offset} from './model.mjs';
+
+export {number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+export const DATA_ATTRIBUTION='Aircraft: adsb.fi · Routes: ADSB.lol';
+export const RANGE=10; // miles, the area the feed and base map cover
+
+const NS='http://www.w3.org/2000/svg';
+export const svg=(tag,attrs={},text)=>{
+  const el=document.createElementNS(NS,tag);
+  for(const [k,v] of Object.entries(attrs))if(v!==undefined&&v!==null)el.setAttribute(k,v);
+  if(text!==undefined)el.textContent=text;return el;
+};
+export const el=(tag,cls,text)=>{
+  const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;
+};
+export const setText=(e,v)=>{v=v??'';if(e&&e.textContent!==String(v))e.textContent=v;};
+export const overlap=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+// First spot (dx,dy offsets from p) where a w x h box fits inside bounds without hitting boxes.
+export function placeBox(boxes,p,w,h,spots,bounds){
+  for(const [dx,dy] of spots){
+    const b={x:p.x+dx,y:p.y+dy,w,h};
+    if(bounds&&(b.x<bounds.x||b.y<bounds.y||b.x+w>bounds.x+bounds.w||b.y+h>bounds.y+bounds.h))continue;
+    if(!boxes.some(o=>overlap(o,b))){boxes.push(b);return b;}
+  }
+  return null;
+}
+
+// --- Units (Settings: distance mi/km, altitude ft/m).
+let S={distance:'mi',altitude:'ft'};
+export const useSettings=s=>{S=s;};
+export const KM=1.609344;
+export const metric=()=>S.distance==='km';
+export const fmt={
+  int:v=>number(v)?Math.round(v).toLocaleString('en-US'):'—',
+  dist:(mi,d=1)=>!number(mi)?'—':S.distance==='km'?`${(mi*KM).toFixed(d)} km`:`${mi.toFixed(d)} mi`,
+  far:mi=>!number(mi)?'—':S.distance==='km'?`${fmt.int(mi*KM)} km`:`${fmt.int(mi)} mi`,
+  alt:ft=>!number(ft)?'—':S.altitude==='m'?`${fmt.int(ft*.3048)} m`:ft>=18000?`FL${Math.round(ft/100)}`:`${fmt.int(ft)} ft`,
+  altNum:ft=>!number(ft)?'—':S.altitude==='m'?fmt.int(ft*.3048):fmt.int(ft),
+  altUnit:()=>S.altitude==='m'?'m':'ft',
+  speed:kt=>!number(kt)?'—':S.distance==='km'?`${fmt.int(kt*1.852)} km/h`:`${fmt.int(kt)} kt`,
+  speedNum:kt=>!number(kt)?'—':S.distance==='km'?fmt.int(kt*1.852):fmt.int(kt),
+  speedUnit:()=>S.distance==='km'?'km/h':'kt',
+  distUnit:()=>S.distance==='km'?'km':'mi',
+  vs:fpm=>!number(fpm)||Math.abs(fpm)<100?'level':S.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
+    `${fpm>0?'↑':'↓'}${fmt.int(Math.abs(Math.round(fpm/50)*50))}`,
+  mmss:s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`,
+  ago:(stamp,now)=>{const m=Math.max(0,Math.floor((now/1000-stamp)/60));return m<1?'now':m<60?`${m}m`:`${Math.floor(m/60)}h`;},
+  clock:(now,opts={})=>{try{return new Date(now).toLocaleTimeString(S.place?.countryCode==='US'?'en-US':'en-GB',{hour:'numeric',minute:'2-digit',timeZone:tz(),...opts});}catch{return '';}},
+  date:(now,opts={weekday:'long',day:'numeric',month:'long'})=>{try{return new Date(now).toLocaleDateString('en-GB',{timeZone:tz(),...opts});}catch{return '';}},
+};
+export const placeName=()=>placeLabel(S.place)||'';
+export const cityName=()=>S.place?.name||'';
+export const alertRadius=()=>S.radiusMiles||3;
+export const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
+export const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
+// "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
+export const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
+export const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':'No live data right now. Retrying every few seconds.'):
+  'Quiet skies. Nothing within range right now.';
+
+// --- Aircraft. Top-down silhouettes, nose up, in a 64-unit box.
+export const PLANE='M0-29C3-29 4-23 4-17L4-5 26 9 26 13 4 6 3 22 11 28 11 31 0 27-11 31-11 28-3 22-4 6-26 13-26 9-4-5-4-17C-4-23-3-29 0-29Z';
+export const HELI='M0-15C4.6-15 5.6-9 5.6-4 5.6 2 3 5 1.2 6L1 20 5.5 20.6 5.5 22.4 1 23 .8 27-.8 27-1 23-5.5 22.4-5.5 20.6-1 20-1.2 6C-3 5-5.6 2-5.6-4-5.6-9-4.6-15 0-15Z';
+export const SINGLE='M0-24C2-24 2.6-21 2.6-17L2.6-12 26-11.2 26-6.4 2.6-5.6 1.8 17 8.5 19 8.5 22 0 21.4-8.5 22-8.5 19-1.8 17-2.6-5.6-26-6.4-26-11.2-2.6-12-2.6-17C-2.6-21-2-24 0-24Z';
+export const isHeli=a=>/^(EC|AS3|AS5|B4|R44|R22|H[0-9]|S76|A1[0-4]9|B06|B407|B429|H60)/.test(a.aircraft_type||'')||a.category==='A7';
+export const isLight=a=>/^(C1[5-8]|C2[01]|PA|SR2|BE[23]|P28|DA4|PC12|C206|C210)/.test(a.aircraft_type||'')||a.category==='A1';
+export const shapeFor=a=>isHeli(a)?HELI:isLight(a)?SINGLE:PLANE;
+export function planeIcon(a,p,size,cls,shape=shapeFor(a)){
+  const g=svg('g',{class:cls,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
+  g.append(svg('path',{d:shape}));return g;
+}
+// The planes worth labelling first: hero, then those inside the alert ring, then nearest.
+export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
+
+// Longer trails than the model keeps (it keeps ~90 s): positions per aircraft for
+// `maxAge` ms, at most one sample per `every` ms. Miles east/north of home.
+export class TrailBook{
+  constructor(maxAge=300000,every=5000){this.maxAge=maxAge;this.every=every;this.map=new Map();}
+  update(planes,now){
+    for(const a of planes){
+      let l=this.map.get(a.hex);if(!l)this.map.set(a.hex,l=[]);
+      if(!l.length||now-l[l.length-1].t>=this.every)l.push({x:a.x,y:a.y,t:now});
+    }
+    for(const [k,l] of this.map){
+      while(l.length&&now-l[0].t>this.maxAge)l.shift();
+      if(!l.length)this.map.delete(k);
+    }
+  }
+  get(hex){return this.map.get(hex)||[];}
+  clear(){this.map.clear();}
+}
+
+// --- Map painting on a canvas. The canvas is sized for the screen (the stage is
+// scaled), painted once per map/layout, and shared paths keep it fast on the stick.
+export const pixelRatio=()=>Math.min(2,Math.max(1,Math.min(innerWidth/960,innerHeight/540)*(devicePixelRatio||1)));
+export function makeCanvas(w,h,cls){
+  const c=el('canvas',cls),k=pixelRatio();
+  c.width=Math.round(w*k);c.height=Math.round(h*k);c.style.width=`${w}px`;c.style.height=`${h}px`;
+  c._k=k;c._w=w;c._h=h;return c;
+}
+// Where each map was built vs. home (they agree within ~1 km): miles to shift by.
+export function mapShift(m,home=S.place){
+  if(!m||!home)return [0,0];
+  const cos=Math.cos(home.latitude*Math.PI/180);
+  return [(m.longitude-home.longitude)*69.172*cos,(m.latitude-home.latitude)*69];
+}
+// view: {cx,cy (home, in canvas CSS px), ppm (px per mile), clip?: {r} circle or {x,y,w,h} rect,
+//   rotate?: deg (heading up), center?: place}.
+// spec: [{layer, from?:'base'|'detail', classes?:[...], not?:[...], fill?, stroke?, width?, dash?,
+//   alpha?, glow?, glowColor?, cap?, join?, minPx?}] painted in order. Layers: base water, rivers,
+//   roads (c), runways; detail water, waterways (c), roads (c), landuse (c), parks (c), aero (c),
+//   buildings. A missing map or layer is skipped.
+export function paintMap(canvas,maps,view,spec){
+  const g=canvas.getContext('2d'),k=canvas._k||1;
+  g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,canvas.width,canvas.height);
+  g.setTransform(k,0,0,k,0,0);
+  g.save();
+  if(view.clip){g.beginPath();if(view.clip.r)g.arc(view.cx,view.cy,view.clip.r,0,Math.PI*2);else g.rect(view.clip.x,view.clip.y,view.clip.w,view.clip.h);g.clip();}
+  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot);
+  for(const s of spec){
+    const from=s.from||(['landuse','parks','aero','buildings','waterways'].includes(s.layer)?'detail':'base');
+    const m=maps?.[from];if(!m||!m[s.layer]?.length)continue;
+    const [sx,sy]=mapShift(m,view.center),ppm=view.ppm;
+    const X=(x,y)=>{x+=sx;y+=sy;return view.cx+(x*cr-y*sr)*ppm;},Y=(x,y)=>{x+=sx;y+=sy;return view.cy-(x*sr+y*cr)*ppm;};
+    g.beginPath();
+    for(const f of m[s.layer]){
+      if(s.classes&&!s.classes.includes(f.c))continue;
+      if(s.not&&s.not.includes(f.c))continue;
+      const pts=f.p||f.r||f,closed=!!f.r||s.layer==='water'&&from==='base';
+      if(ArrayBuffer.isView(pts)){
+        for(let i=0;i<pts.length;i+=2){const x=pts[i]/1000,y=pts[i+1]/1000;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+      }else{
+        for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+      }
+      if(closed)g.closePath();
+    }
+    g.globalAlpha=s.alpha??1;
+    g.shadowBlur=s.glow?s.glow*k:0;g.shadowColor=s.glowColor||s.stroke||s.fill||'transparent';
+    if(s.fill){g.fillStyle=s.fill;g.fill('evenodd');}
+    if(s.stroke){g.strokeStyle=s.stroke;g.lineWidth=s.width||1;g.setLineDash(s.dash||[]);g.lineCap=s.cap||'round';g.lineJoin=s.join||'round';g.stroke();}
+  }
+  g.restore();g.globalAlpha=1;g.shadowBlur=0;g.setLineDash([]);
+}
+// Screen position (CSS px) of a point in miles from home, for the same view.
+export const toView=(view,x,y)=>{
+  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot);
+  return {x:view.cx+(x*cr-y*sr)*view.ppm,y:view.cy-(x*sr+y*cr)*view.ppm};
+};
+// Map labels near home: [{name,x,y,kind}] in miles, nearest/most important first.
+export function placesNear(maps,range,{kinds=['city','town','suburb'],max=12}={}){
+  const src=maps?.detail?.places?.length?maps.detail:maps?.base;
+  if(!src?.places)return [];
+  const [sx,sy]=mapShift(src);
+  return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
+    .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
+}
+export function airportsNear(maps,range,max=6){
+  const m=maps?.base;if(!m?.airports)return [];
+  const [sx,sy]=mapShift(m);
+  return m.airports.map(a=>({...a,x:a.x+sx,y:a.y+sy})).filter(a=>Math.hypot(a.x,a.y)<range).slice(0,max);
+}
+
+// Both credits as one element; layouts style `.credits` themselves.
+export function credits(cls='credits',{oneLine=false}={}){
+  const e=el('div',cls);
+  e.append(el('div','credit-data',DATA_ATTRIBUTION),el('div','credit-map',oneLine?`Map ${MAP_ATTRIBUTION}`:MAP_ATTRIBUTION));
+  return e;
+}

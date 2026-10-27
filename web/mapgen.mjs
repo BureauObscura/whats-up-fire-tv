@@ -1,19 +1,27 @@
-// The radar's map, built on the device for wherever home is. OpenMapTiles vector
-// tiles from OpenFreeMap (free, no key; attribution required) are decoded with
-// @mapbox/vector-tile + pbf (web/mvt.js), and only what a radar scope needs is
-// kept: water, rivers, motorways/trunk roads, runways and airport labels. The
-// result is in miles east/north of home and is saved, so tiles are fetched once
-// per location.
+// Maps, built on the device for wherever home is. OpenMapTiles vector tiles from
+// OpenFreeMap (free, no key; attribution required) are decoded with
+// @mapbox/vector-tile + pbf (web/mvt.js) into plain arrays in miles east/north of
+// home, and saved, so tiles are fetched once per location.
+// * base (z10, the 10-mile scope): water, rivers, motorways/trunk roads, runways,
+//   airport labels, motorway shields and town names. Every layout uses it.
+// * detail (z12 over ~6.5 mi, plus z14 buildings within ~1.3 mi): every road class,
+//   rail, waterways, landuse, parks, aeroways and place names. Built only when a
+//   layout asks for it (Atlas, Glass, Blueprint, ...).
 import {getJson,getBytes,store} from './live.mjs';
 
 export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
-const KEY='whatsup.map.v1',VERSION=1,MAX_AGE=30*86400000;
+const KEY='whatsup.map.v2',VERSION=2,MAX_AGE=30*86400000;
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels.
 const ZOOM=10;
 const STREETS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service']),MAJOR=new Set(['motorway','trunk','primary','secondary']);
+const DETAIL_ROADS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service','rail']);
+const LANDUSE=new Set(['residential','commercial','industrial','retail','cemetery','hospital','school','university','college',
+  'stadium','railway','military','pitch','zoo','theme_park','playground']);
+const PLACES=new Set(['city','town','village','suburb','neighbourhood','quarter']);
 
 const DEG=Math.PI/180;
 const tileX=(lon,z)=>(lon+180)/360*2**z;
@@ -38,7 +46,8 @@ function simplify(pts,tol){
   }
   return pts.filter((_,i)=>keep[i]);
 }
-const round=pts=>pts.map(([x,y])=>[Math.round(x*100)/100,Math.round(y*100)/100]);
+const rounder=k=>pts=>pts.map(([x,y])=>[Math.round(x*k)/k,Math.round(y*k)/k]);
+const round=rounder(100);
 
 // Lines: keep the runs that come within the box (plus one point either side).
 function clipLine(pts,lim){
@@ -64,28 +73,40 @@ async function tileTemplate(net){
   return url;
 }
 
+// Calls fn(tile, helpers) for each tile at `zoom` covering `lim` miles around home.
+// Tiles are decoded one at a time so only one is in memory. Returns the number fetched.
+async function eachTile(home,lim,zoom,template,net,MVT,fn){
+  const cos=Math.cos(home.latitude*DEG);
+  const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
+  const dLat=lim/69,dLon=lim/(69.172*cos);
+  const x0=Math.floor(tileX(home.longitude-dLon,zoom)),x1=Math.floor(tileX(home.longitude+dLon,zoom));
+  const y0=Math.floor(tileY(home.latitude+dLat,zoom)),y1=Math.floor(tileY(home.latitude-dLat,zoom));
+  let fetched=0;
+  for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
+    const bytes=await net.getBytes(template.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty));
+    if(!bytes)continue;
+    fetched++;
+    const tile=new MVT.VectorTile(new MVT.Pbf(bytes));
+    const each=(name,f)=>{const layer=tile.layers[name];if(layer)for(let i=0;i<layer.length;i++)f(layer.feature(i),layer.extent);};
+    const geom=(f,extent)=>f.loadGeometry().map(ring=>ring.map(p=>toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom))));
+    const point=(f,extent)=>{const [[p]]=f.loadGeometry();return toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom));};
+    fn({each,geom,point});
+  }
+  return fetched;
+}
+const nameOf=pr=>String(pr.name_en||pr['name:en']||pr.name_int||pr.name||'').slice(0,60);
+
 // Build the map for home; `range` in miles. Throws when tiles can't be fetched.
 // detail: a close-up street map (Adjust position) instead of the radar's major roads.
 // `net` and `MVT` are replaceable for tests.
 export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,zoom=ZOOM,detail=false}={}){
-  const ZOOM=zoom;
   if(!MVT)throw new Error('mvt.js missing');
-  const lim=range+1.5,cos=Math.cos(home.latitude*DEG);
-  const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
-  const dLat=lim/69,dLon=lim/(69.172*cos);
-  const x0=Math.floor(tileX(home.longitude-dLon,ZOOM)),x1=Math.floor(tileX(home.longitude+dLon,ZOOM));
-  const y0=Math.floor(tileY(home.latitude+dLat,ZOOM)),y1=Math.floor(tileY(home.latitude-dLat,ZOOM));
+  const lim=range+1.5;
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
-    water:[],rivers:[],roads:[],runways:[],airports:[],shields:[]};
-  const shields=new Map();let fetched=0;
-  for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
-    const bytes=await net.getBytes(template.replace('{z}',ZOOM).replace('{x}',tx).replace('{y}',ty));
-    if(!bytes)continue;
-    fetched++;
-    const tile=new MVT.VectorTile(new MVT.Pbf(bytes));
-    const each=(name,fn)=>{const layer=tile.layers[name];if(layer)for(let i=0;i<layer.length;i++)fn(layer.feature(i),layer.extent);};
-    const geom=(f,extent)=>f.loadGeometry().map(ring=>ring.map(p=>toMiles(lonOf(tx+p.x/extent,ZOOM),latOf(ty+p.y/extent,ZOOM))));
+    water:[],rivers:[],roads:[],runways:[],airports:[],shields:[],places:[]};
+  const shields=new Map(),places=new Map();
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
     each('water',(f,e)=>{
       if(f.type!==3)return;
@@ -96,7 +117,7 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
       const c=f.properties.class;
       const wanted=detail?STREETS.has(c):c==='motorway'||c==='trunk';
       if(f.type===2&&wanted&&!f.properties.ramp)
-        for(const l of lines(f,e,detail?.005:.03))out.roads.push({major:detail?MAJOR.has(c):c==='motorway',p:l});
+        for(const l of lines(f,e,detail?.005:.03))out.roads.push({c,major:detail?MAJOR.has(c):c==='motorway',p:l});
     });
     each('transportation_name',(f,e)=>{
       const ref=String(f.properties.ref||'').trim();
@@ -114,17 +135,25 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
     });
     each('aerodrome_label',(f,e)=>{
       if(f.type!==1)return;
-      const pr=f.properties,[[p]]=f.loadGeometry();
-      const [x,y]=toMiles(lonOf(tx+p.x/e,ZOOM),latOf(ty+p.y/e,ZOOM));
+      const pr=f.properties,[x,y]=point(f,e);
       const code=String(pr.iata||pr.icao||'').toUpperCase();
       if(!code||Math.hypot(x,y)>range+12)return;
       if(out.airports.some(a=>a.code===code))return;
-      out.airports.push({code,iata:String(pr.iata||''),icao:String(pr.icao||''),name:String(pr.name_en||pr['name:en']||pr.name||'').slice(0,60),
+      out.airports.push({code,iata:String(pr.iata||''),icao:String(pr.icao||''),name:nameOf(pr),
         kind:String(pr.class||''),x:Math.round(x*100)/100,y:Math.round(y*100)/100});
     });
-  }
+    each('place',(f,e)=>{
+      const pr=f.properties,c=String(pr.class||'');
+      if(f.type!==1||!['city','town','suburb'].includes(c))return;
+      const name=nameOf(pr),[x,y]=point(f,e);
+      if(!name||Math.abs(x)>lim||Math.abs(y)>lim||places.has(name))return;
+      places.set(name,{name,c,rank:Number(pr.rank)||20,x:Math.round(x*100)/100,y:Math.round(y*100)/100});
+    });
+  });
   if(!fetched)throw new Error('no tiles');
   out.shields=[...shields.values()].map(({ref,x,y})=>({ref,x:Math.round(x*100)/100,y:Math.round(y*100)/100}));
+  const order={city:0,town:1,suburb:2};
+  out.places=[...places.values()].sort((a,b)=>order[a.c]-order[b.c]||a.rank-b.rank).slice(0,40);
   const rank={international:0,public:1,regional:1,military:2};
   out.airports.sort((a,b)=>(rank[a.kind]??3)-(rank[b.kind]??3)||Math.hypot(a.x,a.y)-Math.hypot(b.x,b.y));
   return out;
@@ -138,3 +167,102 @@ export function savedMap(home,range){
   return same?m:null;
 }
 export const saveMap=m=>store.set(KEY,m);
+
+// --- Detail map. Coordinates in thousandths of a mile (~5 ft). Each line or ring is
+// saved as a delta-encoded string ("x,y,dx,dy,...") and decoded into an Int16Array,
+// so ~150k points cost ~0.8 MB saved and ~0.6 MB in memory instead of nested arrays.
+// Buildings are capped (nearest first) to stay well under the localStorage quota.
+export const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
+const MAX_BUILDING_POINTS=40000;
+// Clamped to Int16 (±32 mi): the extra point clipLine keeps past the edge can be far out.
+const int16=v=>Math.max(-32000,Math.min(32000,Math.round(v*1000)));
+const encode=pts=>{let px=0,py=0;return pts.map(([x,y])=>{const ix=int16(x),iy=int16(y),d=`${ix-px},${iy-py}`;px=ix;py=iy;return d;}).join(',');};
+function decode(s){
+  const v=s.split(','),out=new Int16Array(v.length);let x=0,y=0;
+  for(let i=0;i<v.length;i+=2){x+=+v[i];y+=+v[i+1];out[i]=x;out[i+1]=y;}
+  return out;
+}
+const DETAIL_LAYERS=['water','waterways','roads','landuse','parks','aero','buildings'];
+// Saved form -> drawable form (p: line, r: ring, both Int16Array in 1/1000 mi).
+export function decodeDetail(m){
+  if(!m)return null;
+  const out={...m,decoded:true};
+  for(const k of DETAIL_LAYERS)out[k]=m[k].map(f=>f.p?{...f,p:decode(f.p)}:{...f,r:decode(f.r)});
+  return out;
+}
+export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,range=DETAIL_RANGE,buildings=BUILDING_RANGE}={}){
+  if(!MVT)throw new Error('mvt.js missing');
+  const lim=range+.5,template=await tileTemplate(net);
+  const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,buildingRange:buildings,built:Date.now(),
+    water:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
+  const places=new Map();
+  const polys=(geom,f,e,tol,box=lim)=>geom(f,e).filter(r=>r.length>3&&touches(r,box)).map(r=>simplify(r,tol)).filter(r=>r.length>3).map(encode);
+  const fetched=await eachTile(home,lim,12,template,net,MVT,({each,geom,point})=>{
+    const lines=(f,e,tol)=>geom(f,e).flatMap(l=>clipLine(l,lim)).map(l=>encode(simplify(l,tol)));
+    each('water',(f,e)=>{if(f.type===3&&f.properties.class!=='swimming_pool')for(const r of polys(geom,f,e,.008))out.water.push({r});});
+    each('waterway',(f,e)=>{
+      const c=String(f.properties.class||'');
+      if(f.type===2&&['river','canal','stream'].includes(c))for(const p of lines(f,e,.008))out.waterways.push({c,p});
+    });
+    each('transportation',(f,e)=>{
+      const c=String(f.properties.class||'');
+      if(f.type!==2||!DETAIL_ROADS.has(c)||c==='rail'&&f.properties.subclass!=='rail')return;
+      for(const p of lines(f,e,.006))out.roads.push({c,p,...(f.properties.ramp?{ramp:1}:{}),...(f.properties.brunnel==='bridge'?{bridge:1}:{})});
+    });
+    each('landuse',(f,e)=>{
+      const c=String(f.properties.class||'');
+      if(f.type===3&&LANDUSE.has(c))for(const r of polys(geom,f,e,c==='residential'?.02:.01))out.landuse.push({c,r});
+    });
+    each('landcover',(f,e)=>{
+      const c=String(f.properties.class||''),s=String(f.properties.subclass||'');
+      if(f.type===3&&(c==='wood'||c==='grass'))for(const r of polys(geom,f,e,c==='wood'?.02:.01))out.parks.push({c:s==='park'||s==='golf_course'?s:c,r});
+    });
+    each('park',(f,e)=>{if(f.type===3)for(const r of polys(geom,f,e,.015))out.parks.push({c:'park',r});});
+    each('aeroway',(f,e)=>{
+      const c=String(f.properties.class||'');
+      if(f.type===2&&(c==='runway'||c==='taxiway'))for(const p of lines(f,e,.004))out.aero.push({c,p});
+      else if(f.type===3&&['runway','aerodrome','apron','taxiway'].includes(c))for(const r of polys(geom,f,e,.004))out.aero.push({c,r});
+    });
+    each('place',(f,e)=>{
+      const pr=f.properties,c=String(pr.class||'');
+      if(f.type!==1||!PLACES.has(c))return;
+      const name=nameOf(pr),[x,y]=point(f,e);
+      if(!name||Math.abs(x)>lim||Math.abs(y)>lim||places.has(name))return;
+      places.set(name,{name,c,rank:Number(pr.rank)||20,x:Math.round(x*1000)/1000,y:Math.round(y*1000)/1000});
+    });
+  });
+  if(!fetched)throw new Error('no tiles');
+  const order={city:0,town:1,suburb:2,village:3,quarter:4,neighbourhood:5};
+  out.places=[...places.values()].sort((a,b)=>order[a.c]-order[b.c]||a.rank-b.rank).slice(0,80);
+  if(buildings>0){
+    const found=[],blim=buildings+.15;
+    try{
+      await eachTile(home,blim,14,template,net,MVT,({each,geom})=>{
+        each('building',(f,e)=>{if(f.type===3)for(const r of geom(f,e))if(r.length>3&&touches(r,blim)){
+          const s=simplify(r,.003);if(s.length>3)found.push(s);
+        }});
+      });
+    }catch(e){/* streets without buildings are still a map */}
+    const dist=r=>Math.min(...r.map(([x,y])=>Math.max(Math.abs(x),Math.abs(y))));
+    let points=0;
+    for(const r of found.map(r=>[dist(r),r]).sort((a,b)=>a[0]-b[0]).map(([,r])=>r)){
+      if((points+=r.length)>MAX_BUILDING_POINTS)break;
+      out.buildings.push({r:encode(r)});
+    }
+  }
+  return out;
+}
+
+// The detail map is saved straight to localStorage (not kept in memory by `store`),
+// so a layout that doesn't draw it costs nothing. Too big for the quota: not saved.
+export function savedDetail(home){
+  try{
+    const m=JSON.parse(localStorage.getItem(DETAIL_KEY)||'null');
+    return m&&m.v===DETAIL_VERSION&&Math.abs(m.latitude-home.latitude)<.01&&Math.abs(m.longitude-home.longitude)<.01&&
+      Date.now()-m.built<MAX_AGE?m:null;
+  }catch{return null;}
+}
+export function saveDetail(m){
+  try{localStorage.setItem(DETAIL_KEY,JSON.stringify(m));return true;}
+  catch{try{localStorage.removeItem(DETAIL_KEY);}catch{/* no storage */}return false;}
+}

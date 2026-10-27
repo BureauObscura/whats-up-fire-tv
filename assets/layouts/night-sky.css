@@ -1,0 +1,44 @@
+/* Layout 10, Night Sky: ambient. Black sky, aircraft as stars, EB Garamond. */
+@font-face{font-family:'EB Garamond';src:url(../fonts/EBGaramond.woff2) format('woff2');font-weight:400 600;font-display:block}
+.L-night-sky{--star:#e6eeff;--dim:rgba(214,226,255,.55);--faint:rgba(214,226,255,.32);--red:#ff5a4a;
+  --ui-ink:#e6eeff;--ui-dim:rgba(214,226,255,.62);--ui-faint:rgba(214,226,255,.28);--ui-bg:#05070c;--ui-shade:rgba(0,0,0,.8);
+  --ui-on:#05070c;--ui-glow:rgba(170,195,255,.16);--ui-font:'EB Garamond',Georgia,serif;--ui-radius:2px}
+.L-night-sky .layout{background:#000 radial-gradient(ellipse 120% 80% at 50% 115%,#0a1022 0%,#03050b 55%,#000 100%);color:var(--star);font-family:'EB Garamond',Georgia,serif}
+.L-night-sky .sky,.L-night-sky .stars{position:absolute;left:0;top:0;width:960px;height:540px}
+.L-night-sky .twinkles i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:0 0 4px 1px rgba(200,220,255,.6);opacity:.15;animation:ns-twinkle 6s ease-in-out infinite}
+@keyframes ns-twinkle{50%{opacity:.85}}
+
+.L-night-sky .top{position:absolute;left:40px;right:40px;top:24px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+.L-night-sky .pre{font:italic 400 15px 'EB Garamond';color:var(--dim);letter-spacing:.04em}
+.L-night-sky .city{font:500 30px/1.05 'EB Garamond';letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:560px}
+.L-night-sky .time{text-align:right}
+.L-night-sky .clock{font:400 30px/1.05 'EB Garamond';letter-spacing:.06em;font-variant-numeric:lining-nums}
+.L-night-sky .date{font:italic 400 15px 'EB Garamond';color:var(--dim)}
+
+.L-night-sky .home .me{fill:none;stroke:rgba(214,226,255,.6);stroke-width:1}
+.L-night-sky .home .ring{fill:none;stroke:rgba(214,226,255,.13);stroke-width:1;stroke-dasharray:1 5;stroke-linecap:round}
+.L-night-sky .trails path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.L-night-sky .trails .glow{stroke-width:7;opacity:.22}
+.L-night-sky .trails .core{stroke-width:1.3}
+.L-night-sky .star .dot{fill:#fff}
+.L-night-sky .star.hero .halo{animation:ns-breathe 4s ease-in-out infinite}
+@keyframes ns-breathe{50%{opacity:.55}}
+.L-night-sky .label{fill:var(--dim);font:italic 400 14px 'EB Garamond';letter-spacing:.03em}
+.L-night-sky .hero-label .l1{fill:var(--star);font:500 20px 'EB Garamond';letter-spacing:.08em;font-variant-caps:all-small-caps}
+.L-night-sky .hero-label .l2{fill:var(--dim);font:italic 400 16px 'EB Garamond'}
+.L-night-sky .tick{stroke:rgba(214,226,255,.35);stroke-width:.7}
+
+.L-night-sky .quiet-note{position:absolute;left:0;right:0;top:205px;text-align:center;pointer-events:none}
+.L-night-sky .quiet-note .big{font:italic 400 40px 'EB Garamond';color:rgba(230,238,255,.85)}
+.L-night-sky .quiet-note .small{font:italic 400 17px 'EB Garamond';color:var(--dim);margin-top:4px}
+
+.L-night-sky .foot{position:absolute;left:40px;right:40px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
+.L-night-sky .credits{font:400 11.5px/1.35 'EB Garamond';color:var(--faint);letter-spacing:.02em}
+.L-night-sky .count{font:italic 400 16px 'EB Garamond';color:var(--dim)}
+
+/* Emergency: one red star, a red hush at the edges. */
+.L-night-sky .layout.emergency{box-shadow:inset 0 0 140px rgba(255,60,40,.22)}
+.L-night-sky .star.sos .dot{fill:var(--red)}
+.L-night-sky .star.sos .halo{animation:ns-sos 1.1s ease-in-out infinite}
+@keyframes ns-sos{50%{opacity:.3}}
+.L-night-sky .emergency .hero-label .l1{fill:var(--red)}

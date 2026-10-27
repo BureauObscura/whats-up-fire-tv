@@ -19,7 +19,7 @@ const ALLOWED=[
   /^https:\/\/api\.open-meteo\.com\/v1\/forecast\?latitude=-?\d{1,2}\.\d{2}&longitude=-?\d{1,3}\.\d{2}&timezone=auto&forecast_days=1$/,
   /^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\d{1,2}\/\d{1,6}\/\d{1,6}\.pbf$/,
 ];
-const TYPES={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.ttf':'font/ttf','.json':'application/json'};
+const TYPES={'.woff2':'font/woff2','.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.ttf':'font/ttf','.json':'application/json'};
 const SHIM=`window.ReactNativeWebView={postMessage(data){const r=JSON.parse(data);
 fetch('/proxy?url='+encodeURIComponent(r.url)+(r.binary?'&binary=1':'')).then(x=>x.json()).then(x=>window.__whatsupReply(r.id,x.status,x.text));}};`;
 
@@ -40,6 +40,6 @@ createServer(async(req,res)=>{
     let body=await readFile(join(root,path));
     if(path==='/index.html'&&url.searchParams.get('bridge')!=='0')
       body=body.toString().replace('<head>','<head>\n  <script src="bridge-shim.js"></script>');
-    res.writeHead(200,{'content-type':TYPES[extname(path)]||'application/octet-stream'});res.end(body);
+    res.writeHead(200,{'content-type':TYPES[extname(path)]||'application/octet-stream','cache-control':'no-store'});res.end(body);
   }catch{res.writeHead(404);res.end();}
 }).listen(port,'127.0.0.1',()=>console.log(`http://127.0.0.1:${port}/ serving ${root}`));

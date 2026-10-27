@@ -1,6 +1,6 @@
 # What's Up for Fire TV (Vega OS)
 
-A radar-scope "what's flying over me" display for Fire TV (Vega OS), for anywhere.
+A "what's flying over me" display for Fire TV (Vega OS), for anywhere, in ten layouts.
 Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
 `THIRD_PARTY_NOTICES.md`. Package id `com.bureauobscura.whatsup`.
 
@@ -16,26 +16,41 @@ Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
   close-up street map (OpenFreeMap z13) and the remote's arrows move the home dot ~50 m a press
   (faster when held); OK saves. Exact coordinates stay on the device: adsb.fi gets them rounded
   to 2 decimals (~1 km; the 15 NM query loses nothing), the time-zone lookup the same, the
-  geocoders only the typed text, and map tiles only the z10/z13 tile area.
-* **Settings** (press Select on the radar): location, alert radius 1–10 mi, distance mi/km
-  (speed kt or km/h), altitude ft/m. Back closes.
-* **Map.** Built on the device for any location: OpenMapTiles vector tiles from OpenFreeMap at
-  z10 (4–9 tiles cover the 10-mile scope), decoded with @mapbox/vector-tile + pbf, keeping
-  only water, rivers, motorway/trunk roads, runways and airport codes. The result is saved
-  (localStorage, ~15–60 KB) and reused for 30 days, so tiles are fetched once per location.
+  geocoders only the typed text, and map tiles only the z10/z12/z13/z14 tile area.
+* **Settings** (press Select on the dashboard): layout, location, alert radius 1–10 mi,
+  distance mi/km (speed kt or km/h), altitude ft/m. Back closes.
+* **Layouts.** Settings > Layout opens a bar over the live dashboard: left/right switch
+  layouts on the spot, OK keeps one, Back goes back to the saved one. 1 Radar (green
+  phosphor scope), 2 Glass, 3 Departures (split-flap board), 4 Blueprint, 5 Atlas (full city
+  map), 6 Swiss (poster), 7 Synthwave, 8 Sectional (VFR chart), 9 Cockpit (navigation
+  display), 10 Night Sky. Each picks its own fields, colours, fonts and map style; all keep
+  the data and map credits on screen, handle an empty sky, and show squawk 7500/7600/7700 in
+  their own style. Only the chosen layout's code, stylesheet and font are loaded.
+* **Maps.** Built on the device for any location from OpenMapTiles vector tiles
+  (OpenFreeMap), decoded with @mapbox/vector-tile + pbf. Every layout has the base map
+  (z10, the 10-mile area: water, rivers, motorways, runways, airport codes, town names;
+  4–9 tiles, ~30 KB saved). Layouts that draw streets also get a detail map, built the first
+  time one is chosen: z12 tiles over ~6.5 mi (every road class, rail, waterways, landuse,
+  parks, aeroways, place names) plus z14 buildings within ~1.3 mi, delta-encoded (~1.3 MB
+  saved in localStorage, decoded to Int16Arrays). Both are reused for 30 days. Maps are
+  painted once onto a canvas; aircraft are an SVG/DOM layer on top.
 * **Display.** Hero target (route, progress, altitude/vertical speed, speed, look-up
   direction and elevation, closest approach, type, registration), cargo tonight by operator
   (callsign prefixes worldwide; Amazon Air by owner), today's logbook, recently overhead,
   and a red takeover on squawk 7500/7600/7700. Airports come from the map data.
 
-## Layout
+## Code
 
-* `web/` the page. `app.mjs` (screens, scope, remote navigation), `model.mjs` (enrichment,
-  cargo, logbook, demo), `mapgen.mjs` (vector tiles → radar map), `place.mjs` (IP location,
-  geocoding, settings), `live.mjs` (adsb.fi + ADSB.lol, from Overhead), `mvt.js` (bundled
-  vector-tile decoder, rebuild with `npm run build:vendor`).
-* `scripts/build-web.mjs` joins the modules into `assets/whatsup.js` (ES modules don't load
-  from `file:///pkg/assets/`).
+* `web/` the page. `app.mjs` (data, Settings and location screens, Adjust position, layout
+  picker and loader), `kit.mjs` (what layouts share: units, plane shapes, map painter, label
+  placement, credits), `layouts/<id>.mjs` + `layouts/<id>.css` (one per layout, see the
+  contract at the top of `kit.mjs`), `model.mjs` (enrichment, cargo, logbook, demo),
+  `mapgen.mjs` (vector tiles → base and detail maps), `place.mjs` (IP location, geocoding,
+  settings), `live.mjs` (adsb.fi + ADSB.lol, from Overhead), `mvt.js` (bundled vector-tile
+  decoder, rebuild with `npm run build:vendor`), `fonts/` (OFL fonts, Latin subsets).
+* `scripts/build-web.mjs` joins the shared modules into `assets/whatsup.js` (ES modules don't
+  load from `file:///pkg/assets/`) and turns each layout into `assets/layouts/<id>.js`, which
+  the page loads with a script tag when that layout is chosen and drops when another is.
 * `src/App.tsx` the Vega app: a full-screen WebView plus a fetch bridge (adsb.fi sends no CORS
   header) limited to the allow-listed GET URLs, and the remote's Back button (closes a screen,
   else leaves the app).
@@ -44,8 +59,10 @@ Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
 npm install
 npm run test:web                 # route selection, cargo brands, place labels, map from a real tile
 node tests/smoke-live.mjs 41.88 -87.63 30   # live APIs from Node at a lat/lon
-npm run serve                    # http://127.0.0.1:8767/  (?demo=1, ?q=London, ?units=metric,
-                                 #  ?screen=settings|welcome|adjust, ?screen=locate&typed=CHICAGO, ?reset=1)
+npm run serve                    # http://127.0.0.1:8767/  (?demo=1[&scene=emergency|quiet], ?q=London,
+                                 #  ?layout=atlas, ?units=metric, ?screen=settings|picker|welcome|adjust,
+                                 #  ?screen=locate&typed=CHICAGO, ?reset=1)
+node scripts/dev-server.mjs web 8770   # the same from web/ as ES modules, no build step
 node scripts/shot.mjs "http://127.0.0.1:8767/?q=Chicago" out.png 25000   # 1920x1080 via Chrome
 npm run build:release            # -> build/armv7-release/whatsup_armv7.vpkg (and aarch64, x86_64)
 vega run-app build/armv7-release/whatsup_armv7.vpkg com.bureauobscura.whatsup.main -d <fire-tv-ip>:5555

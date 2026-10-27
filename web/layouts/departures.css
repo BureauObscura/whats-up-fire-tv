@@ -1,0 +1,54 @@
+/* Layout 3, Departures: amber split-flap board on a dark station wall. */
+@font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-SemiBold.woff2) format('woff2');font-weight:600;font-display:block}
+@font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-Medium.woff2) format('woff2');font-weight:500;font-display:block}
+.L-departures{--amber:#ffb21e;--amber-dim:rgba(255,178,30,.62);--amber-faint:rgba(255,178,30,.3);--red:#ff3b2f;
+  --ui-ink:#ffb21e;--ui-dim:rgba(255,178,30,.7);--ui-faint:rgba(255,178,30,.35);--ui-bg:#141210;--ui-shade:rgba(8,7,6,.86);
+  --ui-on:#141210;--ui-glow:rgba(255,178,30,.2);--ui-font:'Barlow Condensed',sans-serif;--ui-radius:3px}
+.L-departures .layout{background:#0b0a09 radial-gradient(ellipse at 50% 0%,#1c1914 0%,#0b0a09 70%);color:var(--amber);font-family:'Barlow Condensed',sans-serif}
+
+.L-departures .top{position:absolute;left:34px;right:34px;top:16px;height:62px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.L-departures .kicker{font:600 13px 'Barlow Condensed';letter-spacing:.3em;text-transform:uppercase;color:var(--amber-dim)}
+.L-departures .city{font:600 36px/1 'Barlow Condensed';letter-spacing:.04em;text-transform:uppercase;color:#ffe2a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+.L-departures .where{min-width:0}
+.L-departures .clockbox{text-align:right}
+.L-departures .clockbox .status{margin-top:4px}
+
+/* Flap cells: two halves, a seam, and a short flip when the character changes. */
+.L-departures .flaps{display:flex;gap:2px}
+.L-departures .c{display:block;width:18px;height:30px;font:700 22px/30px var(--mono);text-align:center;color:var(--amber);
+  background:linear-gradient(#24211c 0 49%,#0a0908 49% 51%,#1d1b17 51%);border-radius:2px;position:relative;
+  text-shadow:0 0 6px rgba(255,178,30,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.L-departures .c.fa{animation:dep-flip-a .24s ease-out both}.L-departures .c.fb{animation:dep-flip-b .24s ease-out both}
+@keyframes dep-flip-a{0%{transform:scaleY(1)}45%{transform:scaleY(.08);filter:brightness(1.8)}100%{transform:scaleY(1)}}
+@keyframes dep-flip-b{0%{transform:scaleY(1)}45%{transform:scaleY(.08);filter:brightness(1.8)}100%{transform:scaleY(1)}}
+.L-departures .clock .c{width:24px;height:40px;font-size:30px;line-height:40px}
+
+.L-departures .cols{position:absolute;left:34px;top:90px;display:flex;gap:14px;font:600 13px 'Barlow Condensed';letter-spacing:.22em;text-transform:uppercase;color:var(--amber-dim)}
+.L-departures .cols span{display:block}.L-departures .cols .r{text-align:right}
+.L-departures .board{position:absolute;left:34px;top:112px;display:flex;flex-direction:column;gap:5px}
+.L-departures .brow{display:flex;gap:14px;padding:0;position:relative}
+.L-departures .brow.past .c{color:rgba(255,178,30,.55);text-shadow:none}
+.L-departures .brow.empty .c{color:transparent}
+.L-departures .brow.hero:before{content:'';position:absolute;left:-15px;top:9px;width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:9px solid var(--amber)}
+.L-departures .brow.hero .c{color:#ffe2a8}
+.L-departures .brow.quiet .c{color:#ffe2a8}
+
+.L-departures .foot{position:absolute;left:34px;right:34px;top:400px;bottom:16px;display:flex;gap:24px}
+.L-departures .ticker{flex:1;min-width:0;border-top:2px solid var(--amber-faint);padding-top:10px;position:relative}
+.L-departures .hero-line{font:600 24px/1.15 'Barlow Condensed';color:#ffe2a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-departures .sub-line{font:500 18px/1.3 'Barlow Condensed';color:var(--amber-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-departures .credits{position:absolute;left:0;bottom:0;font:500 11px/1.35 'Barlow Condensed';letter-spacing:.04em;color:rgba(255,178,30,.48)}
+.L-departures .inset{position:relative;width:236px;height:118px;flex:none;align-self:flex-end;border:1px solid var(--amber-faint);background:#070605;border-radius:3px;overflow:hidden}
+.L-departures .inset-map,.L-departures .dots{position:absolute;left:0;top:0;width:236px;height:118px}
+.L-departures .dots .home{fill:#ffe2a8}.L-departures .dots .ring{fill:none;stroke:rgba(255,178,30,.4);stroke-dasharray:3 3}
+.L-departures .dots .dot{fill:var(--amber)}.L-departures .dots .dot.hero{fill:#fff1cc;filter:drop-shadow(0 0 3px var(--amber))}
+.L-departures .inset-label{position:absolute;right:6px;top:3px;font:500 11px 'Barlow Condensed';letter-spacing:.12em;text-transform:uppercase;color:var(--amber-dim)}
+
+/* Emergency: the hero row and banner go red and pulse. */
+.L-departures .banner{flex:1;align-self:center;text-align:center;font:600 22px 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;
+  background:var(--red);color:#120806;padding:6px 14px;border-radius:3px;animation:dep-pulse 1s steps(2) infinite;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes dep-pulse{50%{opacity:.45}}
+.L-departures .emergency .brow.hero .c{color:var(--red);text-shadow:0 0 8px rgba(255,59,47,.6)}
+.L-departures .emergency .brow.hero:before{border-left-color:var(--red)}
+.L-departures .emergency .hero-line{color:var(--red)}
+.L-departures .emergency .dots .dot.hero{fill:var(--red)}

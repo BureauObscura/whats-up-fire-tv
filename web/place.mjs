@@ -51,7 +51,8 @@ export function loadSettings(){
   const s=store.get(KEY)||{};
   return {place:s.place?makePlace(s.place):null,
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
-    distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed};
+    distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
+    layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
 }
 export const saveSettings=s=>store.set(KEY,s);
 

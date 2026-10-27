@@ -1,0 +1,107 @@
+/* Layout 9, Cockpit: Boeing-style navigation display. Black, white symbology,
+   green data, cyan labels and traffic, magenta for the selected target. B612 Mono. */
+@font-face{font-family:'B612 Mono';src:url(../fonts/B612Mono-Regular.woff2) format('woff2');font-weight:400;font-display:block}
+@font-face{font-family:'B612 Mono';src:url(../fonts/B612Mono-Bold.woff2) format('woff2');font-weight:700;font-display:block}
+.L-cockpit{--w:#f2f2f2;--g:#3fe36b;--c:#3ad8ec;--m:#ff4fe0;--a:#ffb21a;--r:#ff3b30;--b6:'B612 Mono',ui-monospace,monospace;
+  --ui-ink:#3ad8ec;--ui-dim:rgba(242,242,242,.72);--ui-faint:rgba(242,242,242,.32);--ui-bg:#05080a;--ui-shade:rgba(0,0,0,.84);
+  --ui-on:#000;--ui-glow:rgba(58,216,236,.18);--ui-font:'B612 Mono',ui-monospace,monospace;--ui-radius:4px}
+.L-cockpit .layout{background:#000;color:var(--w);font-family:var(--b6)}
+.L-cockpit .k{color:var(--w);font-size:13px;letter-spacing:.06em;opacity:.85}
+.L-cockpit .mag{color:var(--m)}
+
+/* Navigation display */
+.L-cockpit .nd{position:absolute;left:0;top:0;width:600px;height:540px;
+  background:radial-gradient(circle at 300px 292px,#0a0f12 0,#000 70%)}
+.L-cockpit .nd-map,.L-cockpit .nd-svg{position:absolute;left:0;top:0;width:600px;height:540px}
+.L-cockpit .rose{fill:none;stroke:var(--w);stroke-width:1.6}
+.L-cockpit .half{fill:none;stroke:var(--w);stroke-width:1;stroke-dasharray:3 7;opacity:.55}
+.L-cockpit .tick{stroke:var(--w);stroke-width:1.4}
+.L-cockpit .rose-n{fill:var(--w);font:700 17px var(--b6)}
+.L-cockpit .rose-n.big{font-size:20px}
+.L-cockpit .lubber{fill:var(--w)}
+.L-cockpit .alert-r{fill:none;stroke:var(--c);stroke-width:1.2;stroke-dasharray:2 6;opacity:.75}
+.L-cockpit .range-n{fill:var(--c);font:700 14px var(--b6)}
+.L-cockpit .own{fill:none;stroke:var(--w);stroke-width:2.4;stroke-linejoin:round}
+.L-cockpit .own-t{fill:var(--w);font:700 11px var(--b6);letter-spacing:.1em;opacity:.8}
+.L-cockpit .apt{fill:none;stroke:var(--c);stroke-width:2}
+.L-cockpit .apt-t{fill:var(--c);font:700 15px var(--b6)}
+.L-cockpit .route{stroke:var(--m);stroke-width:2.6}
+.L-cockpit .wpt-star{fill:none;stroke:var(--m);stroke-width:2.2}
+.L-cockpit .tcas path{fill:none;stroke:var(--w);stroke-width:2}
+.L-cockpit .tcas.ta circle{fill:var(--a)}
+.L-cockpit .tcas.ra rect{fill:var(--r)}
+.L-cockpit .tcas .vec{stroke:var(--w);stroke-width:1.4;opacity:.7}
+.L-cockpit .tcas.ta .vec{stroke:var(--a)}
+.L-cockpit .tcas .rel{fill:var(--w);font:700 13px var(--b6)}
+.L-cockpit .tcas.ta .rel{fill:var(--a)}.L-cockpit .tcas.ra .rel{fill:var(--r)}
+.L-cockpit .tcas .cs{fill:var(--c);font:700 13px var(--b6)}
+.L-cockpit .tcas.hero .cs{fill:var(--m)}
+.L-cockpit .tcas.hero path{stroke:var(--m);stroke-width:2.6}
+
+.L-cockpit .nd-tl{position:absolute;left:14px;top:10px;font-size:15px;line-height:1.25}
+.L-cockpit .nd-tl b{color:var(--g);font-size:24px;margin-left:8px}
+.L-cockpit .nd-tl .tas b{font-size:17px}
+.L-cockpit .nd-trk{position:absolute;left:0;right:0;top:4px;display:flex;justify-content:center;align-items:center;gap:10px;pointer-events:none}
+.L-cockpit .trk-box{display:inline-flex;align-items:baseline;gap:8px;border:1.6px solid var(--w);padding:0 10px;background:#000}
+.L-cockpit .trk-box b{font-size:24px;color:var(--w)}
+.L-cockpit .trk-box .mag{color:var(--g);opacity:1}
+.L-cockpit .ann{color:var(--g);font-size:12px;letter-spacing:.1em;width:0;white-space:nowrap;line-height:1.1}
+.L-cockpit .nd-tr{position:absolute;right:12px;top:10px;text-align:right;line-height:1.25}
+.L-cockpit .wpt{color:var(--m);font-size:20px}
+.L-cockpit .wpt-d,.L-cockpit .wpt-t{color:var(--w);font-size:15px}
+.L-cockpit .nd-bl{position:absolute;left:14px;bottom:12px;font-size:15px;line-height:1.3}
+.L-cockpit .tfc{color:var(--c);font-weight:700}
+.L-cockpit .status{color:var(--g);font-size:13px;letter-spacing:.08em}
+.L-cockpit .status.off{color:var(--a)}
+.L-cockpit .nd-br{position:absolute;right:12px;bottom:12px;text-align:right;line-height:1.2}
+.L-cockpit .range-k{color:var(--w);font-size:12px;opacity:.8}.L-cockpit .range-v{color:var(--c);font-size:17px;font-weight:700}
+
+/* Emergency: master warning annunciator */
+.L-cockpit .warn{position:absolute;left:50%;top:78px;transform:translateX(-50%);text-align:center;border:2.5px solid var(--r);
+  background:#120000;padding:6px 18px;animation:ck-warn 1.2s steps(2) infinite;z-index:2}
+.L-cockpit .warn-a{color:var(--r);font:700 28px var(--b6);letter-spacing:.14em}
+.L-cockpit .warn-b{color:var(--w);font:700 15px var(--b6);white-space:nowrap}
+@keyframes ck-warn{50%{background:var(--r)}50%{border-color:#fff}}
+.L-cockpit .emergency .route,.L-cockpit .emergency .wpt-star{stroke:var(--r)}
+.L-cockpit .emergency .wpt,.L-cockpit .emergency .fl{color:var(--r)}
+.L-cockpit .emergency .tcas.hero .cs{fill:var(--r)}
+.L-cockpit .emergency .pfd{border-color:var(--r)}
+
+/* Side panel: header, PFD tapes, data */
+.L-cockpit .side{position:absolute;left:606px;top:0;right:0;bottom:0;padding:10px 16px 8px 4px;border-left:1.5px solid #1d2a30}
+.L-cockpit .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.L-cockpit .city{color:var(--w);font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .clock{color:var(--g);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.L-cockpit .pfd{display:grid;grid-template-columns:74px 1fr 84px;gap:8px;margin-top:8px;border:1.5px solid #2c3a40;border-radius:6px;padding:5px;height:232px;
+  background:linear-gradient(#071016,#000)}
+.L-cockpit .tape{width:100%;height:220px}
+.L-cockpit .tape-bg{fill:#3a3d42;opacity:.55}
+.L-cockpit .tape-tick{stroke:var(--w);stroke-width:1.5}
+.L-cockpit .tape-n{fill:var(--w);font:700 14px var(--b6)}
+.L-cockpit .readout{fill:#000;stroke:var(--w);stroke-width:1.8}
+.L-cockpit .readout-n{fill:var(--g);font:700 19px var(--b6)}
+.L-cockpit .flag{fill:#000;stroke:var(--a);stroke-width:2}
+.L-cockpit .flag-t{fill:var(--a);font:700 15px var(--b6)}
+.L-cockpit .pfd-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:0;gap:2px}
+.L-cockpit .sel{color:var(--c);font-size:11px;letter-spacing:.12em}
+.L-cockpit .fl{color:var(--m);font-size:26px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .op{color:var(--w);font-size:13px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .rt{color:var(--c);font-size:19px;font-weight:700;margin-top:6px}
+.L-cockpit .vs-row{margin-top:6px}.L-cockpit .vs{color:var(--g);font-size:19px;margin-left:6px}
+.L-cockpit .type{color:var(--w);font-size:13px;opacity:.8;margin-top:4px}
+.L-cockpit .quiet .pfd-mid>:not(.nodata){display:none}
+.L-cockpit .nodata{display:flex;flex-direction:column;gap:8px;align-items:center}
+.L-cockpit .nodata b{color:var(--c);font-size:28px;border:2px solid var(--c);padding:2px 12px}
+.L-cockpit .nodata span{color:var(--w);font-size:13px;line-height:1.35;opacity:.85}
+.L-cockpit .fields{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin-top:8px}
+.L-cockpit .fields div,.L-cockpit .log div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid #162026;min-width:0}
+.L-cockpit .fields b{color:var(--g);font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .fields b.mag{color:var(--m)}
+.L-cockpit .log{display:grid;grid-template-columns:.9fr .9fr 1.5fr;gap:10px;margin-top:8px}
+.L-cockpit .log b{color:var(--c);font-size:16px;white-space:nowrap}
+.L-cockpit .log .k{white-space:nowrap}
+.L-cockpit .recent{margin-top:8px;font-size:15px;line-height:1.3}
+.L-cockpit .rec{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline}
+.L-cockpit .rec b{color:var(--w)}.L-cockpit .rec span{color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.L-cockpit .rec i{font-style:normal;color:var(--g)}
+.L-cockpit .rec.none{color:var(--w);opacity:.6;display:block}
+.L-cockpit .credits{position:absolute;left:4px;right:12px;bottom:8px;font-size:9.5px;line-height:1.4;color:rgba(242,242,242,.55)}

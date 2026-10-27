@@ -10,9 +10,13 @@ trademarks or imagery.
 
 ## Bundled
 
-- **JetBrains Mono** (`web/fonts/JetBrainsMono.ttf`): unmodified variable TTF from
-  [google/fonts](https://github.com/google/fonts/tree/main/ofl/jetbrainsmono), SIL Open Font
-  License 1.1. License text: `web/fonts/JetBrainsMono-OFL.txt`.
+- **Fonts** (`web/fonts/*.woff2`), all SIL Open Font License 1.1, subset to Latin with
+  fontTools (Inter pinned to opsz 32, EB Garamond to wght 400-600). License texts sit beside
+  each font (`web/fonts/*-OFL.txt`). Sources: [google/fonts](https://github.com/google/fonts/tree/main/ofl)
+  (JetBrains Mono, Michroma, Barlow Condensed, B612 Mono, Orbitron, EB Garamond) and
+  [rsms/inter](https://github.com/rsms/inter) (Inter). Used by: JetBrains Mono (Radar,
+  shared screens), Michroma (Glass), Inter (Swiss, Atlas and others), Barlow Condensed
+  (Blueprint, Sectional), B612 Mono (Cockpit), Orbitron (Synthwave), EB Garamond (Night Sky).
 - **@mapbox/vector-tile 2.0.5 and pbf 4.0.2** (`web/mvt.js`, bundled by `vendor/`):
   BSD-3-Clause, © Mapbox.
 - **Aircraft types** (`web/aircraft-types.mjs`): factual manufacturer/model data from
@@ -26,7 +30,7 @@ trademarks or imagery.
 | --- | --- | --- |
 | [adsb.fi](https://github.com/adsbfi/opendata) open data | aircraft positions, polled every 5 s | personal, non-commercial use with attribution; max 1 request/s. **Commercial distribution needs a different feed or permission.** Shown on screen. |
 | [ADSB.lol](https://www.adsb.lol/) standing data | flight routes, ≤1 request per 5 s, cached | ODbL data; attribution shown on screen. |
-| [OpenFreeMap](https://openfreemap.org/) vector tiles (OpenMapTiles schema) | the radar map, fetched once per location (4–9 tiles at z10) and saved on the device | free, no key, commercial use OK; attribution required and shown: "© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors". |
+| [OpenFreeMap](https://openfreemap.org/) vector tiles (OpenMapTiles schema) | the maps, fetched once per location and saved on the device: 4–9 tiles at z10 for every layout; the street-detail layouts add ~16 tiles at z12 and ~9 at z14 (buildings near home) | free, no key, commercial use OK; attribution required and shown: "© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors". |
 | [Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api) | ZIP/postcode or city search, time zone | free for non-commercial use under 10,000 calls/day; commercial use needs an Open-Meteo API subscription. Data from GeoNames (CC BY 4.0). |
 | [US Census Geocoder](https://geocoding.geo.census.gov/) | US street addresses (one request per Search) | free, no key, public-domain US government service. |
 | [Nominatim](https://nominatim.org/) (OpenStreetMap) | non-US street addresses and postcodes Open-Meteo misses | [usage policy](https://operations.osmfoundation.org/policies/nominatim/): at most 1 request/s, one request per explicit Search (never autocomplete), identifying User-Agent (set by the app bridge); ODbL, © OpenStreetMap contributors. Heavy or commercial use should move to a self-hosted or paid geocoder. |

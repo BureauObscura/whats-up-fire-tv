@@ -1,21 +1,16 @@
-// What's Up: the radar page. Draws the scope and panel from model.mjs, builds the
-// map for home (mapgen.mjs), and runs the remote-friendly settings and location
-// screens (arrows move, Select chooses, Back closes, Select on the radar opens Settings).
+// What's Up: the page. Owns the data (feed model, settings, maps) and the shared
+// screens (Settings, location, Adjust position, layout picker); the chosen layout
+// (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
+// Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
-import {number} from './core.mjs';
 import {HISTORY_KEY,store} from './live.mjs';
-import {start,demo,query,compass,offset,resetLog,tz} from './model.mjs';
+import {start,demo,query,compass,resetLog} from './model.mjs';
 import {loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
-import {buildMap,savedMap,saveMap} from './mapgen.mjs';
+import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail} from './mapgen.mjs';
+import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
 const setText=(id,v)=>{const el=$(id);v=v??'';if(el&&el.textContent!==String(v))el.textContent=v;};
-const NS='http://www.w3.org/2000/svg';
-const svg=(tag,attrs={},text)=>{
-  const el=document.createElementNS(NS,tag);
-  for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);
-  if(text!==undefined)el.textContent=text;return el;
-};
 const stage=$('stage');
 const fit=()=>{const s=Math.min(innerWidth/960,innerHeight/540);stage.style.transform=`translate(-50%,-50%) scale(${s})`;};
 addEventListener('resize',fit);fit();
@@ -24,215 +19,117 @@ addEventListener('resize',fit);fit();
 const native=window.ReactNativeWebView;
 const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* desktop */}};
 
-let settings=loadSettings(),feed=null,mapData=null,lastModel=null,placeToken=0;
-const RANGE=CONFIG.rangeMiles,CX=270,CY=270,R=250;
-let PPM=R/RANGE; // pixels per mile; Adjust position zooms in
-const project=(lat,lon)=>{const {x,y}=offset(lat,lon);return {x:CX+x*PPM,y:CY-y*PPM};};
+let settings=loadSettings(),feed=null,lastModel=null,placeToken=0;
+useSettings(settings);
+const RANGE=CONFIG.rangeMiles;
+const maps={base:null,detail:null};
 
-// --- Units
-const KM=1.609344;
-const fmt={
-  int:v=>number(v)?Math.round(v).toLocaleString('en-US'):'—',
-  dist:(mi,d=1)=>!number(mi)?'—':settings.distance==='km'?`${(mi*KM).toFixed(d)} km`:`${mi.toFixed(d)} mi`,
-  far:mi=>!number(mi)?'—':settings.distance==='km'?`${fmt.int(mi*KM)} km`:`${fmt.int(mi)} mi`,
-  alt:ft=>!number(ft)?'—':settings.altitude==='m'?`${fmt.int(ft*.3048)} m`:ft>=18000?`FL${Math.round(ft/100)}`:`${fmt.int(ft)} ft`,
-  speed:kt=>!number(kt)?'—':settings.distance==='km'?`${fmt.int(kt*1.852)} km/h`:`${fmt.int(kt)} kt`,
-  vs:fpm=>!number(fpm)||Math.abs(fpm)<100?'level':settings.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
-    `${fpm>0?'↑':'↓'}${fmt.int(Math.abs(Math.round(fpm/50)*50))}`,
-  mmss:s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`,
-  ago:(stamp,now)=>{const m=Math.max(0,Math.floor((now/1000-stamp)/60));return m<1?'now':m<60?`${m}m`:`${Math.floor(m/60)}h`;},
-  clock:now=>{try{return new Date(now).toLocaleTimeString(settings.place?.countryCode==='US'?'en-US':'en-GB',{hour:'numeric',minute:'2-digit',timeZone:tz()});}catch{return '';}},
-};
-
-// --- Scope: rings, ticks and bearings; redrawn when the radius or units change.
-function drawRings(){
-  const nodes=[],km=settings.distance==='km';ringBoxes=[];
-  const step=km?2/KM:1,major=km?4/KM:2,label=km?4:2;
-  for(let mi=step,i=1;mi<RANGE-.01;mi+=step,i++){
-    const isMajor=Math.abs(mi/major-Math.round(mi/major))<.01;
-    nodes.push(svg('circle',{class:`ring${isMajor?' major':''}`,cx:CX,cy:CY,r:mi*PPM}));
-    if(isMajor&&mi<RANGE-.6)nodes.push(svg('text',{class:'ring-label',x:CX+4,y:CY-mi*PPM-3},String(Math.round(i*step*(km?KM:1)/label)*label)));
-  }
-  nodes.push(svg('circle',{class:'ring edge',cx:CX,cy:CY,r:R}));
-  nodes.push(svg('circle',{class:'ring boundary',cx:CX,cy:CY,r:settings.radiusMiles*PPM}));
-  for(let deg=0;deg<360;deg+=5){
-    const big=deg%30===0,a=deg*Math.PI/180,r1=R-(big?9:4);
-    nodes.push(svg('line',{class:`tick${big?' major':''}`,x1:CX+Math.sin(a)*r1,y1:CY-Math.cos(a)*r1,x2:CX+Math.sin(a)*R,y2:CY-Math.cos(a)*R}));
-    if(big)ringBoxes.push({x:CX+Math.sin(a)*(R-20)-14,y:CY-Math.cos(a)*(R-20)-8,w:28,h:14});
-    if(big&&deg%90)nodes.push(svg('text',{class:'bearing-label',x:CX+Math.sin(a)*(R-20),y:CY-Math.cos(a)*(R-20)+4,'text-anchor':'middle'},String(deg).padStart(3,'0')));
-  }
-  for(const [deg,t] of [[0,'N'],[90,'E'],[180,'S'],[270,'W']]){
-    const a=deg*Math.PI/180;
-    nodes.push(svg('text',{class:'bearing-label',x:CX+Math.sin(a)*(R-20),y:CY-Math.cos(a)*(R-20)+4,'text-anchor':'middle','font-weight':700},t));
-  }
-  nodes.push(svg('rect',{class:'home',x:CX-2.5,y:CY-2.5,width:5,height:5}));
-  $('rings').replaceChildren(...nodes);
-  setText('ring-note',`Rings ${km?'2 km':'1 mi'} · alert ${fmt.dist(settings.radiusMiles,0)}`);
+// --- Layouts. Order is the Settings order; the first is the default.
+const LAYOUTS=[['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['atlas','Atlas'],
+  ['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
+const layoutName=id=>(LAYOUTS.find(([k])=>k===id)||LAYOUTS[0])[1];
+const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:'radar';
+const bundled=!!window.__whatsupModules;
+const registry={};
+window.__whatsupLayout=(id,mod)=>{registry[id]=mod;};
+function loadLayout(id){
+  if(registry[id])return Promise.resolve(registry[id]);
+  return new Promise((resolve,reject)=>{
+    let waiting=2;
+    const done=()=>{if(--waiting)return;registry[id]?resolve(registry[id]):reject(new Error(`layout ${id} failed to load`));};
+    const css=Object.assign(document.createElement('link'),{rel:'stylesheet',href:`layouts/${id}.css`,onload:done,onerror:done});
+    css.dataset.layout=id;document.head.append(css);
+    if(bundled){
+      const s=Object.assign(document.createElement('script'),{src:`layouts/${id}.js`});
+      s.onload=s.onerror=()=>{s.remove();done();};document.head.append(s);
+    }else import(`./layouts/${id}.mjs`).then(m=>{registry[id]=m.default;done();},e=>{console.error(e);done();});
+  });
+}
+// Drop a layout's code and stylesheet so only the active one costs memory.
+function unloadLayout(id){
+  delete registry[id];
+  for(const l of document.querySelectorAll('link[data-layout]'))if(l.dataset.layout===id)l.remove();
 }
 
-let labelBoxes=[],ringBoxes=[];
-// The map is in miles from where it was built; `center` is where the scope is centred
-// (home, or the dot being moved in Adjust position), so the map is shifted to match.
-function drawMap(m,center=settings.place,range=RANGE){
-  const base=[],labels=[];labelBoxes=[];
-  if(m&&center){
-    const cos=Math.cos(center.latitude*Math.PI/180);
-    const sx=(m.longitude-center.longitude)*69.172*cos,sy=(m.latitude-center.latitude)*69;
-    const px=([x,y])=>`${(CX+(x+sx)*PPM).toFixed(1)} ${(CY-(y+sy)*PPM).toFixed(1)}`;
-    const at=o=>({...o,x:o.x+sx,y:o.y+sy});
-    const d=lines=>lines.map(l=>`M${l.map(px).join('L')}`).join('');
-    if(m.water.length)base.push(svg('path',{class:'map-water',d:m.water.map(r=>`M${r.map(px).join('L')}Z`).join('')}));
-    if(m.rivers.length)base.push(svg('path',{class:'map-river',d:d(m.rivers)}));
-    for(const major of [false,true]){
-      const roads=m.roads.filter(r=>r.major===major).map(r=>r.p);
-      if(roads.length)base.push(svg('path',{class:`map-road${major?' major':''}`,d:d(roads)}));
-    }
-    if(m.runways.length)base.push(svg('path',{class:'map-runway',d:d(m.runways)}));
-    let shown=0;
-    for(const a of m.airports.map(at)){
-      if(shown>=6||Math.hypot(a.x,a.y)>range-.6||(!a.iata&&shown>=3))continue;
-      const x=CX+a.x*PPM,y=CY-a.y*PPM+20,w=a.code.length*7.6+4;
-      const box={x:x-w/2,y:y-11,w,h:14};
-      if(labelBoxes.some(b=>overlap(b,box)))continue;
-      labelBoxes.push(box);shown++;
-      labels.push(svg('text',{class:'map-airport',x,y,'text-anchor':'middle'},a.iata||a.code));
-    }
-    for(const s of m.shields.slice(0,6).map(at)){
-      const x=CX+s.x*PPM,y=CY-s.y*PPM,ref=s.ref.replace(/^I /,'I-').replace(/^US /,'US-');
-      const box={x:x-ref.length*3.2,y:y-9,w:ref.length*6.4,h:11};
-      if(Math.hypot(s.x,s.y)>range-1||Math.hypot(s.x,s.y)<1||labelBoxes.some(b=>overlap(b,box)))continue;
-      labelBoxes.push(box);labels.push(svg('text',{class:'map-shield',x,y,'text-anchor':'middle'},ref));
-    }
+let active=null,layoutToken=0;
+const root=$('layout');
+const ctx={settings:()=>settings,place:()=>settings.place,demo};
+async function useLayout(id){
+  id=validLayout(id);
+  if(active?.id===id)return;
+  const token=++layoutToken;
+  let mod;
+  try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!=='radar')useLayout('radar');return;}
+  if(token!==layoutToken)return;
+  const old=active;
+  if(old){
+    try{old.mod.unmount?.();}catch(e){console.error('unmount',e);}
+    stage.classList.remove(`L-${old.id}`);
+    if(old.id!==id)unloadLayout(old.id);
   }
-  $('map-base').replaceChildren(...base);$('map-labels').replaceChildren(...labels);
+  root.replaceChildren();root.className='layout';
+  stage.classList.add(`L-${id}`);stage.dataset.layout=id;
+  active={id,mod};
+  if(mod.map!=='detail')maps.detail=null; // free it; it reloads from storage when needed
+  try{
+    mod.mount(root,ctx);
+    mod.setMap?.({...maps});
+    if(lastModel&&!adj)mod.render(lastModel);
+  }catch(e){console.error(`layout ${id}`,e);}
+  if(mod.map==='detail')ensureDetail();
 }
-const overlap=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
-
-// Top-down silhouettes, nose up, in a 64-unit box.
-const PLANE='M0-29C3-29 4-23 4-17L4-5 26 9 26 13 4 6 3 22 11 28 11 31 0 27-11 31-11 28-3 22-4 6-26 13-26 9-4-5-4-17C-4-23-3-29 0-29Z';
-const HELI='M0-15C4.6-15 5.6-9 5.6-4 5.6 2 3 5 1.2 6L1 20 5.5 20.6 5.5 22.4 1 23 .8 27-.8 27-1 23-5.5 22.4-5.5 20.6-1 20-1.2 6C-3 5-5.6 2-5.6-4-5.6-9-4.6-15 0-15Z';
-const SINGLE='M0-24C2-24 2.6-21 2.6-17L2.6-12 26-11.2 26-6.4 2.6-5.6 1.8 17 8.5 19 8.5 22 0 21.4-8.5 22-8.5 19-1.8 17-2.6-5.6-26-6.4-26-11.2-2.6-12-2.6-17C-2.6-21-2-24 0-24Z';
-const shapeFor=a=>/^(EC|AS3|AS5|B4|R44|R22|H[0-9]|S76|A1[0-4]9|B06|B407|B429|H60)/.test(a.aircraft_type||'')||a.category==='A7'?HELI:
-  /^(C1[5-8]|C2[01]|PA|SR2|BE[23]|P28|DA4|PC12|C206|C210)/.test(a.aircraft_type||'')||a.category==='A1'?SINGLE:PLANE;
-function planeIcon(a,p,size,cls){
-  const g=svg('g',{class:cls,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
-  g.append(svg('path',{d:shapeFor(a)}));return g;
+function draw(m){
+  if(!active||adj)return;
+  try{active.mod.render(m);}catch(e){console.error(`render ${active.id}`,e);}
+}
+function mapsChanged(){
+  try{active?.mod.setMap?.({...maps});}catch(e){console.error('setMap',e);}
 }
 
-// --- Render
-const lowerType=s=>s||'';
-function blockText(a){
-  const ft=a.altitude_ft,vs=a.vertical>300?'↑':a.vertical<-300?'↓':'';
-  const alt=settings.altitude==='m'?`${(ft*.3048/1000).toFixed(1)}k`:String(Math.round(ft/100)).padStart(3,'0');
-  const spd=settings.distance==='km'?Math.round((a.speed_kt||0)*1.852):Math.round(a.speed_kt||0);
-  return [a.flight,`${alt}${vs} ${String(spd).padStart(3,'0')}`,`${a.aircraft_type||'----'} ${a.route?.destination||''}`.trim()];
-}
-
-function render(m){
-  lastModel=m;
-  const {now,hero}=m;
-  setText('clock',fmt.clock(now));
-  if(adj)return; // the scope is a close-up map while adjusting
-  const status=demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
-  setText('status',status);$('status').classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
-  stage.classList.toggle('emergency',!!hero?.emergency);
-
-  // Scope
-  const trails=[],blips=[],blocks=[],boxes=[...labelBoxes,...ringBoxes,{x:CX-6,y:CY-6,w:12,h:12}];
-  const visible=m.planes.filter(a=>a.ground<=RANGE);
-  const labelled=new Set([hero,...visible.filter(a=>a.inside),...visible].filter(Boolean).slice(0,9));
-  for(const a of visible){
-    const p=project(a.latitude,a.longitude),isHero=a===hero;
-    const dots=svg('g',{class:'trail'});
-    a.trend.trail.filter((_,i,l)=>(l.length-1-i)%3===0).slice(-7,-1).forEach(s=>{const q=project(s.lat,s.lon);dots.append(svg('circle',{cx:q.x.toFixed(1),cy:q.y.toFixed(1),r:1.3}));});
-    trails.push(dots);
-    blips.push(planeIcon(a,p,isHero?20:a.inside?16:13,`blip${a.inside?'':' context'}${a.cargo?' cargo':''}${isHero?' hero':''}`));
-    if(!labelled.has(a))continue;
-    const lines=blockText(a),w=Math.max(...lines.map(l=>l.length))*7+4,h=38;
-    const spots=[[14,-h-2],[-w-14,-h-2],[14,8],[-w-14,8]];
-    let box=null;
-    for(const [dx,dy] of spots){
-      const b={x:p.x+dx,y:p.y+dy,w,h};
-      if(b.x<4||b.x+b.w>536||b.y<4||b.y+b.h>536)continue;
-      if(!boxes.some(o=>overlap(o,b))){box=b;break;}
-    }
-    if(!box&&isHero)box={x:p.x+(p.x>380?-w-14:14),y:p.y-h-2,w,h};
-    if(!box)continue;
-    boxes.push(box);
-    const left=box.x<p.x;
-    blocks.push(svg('line',{class:'leader',x1:p.x+(left?-6:6),y1:p.y+(box.y<p.y?-5:5),x2:left?box.x+box.w:box.x,y2:box.y<p.y?box.y+box.h-4:box.y+6}));
-    if(isHero)blocks.push(svg('rect',{class:'block-box',x:box.x-4,y:box.y-1,width:box.w+6,height:box.h+3}));
-    const t=svg('text',{class:`block${a.inside?'':' context'}${isHero?' hero':''}`,x:box.x,y:box.y+11});
-    lines.forEach((line,i)=>t.append(svg('tspan',{class:i?'l2':'',x:box.x,dy:i?12.5:0},line)));
-    blocks.push(t);
-  }
-  $('trails').replaceChildren(...trails);$('blips').replaceChildren(...blips);$('blocks').replaceChildren(...blocks);
-
-  // Hero card
-  $('hero').hidden=!hero;$('empty-sky').hidden=!!hero;
-  if(!hero)setText('empty-sky',!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':'No live data right now. Retrying every few seconds.'):'Quiet skies. Nothing within range right now.');
-  if(hero){
-    setText('hero-label',`${hero.status} · ${fmt.dist(hero.distance_mi)}`);
-    $('alert').hidden=!hero.emergency;setText('alert',hero.emergency?`SQUAWK ${hero.squawk} · ${hero.emergency}`:'');
-    setText('flight',hero.flight);setText('operator',hero.operator||(!hero.callsign||hero.callsign===hero.registration?'Private':''));
-    const r=hero.route,city=p=>p?.city?` ${p.city}`:'';
-    setText('route',r?`${r.origin}${city(r.from)}  →  ${r.destination}${city(r.to)}`:'Route not reported');
-    $('progress-row').hidden=!hero.progress;
-    if(hero.progress){$('bar').style.width=`${Math.round(hero.progress.share*100)}%`;
-      setText('progress',`${fmt.far(hero.progress.flown)} flown · ${fmt.int(settings.distance==='km'?hero.progress.left*KM:hero.progress.left)} to go`);}
-    const arrow=hero.trend.alt>0?' ↑':hero.trend.alt<0?' ↓':'';
-    setText('alt',number(hero.vertical)&&Math.abs(hero.vertical)>=100?`${fmt.alt(hero.altitude_ft)} ${fmt.vs(hero.vertical)}`:`${fmt.alt(hero.altitude_ft)}${arrow}`);
-    setText('spd',fmt.speed(hero.speed_kt));
-    setText('look',`${compass(hero.bearing)} · ${Math.max(0,Math.round(hero.elevation))}° up`);
-    const c=hero.cpa;
-    setText('cpa',!c?'—':c.receding?`moving away`:`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
-    const aircraft=$('aircraft');
-    const bits=[hero.registration,hero.year&&`built ${hero.year}`,hero.cargo&&`${hero.cargo} cargo`].filter(Boolean).join(' · ');
-    aircraft.replaceChildren(document.createTextNode((hero.type||hero.aircraft_type||'Unknown type')+'  '),Object.assign(document.createElement('small'),{textContent:bits}));
-  }
-
-  // Cargo, logbook, recent
-  const L=m.log;
-  setText('cargo',String(L.cargoTonight).padStart(2,'0'));
-  $('cargo-by').replaceChildren(...(L.cargoBy.length?L.cargoBy.slice(0,4).map(([brand,n])=>{
-    const d=document.createElement('div');d.append(`${brand} `,Object.assign(document.createElement('em'),{textContent:n}));return d;
-  }):[Object.assign(document.createElement('div'),{textContent:L.night?'none yet':'counts 6 pm to 6 am'})]));
-  const cell=(text,tag='span',cls='')=>Object.assign(document.createElement(tag),{textContent:text,className:cls});
-  $('log').replaceChildren(cell('Seen'),cell(`${fmt.int(L.today)} aircraft`,'b'),
-    cell('High'),cell(L.highest?`${L.highest.name} ${fmt.alt(L.highest.value)}`:'—','b'),
-    cell('Fast'),cell(L.fastest?`${L.fastest.name} ${fmt.speed(L.fastest.value)}`:'—','b'),
-    cell('Rare'),cell(L.rarest?L.rarest.name:'—','b'));
-  const recent=m.recent.slice(0,3);
-  $('recent').replaceChildren(...(recent.length?recent.flatMap(a=>[
-    cell(a.flight,'b',a.cargo?'cargo-row-t':''),
-    cell([a.route&&`${a.route.origin}→${a.route.destination}`,lowerType(a.type)].filter(Boolean).join(' ')),
-    cell(fmt.ago(a.last_seen,now),'span','t')]):[cell('Nothing inside the alert ring yet.')]));
+// --- Detail map (streets, landuse, buildings) for the layouts that draw it.
+let detailToken=0,detailBusy=false;
+async function ensureDetail(){
+  const place=settings.place;
+  if(!place||maps.detail||detailBusy)return;
+  const saved=savedDetail(place);
+  if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
+  const token=++detailToken;detailBusy=true;
+  setText('layout-note','Drawing the street map…');
+  try{
+    const built=await buildDetail(place);
+    if(token!==detailToken||settings.place!==place)return;
+    saveDetail(built);
+    if(active?.mod.map==='detail'){maps.detail=decodeDetail(built);mapsChanged();}
+    setText('layout-note','');
+  }catch(e){
+    console.error('detail map',e?.message||e);
+    if(token===detailToken)setText('layout-note','Street map unavailable');
+    setTimeout(()=>{if(token===detailToken)setText('layout-note','');},6000);
+  }finally{if(token===detailToken)detailBusy=false;}
 }
 
 // --- Place, map and feed
+function render(m){lastModel=m;draw(m);}
 async function applyPlace(place,{fresh=false}={}){
   const token=++placeToken;
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
-  setText('city',placeLabel(place));
-  drawRings();drawMap(null);
-  $('trails').replaceChildren();$('blips').replaceChildren();$('blocks').replaceChildren();
-  mapData=savedMap(place,RANGE);
-  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,{...CONFIG,radiusMiles:settings.radiusMiles},render,mapData?.airports);};
+  maps.base=savedMap(place,RANGE);maps.detail=null;detailToken++;detailBusy=false;
+  mapsChanged();
+  if(active?.mod.map==='detail')ensureDetail();
+  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,{...CONFIG,radiusMiles:settings.radiusMiles},render,maps.base?.airports);};
   if(!demo)startFeed();
-  if(mapData){drawMap(mapData);setText('scope-note','');startFeed();return;}
-  setText('scope-note','Drawing the map…');
+  if(maps.base){startFeed();return;}
   for(let attempt=0;token===placeToken;attempt++){
     try{
       const m=await buildMap(place,RANGE);
       if(token!==placeToken)return;
-      mapData=m;saveMap(m);drawMap(m);setText('scope-note','');
-      if(lastModel)render(lastModel);
+      maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');
       break;
     }catch(e){
       console.error('map',e?.message||e);
       if(token!==placeToken)return;
-      setText('scope-note',attempt?'Map unavailable, retrying…':'Map unavailable');
+      setText('layout-note',attempt?'Map unavailable, retrying…':'Map unavailable');
       if(demo)startFeed();
       await new Promise(r=>setTimeout(r,Math.min(300000,30000*(attempt+1))));
     }
@@ -254,10 +151,11 @@ let pending=null;
 
 function choosePlace(place){
   const changed=!settings.place||Math.abs(settings.place.latitude-place.latitude)>.001||Math.abs(settings.place.longitude-place.longitude)>.001;
-  settings={...settings,place,confirmed:true};saveSettings(settings);
+  settings={...settings,place,confirmed:true};saveSettings(settings);useSettings(settings);
   closeAll();
-  if(changed)applyPlace(place,{fresh:true});else setText('city',placeLabel(place));
+  if(changed)applyPlace(place,{fresh:true});else refreshLayout();
 }
+function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);}if(lastModel)draw(lastModel);}
 
 // --- Focus and remote navigation
 let layer=null,focused=null;
@@ -271,11 +169,14 @@ function open(id,first){
 function close(){
   if(!layer)return;
   if(layer.id==='locate'&&!settings.place)return; // nothing to go back to
+  if(layer.id==='picker')endPick(false);
   layer.hidden=true;layer=layers.pop()||null;
-  if(layer){setFocus(focusables()[0]);if(layer.id==='settings')showSettings();}else setFocus(null);
+  if(layer){
+    if(layer.id==='settings'){showSettings();setFocus($('set-layout'));}else setFocus(focusables()[0]);
+  }else setFocus(null);
   syncApp();
 }
-function closeAll(){while(layer){layer.hidden=true;layer=layers.pop()||null;}setFocus(null);syncApp();}
+function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
 function syncApp(){tellApp({type:'ui',overlay:!!adj||!!layer&&!(layer.id==='locate'&&!settings.place&&!layers.length)});}
 
@@ -298,19 +199,47 @@ function move(dir){
 // Settings
 const RADII=[1,2,3,4,5,6,7,8,9,10];
 function showSettings(){
+  const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
+  setText('set-layout-v',`${i+1}. ${layoutName(settings.layout)}`);
   setText('set-location-v',settings.place?[settings.place.street,placeLabel(settings.place)].filter(Boolean).join(', '):'Not set');
   setText('set-radius-v',fmt.dist(settings.radiusMiles,0));
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
 }
 function adjustSetting(el,dir){
+  if(el.id==='set-layout')return startPick(dir);
   if(el.id==='set-radius')settings.radiusMiles=RADII[Math.max(0,Math.min(RADII.length-1,RADII.indexOf(settings.radiusMiles)+dir))];
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
   else return;
-  saveSettings(settings);showSettings();drawRings();
-  if(el.id==='set-radius'&&settings.place)applyPlace(settings.place); // the feed's alert radius
-  else if(lastModel)render(lastModel);
+  saveSettings(settings);useSettings(settings);showSettings();
+  if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
+  else refreshLayout();
+}
+
+// Layout picker: the dashboard behind the bar is the real layout, switched live.
+let pick=null;
+function startPick(dir){
+  pick={index:Math.max(0,LAYOUTS.findIndex(([k])=>k===settings.layout))};
+  stage.classList.add('picking');
+  open('picker');setFocus(null);
+  if(dir)stepPick(dir);else showPick();
+}
+function showPick(){
+  setText('pick-count',`Layout ${pick.index+1} of ${LAYOUTS.length}`);
+  setText('pick-name',LAYOUTS[pick.index][1]);
+}
+function stepPick(dir){
+  pick.index=(pick.index+dir+LAYOUTS.length)%LAYOUTS.length;showPick();
+  const btn=$(dir<0?'pick-prev':'pick-next');btn.classList.add('focus');setTimeout(()=>btn.classList.remove('focus'),180);
+  useLayout(LAYOUTS[pick.index][0]);
+}
+// keep: save the previewed layout; else go back to the saved one.
+function endPick(keep){
+  if(!pick)return;
+  const id=LAYOUTS[pick.index][0];pick=null;stage.classList.remove('picking');
+  if(keep){settings.layout=id;saveSettings(settings);useLayout(id);}
+  else useLayout(settings.layout);
 }
 
 // Location entry: an on-screen keyboard for the remote, plus results to pick.
@@ -370,12 +299,15 @@ function select(el){
   switch(el.id){
     case 'welcome-ok':settings.confirmed=true;saveSettings(settings);return close();
     case 'welcome-change':return openLocate();
+    case 'set-layout':return startPick(0);
     case 'set-location':return openLocate();
     case 'set-adjust':return startAdjust(settings.place);
     case 'confirm-ok':return choosePlace(pending);
     case 'confirm-adjust':return startAdjust(pending);
     case 'confirm-again':return close();
     case 'set-done':return close();
+    case 'pick-prev':return stepPick(-1);
+    case 'pick-next':return stepPick(1);
     default:if(el.dataset.adjust!==undefined)adjustSetting(el,1);
   }
 }
@@ -390,37 +322,44 @@ window.__whatsupBack=back;
 
 // --- Adjust position: a close-up street map (OpenFreeMap z13, about 1 mi around) and
 // a fixed centre dot; the remote's arrows move the map under it, ~50 m a press,
-// faster while held. OK saves, Back cancels.
-const ADJ_RANGE=1,STEP_M=50;
+// faster while held. OK saves, Back cancels. Always drawn in the green scope style.
+const ADJ_RANGE=1,STEP_M=50,ACX=270,ACY=270,AR=250;
+const ADJ_MAP=[
+  {layer:'water',fill:'rgba(61,255,116,.15)'},
+  {layer:'rivers',stroke:'rgba(61,255,116,.3)',width:1.4},
+  {layer:'roads',not:['motorway','trunk','primary','secondary'],stroke:'rgba(61,255,116,.32)',width:1},
+  {layer:'roads',classes:['motorway','trunk','primary','secondary'],stroke:'rgba(61,255,116,.55)',width:2},
+  {layer:'runways',stroke:'rgba(61,255,116,.85)',width:2.4},
+];
 let adj=null;
 async function startAdjust(place){
   if(!place)return;
   closeAll();
-  adj={place,latitude:place.latitude,longitude:place.longitude,map:null,held:0};
-  PPM=R/ADJ_RANGE;stage.classList.add('adjusting');
-  $('trails').replaceChildren();$('blips').replaceChildren();$('blocks').replaceChildren();
+  adj={place,latitude:place.latitude,longitude:place.longitude,map:null,held:0,canvas:makeCanvas(540,540)};
+  $('adjust-map').replaceChildren(adj.canvas);
+  stage.classList.add('adjusting');
   drawAdjust();syncApp();
-  setText('scope-note','Loading street map…');
+  setText('adjust-note','Loading street map…');
   try{
     const m=await buildMap(place,ADJ_RANGE+.5,{zoom:13,detail:true});
-    if(adj?.place===place){adj.map=m;setText('scope-note','');drawAdjust();}
-  }catch(e){console.error('adjust map',e?.message||e);if(adj)setText('scope-note','Street map unavailable');}
+    if(adj?.place===place){adj.map=m;setText('adjust-note','');drawAdjust();}
+  }catch(e){console.error('adjust map',e?.message||e);if(adj)setText('adjust-note','Street map unavailable');}
 }
 function drawAdjust(){
-  const c={latitude:adj.latitude,longitude:adj.longitude};
-  drawMap(adj.map||(mapData&&{...mapData,airports:[],shields:[]}),c,ADJ_RANGE);
-  const nodes=[svg('circle',{class:'ring edge',cx:CX,cy:CY,r:R})];
-  for(const f of [.25,.5,.75])nodes.push(svg('circle',{class:'ring',cx:CX,cy:CY,r:R*f}));
-  nodes.push(svg('line',{class:'cross',x1:CX-26,y1:CY,x2:CX+26,y2:CY}),svg('line',{class:'cross',x1:CX,y1:CY-26,x2:CX,y2:CY+26}),
-    svg('circle',{class:'home-dot',cx:CX,cy:CY,r:6}));
-  const m100=100/1609.344*PPM;
-  nodes.push(svg('line',{class:'scale',x1:500-m100,y1:40,x2:500,y2:40}),svg('text',{class:'ring-label',x:500,y:32,'text-anchor':'end'},'100 m'));
-  $('rings').replaceChildren(...nodes);
+  const c={latitude:adj.latitude,longitude:adj.longitude},ppm=AR/ADJ_RANGE;
+  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c},ADJ_MAP);
+  const nodes=[svg('circle',{class:'ring edge',cx:ACX,cy:ACY,r:AR})];
+  for(const f of [.25,.5,.75])nodes.push(svg('circle',{class:'ring',cx:ACX,cy:ACY,r:AR*f}));
+  nodes.push(svg('line',{class:'cross',x1:ACX-26,y1:ACY,x2:ACX+26,y2:ACY}),svg('line',{class:'cross',x1:ACX,y1:ACY-26,x2:ACX,y2:ACY+26}),
+    svg('circle',{class:'home-dot',cx:ACX,cy:ACY,r:6}));
+  const m100=100/1609.344*ppm;
+  nodes.push(svg('line',{class:'scale',x1:500-m100,y1:40,x2:500,y2:40}),svg('text',{class:'label',x:500,y:32,'text-anchor':'end'},'100 m'),
+    svg('text',{class:'label',x:528,y:528,'text-anchor':'end'},'Rings 400 m'));
+  $('adjust-marks').replaceChildren(...nodes);
   const dy=(adj.latitude-adj.place.latitude)*111320,dx=(adj.longitude-adj.place.longitude)*111320*Math.cos(adj.place.latitude*Math.PI/180);
   const moved=Math.hypot(dx,dy);
   setText('adjust-moved',moved<1?'Not moved yet':`Moved ${moved>=1000?(moved/1000).toFixed(2)+' km':Math.round(moved)+' m'} ${compass((Math.atan2(dx,dy)*180/Math.PI+360)%360)}`);
   setText('adjust-where',adj.place.street||placeLabel(adj.place));
-  setText('ring-note','Rings 400 m');
 }
 function nudge(dir,held){
   adj.held=held?adj.held+1:0;
@@ -430,13 +369,13 @@ function nudge(dir,held){
   drawAdjust();
 }
 function endAdjust(save=false){
-  const a=adj;adj=null;PPM=R/RANGE;stage.classList.remove('adjusting');setText('scope-note','');
+  const a=adj;adj=null;stage.classList.remove('adjusting');setText('adjust-note','');$('adjust-map').replaceChildren();
   if(save){
     const moved=Math.abs(a.latitude-a.place.latitude)+Math.abs(a.longitude-a.place.longitude)>1e-7;
     choosePlace({...a.place,latitude:a.latitude,longitude:a.longitude,accuracyKm:moved?.05:a.place.accuracyKm,
       source:moved?'adjusted':a.place.source});
   }
-  drawRings();drawMap(mapData);if(lastModel)render(lastModel);syncApp();
+  if(lastModel)draw(lastModel);syncApp();
 }
 
 const DIRS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
@@ -450,6 +389,13 @@ document.addEventListener('keydown',e=>{
   }
   if(!layer){
     if(k==='Enter'||k===' '||k==='ContextMenu'||k==='Menu'||e.keyCode===82){e.preventDefault();showSettings();open('settings');}
+    return;
+  }
+  if(layer.id==='picker'){
+    e.preventDefault();
+    if(dir==='left'||dir==='up')return stepPick(-1);
+    if(dir==='right'||dir==='down')return stepPick(1);
+    if(k==='Enter'||k===' '){endPick(true);return close();}
     return;
   }
   if(dir){
@@ -480,24 +426,31 @@ async function boot(){
   buildKeys();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
+  // Screenshot hook: ?layout=atlas shows that layout for this launch.
+  if(query.get('layout'))settings.layout=validLayout(query.get('layout'));
+  settings.layout=validLayout(settings.layout);
+  useSettings(settings);
   // Dev/screenshot hook: ?q=London picks the first geocoding result.
   const q=query.get('q');
-  if(q){const found=await searchPlaces(q);if(found?.[0]){settings.place=found[0];settings.confirmed=true;}}
+  if(q){const found=await searchPlaces(q);if(found?.[0]){settings.place=found[0];settings.confirmed=true;useSettings(settings);}}
+  useLayout(settings.layout);
   if(settings.place){
     applyPlace(settings.place);
     if(!settings.confirmed)showWelcome(settings.place);
-    // Screenshot hooks: ?screen=settings, ?screen=locate&typed=CHICAGO
+    // Screenshot hooks: ?screen=settings|picker|welcome|adjust, ?screen=locate&typed=CHICAGO
     const screen=query.get('screen');
     if(screen==='settings'){showSettings();open('settings');}
+    if(screen==='picker'){showSettings();open('settings');startPick(0);}
     if(screen==='adjust')startAdjust(settings.place).then(()=>{for(let i=0;i<4;i++)nudge('right');nudge('up');});
     if(screen==='welcome')showWelcome({...settings.place,accuracyKm:5});
     if(screen==='locate'){showSettings();open('settings');openLocate();for(const c of (query.get('typed')||'').toUpperCase())typeKey(c===' '?'space':c);runSearch(true);setFocus($('keys').children[2]);}
     return;
   }
-  setText('city','Finding your location…');drawRings();
+  setText('layout-note','Finding your location…');
   const place=await locateByIp();
+  setText('layout-note','');
   if(!place)return openLocate('We couldn’t find your location automatically. Type a ZIP or postal code, or a city name.');
-  settings={...settings,place,confirmed:false};saveSettings(settings);
+  settings={...settings,place,confirmed:false};saveSettings(settings);useSettings(settings);
   applyPlace(place,{fresh:true});
   showWelcome(place);
   setTimeout(()=>{if(layer?.id==='welcome')close();},60000);

@@ -41,3 +41,24 @@ test('map: rings survive simplification and the layers we draw are kept',async()
   assert.ok(m.airports.some(a=>a.iata==='CVG')&&m.airports.some(a=>a.iata==='LUK'),'airports from the tile');
   assert.equal(m.airports[0].iata,'CVG');
 });
+
+test('map: place names, and the detail map round-trips through its saved form',async()=>{
+  const tile=readFileSync(new URL('./fixtures/cincinnati-10-271-391.pbf',import.meta.url));
+  const {VectorTile}=await import('../vendor/node_modules/@mapbox/vector-tile/index.js');
+  const {default:Pbf}=await import('../vendor/node_modules/pbf/index.js');
+  const {buildMap,buildDetail,decodeDetail}=await import('../web/mapgen.mjs');
+  const net={getJson:async()=>({status:200,payload:{tiles:['https://tiles.openfreemap.org/planet/test/{z}/{x}/{y}.pbf']}}),
+    getBytes:async url=>url.endsWith('/10/271/391.pbf')?new Uint8Array(tile):null};
+  const home={latitude:39.10,longitude:-84.41};
+  const m=await buildMap(home,10,{net,MVT:{VectorTile,Pbf}});
+  assert.ok(m.places.some(p=>p.name==='Cincinnati'),'town names');
+  assert.ok(m.roads.every(r=>r.c),'road classes');
+  // Serve the same tile for every detail request: enough to exercise decoding and the encoding.
+  const any={...net,getBytes:async()=>new Uint8Array(tile)};
+  const saved=await buildDetail(home,{net:any,MVT:{VectorTile,Pbf},range:3,buildings:0});
+  assert.equal(typeof saved.roads[0].p,'string');
+  const d=decodeDetail(JSON.parse(JSON.stringify(saved)));
+  assert.ok(d.roads.length&&d.roads.every(r=>r.p instanceof Int16Array&&r.p.length>=4),'roads decode');
+  assert.ok(d.water.every(w=>w.r instanceof Int16Array&&w.r.length>=8),'water rings decode');
+  assert.ok(d.roads.every(r=>r.p.every(v=>Math.abs(v)<=32000)),'coordinates (1/1000 mi) fit Int16');
+});
