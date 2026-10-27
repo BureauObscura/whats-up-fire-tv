@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="only dark">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://opendata.adsb.fi https://vrs-standing-data.adsb.lol https://tiles.openfreemap.org https://geocoding-api.open-meteo.com https://get.geojs.io; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>What's Up</title>
+<link rel="stylesheet" href="whatsup.css">
+<script src="mvt.js"></script>
+<script type="module" src="app.mjs"></script>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="scope-wrap">
+    <div class="sweep"></div>
+    <svg id="scope" class="scope" viewBox="0 0 540 540" aria-hidden="true">
+      <defs><clipPath id="clip"><circle cx="270" cy="270" r="250"/></clipPath></defs>
+      <g clip-path="url(#clip)"><g id="map-base"></g></g>
+      <g id="rings"></g><g id="map-labels"></g><g id="trails"></g><g id="blips"></g><g id="blocks"></g>
+    </svg>
+    <div class="scope-note" id="scope-note"></div>
+    <div class="corner tl">Aircraft adsb.fi<br>Routes ADSB.lol</div>
+    <div class="corner bl" id="map-credit">© OpenFreeMap<br>© OpenMapTiles<br>© OpenStreetMap contributors</div>
+    <div class="corner br" id="ring-note"></div>
+    <div class="corner tr">Select ▸ Settings</div>
+  </div>
+
+  <section class="panel" id="panel">
+    <header class="head">
+      <div class="brand">What's Up</div>
+      <div class="clock" id="clock"></div>
+    </header>
+    <div class="where"><span id="city"></span><span class="status" id="status"></span></div>
+
+    <div class="hero" id="hero">
+      <div class="label" id="hero-label">Nearest</div>
+      <div class="alert" id="alert" hidden></div>
+      <div class="flight"><b id="flight">—</b><span id="operator"></span></div>
+      <div class="route" id="route"></div>
+      <div class="progress" id="progress-row"><span class="bar"><i id="bar"></i></span><span id="progress"></span></div>
+      <div class="stats">
+        <div><span>Altitude</span><b id="alt"></b></div>
+        <div><span>Speed</span><b id="spd"></b></div>
+        <div><span>Look</span><b id="look"></b></div>
+        <div><span>Closest</span><b id="cpa"></b></div>
+      </div>
+      <div class="aircraft" id="aircraft"></div>
+    </div>
+    <div class="empty-sky" id="empty-sky" hidden>Quiet skies. Nothing within range right now.</div>
+
+    <div class="lower">
+      <div class="cargo">
+        <div class="label" id="cargo-label">Cargo tonight</div>
+        <div class="cargo-row"><b id="cargo"></b><div class="cargo-by" id="cargo-by"></div></div>
+      </div>
+      <div class="today">
+        <div class="label">Today</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+    <div class="recent-wrap">
+      <div class="label">Recently overhead</div>
+      <div class="recent" id="recent"></div>
+    </div>
+  </section>
+
+  <!-- First launch: the location found from the connection. -->
+  <div class="overlay" id="welcome" hidden>
+    <div class="card">
+      <div class="label" id="welcome-label">Is this right?</div>
+      <div class="big-city" id="welcome-city"></div>
+      <p class="note" id="welcome-note"></p>
+      <div class="buttons">
+        <button class="btn" id="welcome-ok" data-focus>Confirm</button>
+        <button class="btn" id="welcome-change" data-focus>Change</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="settings" hidden>
+    <div class="card wide">
+      <div class="title">Settings</div>
+      <button class="row" id="set-location" data-focus><span>Location</span><b id="set-location-v"></b><i>Change ›</i></button>
+      <button class="row" id="set-adjust" data-focus><span>Fine-tune</span><b>Adjust position</b><i>›</i></button>
+      <button class="row" id="set-radius" data-focus data-adjust><span>Alert radius</span><b id="set-radius-v"></b><i>‹ ›</i></button>
+      <button class="row" id="set-distance" data-focus data-adjust><span>Distance</span><b id="set-distance-v"></b><i>‹ ›</i></button>
+      <button class="row" id="set-altitude" data-focus data-adjust><span>Altitude</span><b id="set-altitude-v"></b><i>‹ ›</i></button>
+      <button class="row done" id="set-done" data-focus><span>Done</span></button>
+      <p class="note small">Aircraft positions: adsb.fi (personal, non-commercial use). Routes: ADSB.lol.
+        Map: © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors. Place search: Open-Meteo (GeoNames data, CC BY 4.0). IP location: GeoJS, using GeoLite2 data from MaxMind.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirm" hidden>
+    <div class="card">
+      <div class="label" id="confirm-label"></div>
+      <div class="big-city small" id="confirm-main"></div>
+      <div class="confirm-sub" id="confirm-sub"></div>
+      <p class="note" id="confirm-note"></p>
+      <div class="buttons">
+        <button class="btn" id="confirm-ok" data-focus>Use this</button>
+        <button class="btn" id="confirm-adjust" data-focus>Adjust position</button>
+        <button class="btn" id="confirm-again" data-focus>Search again</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="adjust-panel" id="adjust-panel">
+    <div class="title">Adjust position</div>
+    <div class="adjust-where" id="adjust-where"></div>
+    <p>Move the map with the arrows until the dot sits on your home. Each press is about 50 m; hold to go faster.</p>
+    <div class="adjust-moved" id="adjust-moved"></div>
+    <p class="keys-help"><kbd>OK</kbd> save &nbsp; <kbd>Back</kbd> cancel</p>
+    <p class="note small">Your exact position stays on this device. Aircraft are fetched for the area rounded to about 1 km.</p>
+  </div>
+
+  <div class="overlay" id="locate" hidden>
+    <div class="card wide locate">
+      <div class="title">Change location</div>
+      <div class="entry"><span id="entry-text"></span><span class="caret"></span></div>
+      <p class="note" id="entry-help">Type a ZIP or postal code, or a city name.</p>
+      <div class="locate-body">
+        <div class="keys" id="keys"></div>
+        <div class="results" id="results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

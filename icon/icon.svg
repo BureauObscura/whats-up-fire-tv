@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000"/>
+  <g fill="none" stroke="#3dff74">
+    <circle cx="256" cy="206" r="150" stroke-opacity=".75" stroke-width="5"/>
+    <circle cx="256" cy="206" r="100" stroke-opacity=".3" stroke-width="3"/>
+    <circle cx="256" cy="206" r="50" stroke-opacity=".3" stroke-width="3" stroke-dasharray="10 8"/>
+    <path d="M256 206 L256 56" stroke-opacity=".9" stroke-width="4"/>
+  </g>
+  <path d="M256 206 L256 56 A150 150 0 0 0 150 100 Z" fill="#3dff74" fill-opacity=".18"/>
+  <g fill="#3dff74" transform="translate(300 160) rotate(40) scale(1.5)">
+    <path d="M0-29C3-29 4-23 4-17L4-5 26 9 26 13 4 6 3 22 11 28 11 31 0 27-11 31-11 28-3 22-4 6-26 13-26 9-4-5-4-17C-4-23-3-29 0-29Z"/>
+  </g>
+  <rect x="252" y="202" width="8" height="8" fill="#3dff74"/>
+  <text x="256" y="452" text-anchor="middle" fill="#3dff74" font-family="JetBrains Mono" font-weight="800" font-size="72">What's Up</text>
+</svg>
