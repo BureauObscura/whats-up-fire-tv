@@ -25,7 +25,7 @@ export function getJson(url,timeoutMs=8000){
   if(bridge)return new Promise(resolve=>{
     const id=++nextRequest,timer=setTimeout(()=>{pending.delete(id);resolve({status:'connection_error',payload:null});},timeoutMs+2000);
     pending.set(id,(status,text)=>{clearTimeout(timer);resolve(parse(status,text));});
-    bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs}));
+    try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs}));}catch{pending.delete(id);clearTimeout(timer);resolve({status:'connection_error',payload:null});}
   });
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   return fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:controller.signal})
@@ -50,7 +50,7 @@ export async function getBytes(url,timeoutMs=10000){
       clearTimeout(timer);
       try{resolve(status===200?Uint8Array.from(atob(text),c=>c.charCodeAt(0)):null);}catch{resolve(null);}
     });
-    bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));
+    try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));}catch{pending.delete(id);clearTimeout(timer);resolve(null);}
   });
 }
 

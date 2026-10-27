@@ -1,7 +1,8 @@
 import {WebView} from '@amazon-devices/webview';
 import * as React from 'react';
 import {useCallback, useEffect, useRef} from 'react';
-import {BackHandler, View, StyleSheet} from 'react-native';
+import {AppState, BackHandler, View, StyleSheet} from 'react-native';
+import {KeepAwake} from '@whatsup/keep-awake';
 import {
   useHideSplashScreenCallback,
   usePreventHideSplashScreen,
@@ -86,6 +87,20 @@ async function get(
   }
 }
 
+// While the app is on screen it is a display people glance at, not a menu: tell
+// Vega the user is engaged (User Engagement API, via native/keep-awake) so the
+// screensaver stays away, and give that up as soon as the app leaves the screen.
+function engage(on: boolean) {
+  try {
+    const error = on ? KeepAwake.start() : KeepAwake.stop();
+    if (error) {
+      console.error(`[keep-awake] ${on ? 'start' : 'stop'}: ${error}`);
+    }
+  } catch (e) {
+    console.error(`[keep-awake] ${String(e)}`);
+  }
+}
+
 export const App = () => {
   const webRef = useRef<any>(null);
   // True while the page shows Settings or the location screen: Back closes it.
@@ -93,6 +108,17 @@ export const App = () => {
   // Keep the splash screen up until the page has loaded.
   usePreventHideSplashScreen();
   const hideSplashScreenCallback = useHideSplashScreenCallback();
+
+  useEffect(() => {
+    engage(AppState.currentState !== 'background');
+    const sub = AppState.addEventListener('change', state =>
+      engage(state === 'active'),
+    );
+    return () => {
+      sub.remove();
+      engage(false);
+    };
+  }, []);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -121,9 +147,16 @@ export const App = () => {
     if (
       request?.type !== 'get' ||
       !Number.isInteger(request.id) ||
-      typeof request.url !== 'string' ||
-      !ALLOWED.some(pattern => pattern.test(request.url))
+      typeof request.url !== 'string'
     ) {
+      return;
+    }
+    // Answer a refused URL at once, so the page never waits out its timeout.
+    if (!ALLOWED.some(pattern => pattern.test(request.url))) {
+      console.error(`[bridge] refused ${request.url.slice(0, 120)}`);
+      webRef.current?.injectJavaScript(
+        `window.__whatsupReply&&window.__whatsupReply(${request.id},"blocked","");true;`,
+      );
       return;
     }
     const timeoutMs = Math.min(

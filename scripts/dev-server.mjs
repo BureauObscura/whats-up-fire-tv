@@ -21,7 +21,7 @@ const ALLOWED=[
 ];
 const TYPES={'.woff2':'font/woff2','.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.ttf':'font/ttf','.json':'application/json'};
 const SHIM=`window.ReactNativeWebView={postMessage(data){const r=JSON.parse(data);
-fetch('/proxy?url='+encodeURIComponent(r.url)+(r.binary?'&binary=1':'')).then(x=>x.json()).then(x=>window.__whatsupReply(r.id,x.status,x.text));}};`;
+fetch('/proxy?url='+encodeURIComponent(r.url)+(r.binary?'&binary=1':'')).then(x=>x.json()).then(x=>window.__whatsupReply(r.id,x.status,x.text),()=>window.__whatsupReply(r.id,'connection_error',''));}};`;
 
 createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');

@@ -2901,7 +2901,7 @@ function getJson(url,timeoutMs=8000){
   if(bridge)return new Promise(resolve=>{
     const id=++nextRequest,timer=setTimeout(()=>{pending.delete(id);resolve({status:'connection_error',payload:null});},timeoutMs+2000);
     pending.set(id,(status,text)=>{clearTimeout(timer);resolve(parse(status,text));});
-    bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs}));
+    try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs}));}catch{pending.delete(id);clearTimeout(timer);resolve({status:'connection_error',payload:null});}
   });
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   return fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:controller.signal})
@@ -2926,7 +2926,7 @@ async function getBytes(url,timeoutMs=10000){
       clearTimeout(timer);
       try{resolve(status===200?Uint8Array.from(atob(text),c=>c.charCodeAt(0)):null);}catch{resolve(null);}
     });
-    bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));
+    try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));}catch{pending.delete(id);clearTimeout(timer);resolve(null);}
   });
 }
 
@@ -4192,22 +4192,29 @@ function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);
 let layer=null,focused=null;
 const layers=[];
 function setFocus(el){focused?.classList.remove('focus');focused=el||null;focused?.classList.add('focus');}
+// Focus must always be on something visible in the top screen.
+function keepFocus(fallback){
+  if(!layer||(focused&&layer.contains(focused)&&focused.offsetParent))return;
+  setFocus((fallback&&layer.contains(fallback)?fallback:null)||focusables()[0]);
+}
 const focusables=()=>layer?[...layer.querySelectorAll('[data-focus]')].filter(el=>el.offsetParent):[];
 function open(id,first){
-  if(layer)layers.push(layer);
-  layer=$(id);layer.hidden=false;setFocus(first?$(first):focusables()[0]);syncApp();
+  if(layer){layer._last=focused;layers.push(layer);}
+  layer=$(id);layer.hidden=false;
+  // Stack order follows opening order, not page order: a later screen must cover an earlier one.
+  layer.style.zIndex=String(10+layers.length);setFocus(first?$(first):focusables()[0]);syncApp();
 }
 function close(){
   if(!layer)return;
   if(layer.id==='locate'&&!settings.place)return; // nothing to go back to
   if(layer.id==='picker')endPick(false);
-  layer.hidden=true;layer=layers.pop()||null;
+  layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;
   if(layer){
-    if(layer.id==='settings'){showSettings();setFocus($('set-layout'));}else setFocus(focusables()[0]);
+    if(layer.id==='settings'){showSettings();setFocus($('set-layout'));}else{const last=layer._last;setFocus(last&&layer.contains(last)&&last.offsetParent?last:focusables()[0]);}
   }else setFocus(null);
   syncApp();
 }
-function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer=layers.pop()||null;}setFocus(null);syncApp();}
+function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
 function syncApp(){tellApp({type:'ui',overlay:!!adj||!!layer&&!(layer.id==='locate'&&!settings.place&&!layers.length)});}
 
@@ -4293,30 +4300,43 @@ function typeKey(key){
   clearTimeout(searchTimer);searchTimer=setTimeout(runSearch,900);
 }
 // ZIP/city searches run as you type; street addresses only on Search (one geocoder
-// request per search, as Nominatim's usage policy asks).
+// request per search, as Nominatim's usage policy asks). Every search ends in results,
+// "no match", or an error with Retry; focus never falls off the screen.
+const SEARCH_LIMIT_MS=25000;
 async function runSearch(explicit=false){
   clearTimeout(searchTimer);
-  const q=entry.trim(),seq=++searchSeq,box=$('results');
-  const msg=text=>box.replaceChildren(Object.assign(document.createElement('div'),{className:'msg',textContent:text}));
-  if(q.length<2){box.replaceChildren();return;}
-  const address=looksLikeAddress(q);
-  if(address&&!explicit)return msg('Street address: press Search when done.');
-  msg('Searching…');
-  const elsewhere=settings.place?.countryCode&&settings.place.countryCode!=='US'&&settings.place.source!=='ip';
-  let found=address?await searchAddress(q,{skipCensus:elsewhere}):await searchPlaces(q);
-  // Postcodes Open-Meteo doesn't know (e.g. UK "SW1A 2AA"): try the address geocoders once.
-  if(!address&&explicit&&found&&!found.length)found=await searchAddress(q,{skipCensus:elsewhere});
-  if(seq!==searchSeq)return;
-  if(!found||!found.length){
-    box.replaceChildren(Object.assign(document.createElement('div'),{className:'msg',textContent:found?`No places match “${q}”.`:'Search is unavailable. Check the connection.'}));
+  const q=entry.trim(),seq=++searchSeq,box=$('results'),searchKey=$('keys').querySelector('[data-key="search"]');
+  const show=(...nodes)=>{box.replaceChildren(...nodes);keepFocus(searchKey);};
+  const msg=(text,cls='msg')=>Object.assign(document.createElement('div'),{className:cls,textContent:text});
+  const retry=()=>{const b=document.createElement('button');b.dataset.focus='';b.id='search-retry';b.className='retry';b.textContent='Try again';return b;};
+  if(q.length<2){
+    if(explicit)show(msg('Type a ZIP or postal code, a city, or a street address first.'));else show();
     return;
   }
-  box.replaceChildren(...found.slice(0,5).map(p=>{
+  const address=looksLikeAddress(q);
+  if(address&&!explicit)return show(msg('Street address: press Search when done.'));
+  show(msg(`Searching for “${q}”…`,'msg busy'));
+  const elsewhere=settings.place?.countryCode&&settings.place.countryCode!=='US'&&settings.place.source!=='ip';
+  const work=(async()=>{
+    let found=address?await searchAddress(q,{skipCensus:elsewhere}):await searchPlaces(q);
+    // Postcodes Open-Meteo doesn't know (e.g. UK "SW1A 2AA"): try the address geocoders once.
+    if(!address&&explicit&&found&&!found.length)found=await searchAddress(q,{skipCensus:elsewhere});
+    return found;
+  })().catch(e=>{console.error('search',e?.message||e);return null;});
+  const found=await Promise.race([work,new Promise(r=>setTimeout(()=>r('timeout'),SEARCH_LIMIT_MS))]);
+  if(seq!==searchSeq||layer?.id!=='locate'&&!layers.some(l=>l.id==='locate'))return;
+  lastQuery=q;
+  if(found==='timeout'||!found)return show(msg(found?'The search is taking too long.':'Search is unavailable. Check the connection.'),retry());
+  if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
+  show(...found.slice(0,5).map(p=>{
     const b=document.createElement('button');b.dataset.focus='';
     b.append(p.street||placeLabel(p),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
     b._place=p;return b;
   }));
+  // After Search, go to the first match; while typing, stay on the keyboard.
+  if(explicit&&layer?.id==='locate')setFocus(box.firstElementChild);
 }
+let lastQuery='';
 function openLocate(help){
   entry='';setText('entry-text','');$('results').replaceChildren();
   setText('entry-help',help||'Type a ZIP or postal code, a city, or your street address, then Search.');
@@ -4339,6 +4359,7 @@ function select(el){
     case 'set-done':return close();
     case 'pick-prev':return stepPick(-1);
     case 'pick-next':return stepPick(1);
+    case 'search-retry':entry=lastQuery||entry;setText('entry-text',entry);setFocus($('keys').querySelector('[data-key="search"]'));return runSearch(true);
     default:if(el.dataset.adjust!==undefined)adjustSetting(el,1);
   }
 }

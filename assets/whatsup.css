@@ -45,7 +45,9 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .results button{text-align:left;padding:8px 12px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .results button small{display:block;font-size:12px;color:var(--ui-dim)}
 .results button.focus small{color:var(--ui-on)}
-.results .msg{color:var(--ui-dim);font-size:14px}
+.results .msg{color:var(--ui-dim);font-size:14px;line-height:1.4}
+.results .msg.busy{animation:busy 1.2s ease-in-out infinite alternate}
+@keyframes busy{from{opacity:1}to{opacity:.45}}
 .big-city.small{font-size:30px}
 .confirm-sub{font-size:18px;margin-bottom:6px}
 .card .buttons .btn{font-size:17px;padding:10px 18px}
