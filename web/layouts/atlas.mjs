@@ -2,8 +2,9 @@
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
 // layout: hero flight, route and progress, six stats, cargo tonight, today, recent.
+// Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css.
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airportsNear,compass,number,TrailBook,placeBox,DATA_ATTRIBUTION,MAP_ATTRIBUTION,metric,KM,alertRadius} from '../kit.mjs';
+  airportsNear,compass,number,TrailBook,placeBox,metric,KM,alertRadius} from '../kit.mjs';
 
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
 const road=(classes,casing,fill,cw,fw)=>[{layer:'roads',from:'detail',classes,stroke:casing,width:cw},{layer:'roads',from:'detail',classes,stroke:fill,width:fw}];
@@ -32,6 +33,39 @@ const DETAIL=[
   ...road(['primary','trunk'],'#cd8f42','#f8c574',4.2,3),
   ...road(['motorway'],'#b0612f','#ef9656',5,3.6),
 ];
+// Atlas Dark: charcoal land, muted water, roads in greys (major ones brighter), faint buildings.
+const DARK_DETAIL=[
+  {layer:'landuse',classes:['residential'],fill:'#1a1d22'},
+  {layer:'landuse',classes:['commercial','retail'],fill:'#1e1d22'},
+  {layer:'landuse',classes:['industrial','railway','military'],fill:'#1c1d24'},
+  {layer:'landuse',classes:['school','university','college','hospital'],fill:'#1f1f1e'},
+  {layer:'landuse',classes:['cemetery'],fill:'#192119'},
+  {layer:'parks',classes:['wood'],fill:'#16221a'},
+  {layer:'parks',not:['wood'],fill:'#18241b'},
+  {layer:'landuse',classes:['stadium','pitch','playground','zoo','theme_park'],fill:'#1a251c'},
+  {layer:'aero',classes:['aerodrome','apron'],fill:'#1e1f27'},
+  {layer:'water',from:'detail',fill:'#0f2230',stroke:'#173244',width:.6},
+  {layer:'waterways',classes:['river','canal'],stroke:'#173244',width:2.2},
+  {layer:'waterways',classes:['stream'],stroke:'#163040',width:1},
+  {layer:'buildings',fill:'#24272d',stroke:'#2c3036',width:.35},
+  {layer:'aero',classes:['taxiway'],stroke:'#3a3b46',width:1.4},
+  {layer:'aero',classes:['runway'],stroke:'#585a69',width:4.5,cap:'butt'},
+  {layer:'roads',from:'detail',classes:['service'],stroke:'#2b2e34',width:.7},
+  ...road(['minor'],'#16181c','#33363d',2.1,1.2),
+  {layer:'roads',from:'detail',classes:['rail'],stroke:'#44464d',width:1.1},
+  {layer:'roads',from:'detail',classes:['rail'],stroke:'#1a1c20',width:.6,dash:[4,4],cap:'butt'},
+  ...road(['tertiary'],'#16181c','#41454c',3,2),
+  ...road(['secondary'],'#16181c','#53575f',3.6,2.5),
+  ...road(['primary','trunk'],'#16181c','#696e78',4.2,3),
+  ...road(['motorway'],'#16181c','#868c97',5,3.6),
+];
+const DARK_BASE=[
+  {layer:'water',fill:'#0f2230'},
+  {layer:'rivers',stroke:'#173244',width:2.2},
+  {layer:'roads',classes:['trunk'],stroke:'#696e78',width:2.8},
+  {layer:'roads',classes:['motorway'],stroke:'#868c97',width:3.6},
+  {layer:'runways',stroke:'#585a69',width:4},
+];
 const BASE=[
   {layer:'water',fill:'#a6cae0'},
   {layer:'rivers',stroke:'#a6cae0',width:2.2},
@@ -40,7 +74,7 @@ const BASE=[
   {layer:'runways',stroke:'#a29bb8',width:4},
 ];
 
-let root,demo,$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
+let root,demo,dark=false,$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
 
 function ui(){
   const map=el('div','at-map'),side=el('aside','at-side');
@@ -50,8 +84,7 @@ function ui(){
   for(const k of ['ring','trails','marks','tags'])$.over.append($[k]=svg('g',{class:`at-${k}`}));
   $.scale=el('div','at-scale');$.note=el('div','at-note');
   const north=el('div','at-north');north.innerHTML='<b>N</b><i></i>';
-  const credit=el('div','at-credit',`Map ${MAP_ATTRIBUTION}`);
-  map.append($.canvas,$.labels,$.over,north,$.scale,$.note,credit);
+  map.append($.canvas,$.labels,$.over,north,$.scale,$.note);
   side.innerHTML=`
     <header><div class="at-city"></div><div class="at-time"><b class="at-clock"></b><span class="at-status"></span></div></header>
     <div class="at-date"></div>
@@ -73,17 +106,15 @@ function ui(){
       <div class="at-cargo"><b class="at-cargo-n"></b><div><h4>Cargo tonight</h4><div class="at-cargo-by"></div></div></div>
       <h4>Today</h4><dl class="at-log"></dl>
     </section>
-    <section class="at-recent"><h4>Recently overhead</h4><div class="at-rec"></div></section>
-    <footer class="at-data"></footer>`;
+    <section class="at-recent"><h4>Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
-    'type','quiet','cargo-n','cargo-by','log','rec','data'])$[c]=side.querySelector('.at-'+c);
+    'type','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
   $.barFill=$.bar.firstChild;
-  setText($.data,DATA_ATTRIBUTION);
   root.append(map,side);
 }
 
 function drawMap(){
-  paintMap($.canvas,maps,VIEW,maps.detail?DETAIL:BASE);
+  paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
   setText($.note,maps.detail?'':maps.base?'Drawing streets…':'Drawing the map…');
   // Place and airport names, set once per map with a white halo like print.
   const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24}];
@@ -163,15 +194,19 @@ function render(m){
   const cell=(k,v,cls='')=>{const d=el('div',cls);d.append(el('dt','',k),el('dd','',v));return d;};
   $.log.replaceChildren(cell('Seen',fmt.int(L.today)),cell('Highest',L.highest?fmt.alt(L.highest.value):'—'),
     cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide'));
-  const rec=m.recent.slice(0,hero?2:4);
+  const rec=m.recent.slice(0,hero?3:5);
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','at-rr none','Nothing inside the alert ring yet.')]));
+  // Recent takes whatever height is left; with a busy hero there may be none, so drop it
+  // rather than show a clipped heading.
+  const sec=$.rec.parentNode;sec.style.visibility='';
+  if(sec.clientHeight<sec.firstElementChild.offsetHeight+$.rec.firstElementChild.offsetHeight+10)sec.style.visibility='hidden';
 }
 
 export default {
   name:'Atlas',map:'detail',
-  mount(r,c){root=r;demo=c.demo;$={};trails.clear();ui();drawMap();},
+  mount(r,c){root=r;demo=c.demo;dark=c.layout?.()==='atlas-dark';$={};trails.clear();ui();drawMap();},
   setMap(m){maps=m;drawMap();},
   render,
   refresh(){drawMap();},

@@ -14,6 +14,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000}
 .layout{position:absolute;inset:0;overflow:hidden}
 .layout-note{position:absolute;left:0;right:0;bottom:44%;text-align:center;font:600 16px var(--ui-font);color:var(--ui-dim);pointer-events:none;z-index:4}
 .layout-note:empty{display:none}
+.credit-flash{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:4;pointer-events:none;white-space:nowrap;
+  font:500 10.5px/1 var(--ui-font);color:rgba(255,255,255,.88);background:rgba(10,12,16,.62);padding:5px 10px;border-radius:10px;
+  opacity:0;transition:opacity 1.2s ease}
+.credit-flash.on{opacity:1;transition:opacity .3s ease}
 kbd{font:inherit;border:1px solid var(--ui-faint);padding:0 4px;border-radius:3px}
 
 /* Overlays (D-pad: arrows move, Select chooses, Back closes) */

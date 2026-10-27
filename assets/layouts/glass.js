@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  compass,placeBox,DATA_ATTRIBUTION,MAP_ATTRIBUTION,alertRadius}=__modules["kit.mjs"];
+  compass,placeBox,alertRadius}=__modules["kit.mjs"];
 // Layout 2, Glass: a near-black street map (roads by class, water, parks, faint
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
@@ -57,8 +57,7 @@ function ui(){
   const tally=el('div','gl-tally');
   tally.append(card('gl-mini','<span>Today</span><b class="gl-seen"></b><i>aircraft</i>'),card('gl-mini cargo','<span>Cargo tonight</span><b class="gl-cargo"></b><i class="gl-cargo-by"></i>'));
   col.append($.alert,hero,quiet,near,tally);
-  const credit=el('div','gl-credit');credit.append(el('div','',DATA_ATTRIBUTION),el('div','',MAP_ATTRIBUTION));
-  root.append($.canvas,el('div','gl-vignette'),$.labels,$.over,top,col,credit);
+  root.append($.canvas,el('div','gl-vignette'),$.labels,$.over,top,col);
   Object.assign($,{hero,quiet,near});
   for(const c of ['clock','city','status','date','kicker','flight','sub','o','oc','d','dc','line','alt','spd','look','cpa','quiet-t','list','seen','cargo','cargo-by'])
     $[c]=root.querySelector('.gl-'+c);

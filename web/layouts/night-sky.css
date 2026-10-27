@@ -1,4 +1,4 @@
-/* Layout 10, Night Sky: ambient. Black sky, aircraft as stars, EB Garamond. */
+/* Layout 11, Night Sky: ambient. Black sky, aircraft as stars, EB Garamond. */
 @font-face{font-family:'EB Garamond';src:url(../fonts/EBGaramond.woff2) format('woff2');font-weight:400 600;font-display:block}
 .L-night-sky{--star:#e6eeff;--dim:rgba(214,226,255,.55);--faint:rgba(214,226,255,.32);--red:#ff5a4a;
   --ui-ink:#e6eeff;--ui-dim:rgba(214,226,255,.62);--ui-faint:rgba(214,226,255,.28);--ui-bg:#05070c;--ui-shade:rgba(0,0,0,.8);
@@ -33,7 +33,6 @@
 .L-night-sky .quiet-note .small{font:italic 400 17px 'EB Garamond';color:var(--dim);margin-top:4px}
 
 .L-night-sky .foot{position:absolute;left:40px;right:40px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
-.L-night-sky .credits{font:400 11.5px/1.35 'EB Garamond';color:var(--faint);letter-spacing:.02em}
 .L-night-sky .count{font:italic 400 16px 'EB Garamond';color:var(--dim)}
 
 /* Emergency: one red star, a red hush at the edges. */

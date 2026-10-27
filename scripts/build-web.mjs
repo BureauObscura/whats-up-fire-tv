@@ -54,10 +54,11 @@ for(const file of layouts){
   if(value===undefined||rest.length)throw new Error(`layouts/${file}: needs one export default`);
   const js=`'use strict';\n(()=>{\nconst __modules=window.__whatsupModules;\n${imports.join('\n')}\n${body}\nwindow.__whatsupLayout(${JSON.stringify(id)},${value.trim().replace(/;$/,'')});\n})();\n`;
   writeFileSync(join(out,'layouts',`${id}.js`),js);
-  cpSync(join(web,'layouts',`${id}.css`),join(out,'layouts',`${id}.css`));
   layoutBytes+=js.length;
 }
 
+// Every layout stylesheet, including variants that reuse another layout's code (atlas-dark.css).
+for(const file of readdirSync(join(web,'layouts')).filter(f=>f.endsWith('.css')))cpSync(join(web,'layouts',file),join(out,'layouts',file));
 const html=readFileSync(join(web,'index.html'),'utf8')
   .replace('<script type="module" src="app.mjs"></script>','<script src="whatsup.js" defer></script>');
 if(!html.includes('whatsup.js'))throw new Error('index.html: script tag not found');
@@ -65,4 +66,4 @@ writeFileSync(join(out,'index.html'),html);
 for(const item of ['whatsup.css','mvt.js','fonts'])cpSync(join(web,item),join(out,item),{recursive:true});
 // App icon for manifest.toml (@image/whatsup_icon.png): 512x512 PNG.
 mkdirSync(join(out,'image'),{recursive:true});cpSync(join(root,'icon','whatsup_icon.png'),join(out,'image','whatsup_icon.png'));
-console.log(`assets/ written (${MODULES.length} modules, ${layouts.length} layouts, ${Math.round(layoutBytes/1024)} KB layout code)`);
+console.log(`assets/ written (${MODULES.length} modules, ${layouts.length} layout scripts, ${Math.round(layoutBytes/1024)} KB layout code)`);

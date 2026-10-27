@@ -29,7 +29,6 @@
 .L-radar .block-box{fill:rgba(0,0,0,.7);stroke:var(--ink);stroke-width:1}
 .L-radar .scope-note{position:absolute;left:0;right:0;top:300px;text-align:center;color:var(--dim);font-size:13px}
 .L-radar .corner{position:absolute;font-size:9.5px;line-height:1.35;color:var(--faint)}
-.L-radar .corner.tl{left:12px;top:10px}.L-radar .corner.bl{left:12px;bottom:10px}
 .L-radar .corner.br{right:8px;bottom:10px;text-align:right;color:var(--dim);font-size:11px}
 .L-radar .corner.tr{right:10px;top:10px;text-align:right;color:var(--dim);font-size:11px}
 

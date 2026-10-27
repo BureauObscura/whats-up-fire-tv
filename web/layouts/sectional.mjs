@@ -1,8 +1,8 @@
-// Layout 8, Sectional: a cream VFR sectional chart around home. Towns in chart
+// Layout 9, Sectional: a cream VFR sectional chart around home. Towns in chart
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,DATA_ATTRIBUTION,MAP_ATTRIBUTION} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass} from '../kit.mjs';
 
 const W=680,H=540,CX=345,CY=282,PPM=30,ROSE=118;
 const NM=1.15078;
@@ -60,8 +60,6 @@ function ui(){
           <div><svg viewBox="0 0 30 18"><rect x="3" y="4" width="24" height="10" fill="rgba(246,214,72,.8)"/></svg>Built-up area</div>
         </div>
       </section>
-      <section class="box notes"><div class="k">Chart notes</div>
-        <div>${DATA_ATTRIBUTION}</div><div>Map ${MAP_ATTRIBUTION}</div></section>
     </aside>`;
   const chart=root.querySelector('.chart');
   $.canvas=makeCanvas(W,H,'chart-map');

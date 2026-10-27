@@ -15,7 +15,7 @@
 // route {origin,destination,from,to}, progress {flown,left,share}, x/y (miles east/
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
-// hero also has status ('Overhead now', 'Approaching', 'Nearest', 'Emergency').
+// hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 import {number} from './core.mjs';
 import {MAP_ATTRIBUTION} from './mapgen.mjs';
 import {placeLabel} from './place.mjs';

@@ -2,8 +2,8 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
-  makeCanvas,paintMap,airportsNear,compass,number,RANGE,DATA_ATTRIBUTION,MAP_ATTRIBUTION}=__modules["kit.mjs"];
-// Layout 9, Cockpit: a Boeing-style navigation display in centred map mode, north up.
+  makeCanvas,paintMap,airportsNear,compass,number,RANGE}=__modules["kit.mjs"];
+// Layout 10, Cockpit: a Boeing-style navigation display in centred map mode, north up.
 // Home is own-ship; traffic uses TCAS symbols with relative-altitude tags; a magenta
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
 // hero like a primary flight display. Map: airports and runways only.
@@ -54,7 +54,6 @@ function ui(){
         <div><span class="k">CARGO</span><b class="l-cargo"></b></div>
         <div><span class="k">HIGH</span><b class="l-high"></b></div>
       </div>
-      <div class="credits"><div>${DATA_ATTRIBUTION}</div><div>${MAP_ATTRIBUTION}</div></div>
     </div>`;
   const nd=root.querySelector('.nd');
   $.canvas=makeCanvas(600,540,'nd-map');
@@ -198,7 +197,7 @@ function render(m){
     setText($['f-cpa'],!c?'---':c.receding?'OUTBND':`${fmt.mmss(c.seconds)} ${fmt.dist(c.miles).toUpperCase()}`);
   }
   const rec=m.recent.slice(0,2);
-  $.recent.replaceChildren(el('div','k','RECENT OVERHEAD'),...(rec.length?rec.map(a=>{
+  $.recent.replaceChildren(el('div','k','RECENT ABOVE'),...(rec.length?rec.map(a=>{
     const d=el('div','rec');d.append(el('b','',a.flight),el('span','',a.route?`${a.route.origin}▸${a.route.destination}`:a.aircraft_type||''),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','rec none','NONE YET')]));
   const L=m.log;

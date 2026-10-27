@@ -1,4 +1,4 @@
-/* Layout 7, Synthwave: magenta/cyan neon on a purple sunset, a tilted grid floor. Orbitron. */
+/* Layout 8, Synthwave: magenta/cyan neon on a purple sunset, a tilted grid floor. Orbitron. */
 @font-face{font-family:'Orbitron';src:url(../fonts/Orbitron.woff2) format('woff2');font-weight:400 900;font-display:block}
 .L-synthwave{--pink:#ff4fd8;--hot:#ff2e88;--cyan:#21f0ff;--sun1:#ffe45c;--violet:#b040ff;--night:#0b0221;--orb:'Orbitron','Michroma',sans-serif;
   --ui-ink:#21f0ff;--ui-dim:rgba(255,190,240,.8);--ui-faint:rgba(255,79,216,.45);--ui-bg:#12032b;--ui-shade:rgba(8,0,24,.78);
@@ -64,8 +64,6 @@
 .L-synthwave .strip b{font:800 17px var(--orb);color:#fff;text-shadow:0 0 6px var(--cyan);white-space:nowrap}
 .L-synthwave .s-status{font:700 12px var(--orb);color:var(--cyan);letter-spacing:.12em;text-transform:uppercase;align-self:center}
 .L-synthwave .s-status.off{color:var(--hot)}
-.L-synthwave .credits{position:absolute;right:16px;bottom:12px;text-align:right;font:500 9.5px/1.45 var(--orb);color:rgba(220,200,255,.8);
-  text-shadow:0 0 4px #000}
 
 .L-synthwave .quiet,.L-synthwave .mayday{position:absolute;left:180px;right:180px;top:84px;text-align:center;pointer-events:none}
 .L-synthwave .q1{font:900 46px var(--orb);color:#fff;letter-spacing:.12em;text-shadow:0 0 8px var(--cyan),0 0 26px var(--cyan),0 0 50px var(--pink);animation:sw-flicker 5s infinite}

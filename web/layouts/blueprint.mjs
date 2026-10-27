@@ -3,7 +3,7 @@
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
 // from home, and the data lives in a title block and a revision table.
 import {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,DATA_ATTRIBUTION,MAP_ATTRIBUTION,metric,KM,alertRadius} from '../kit.mjs';
+  compass,number,placeBox,metric,KM,alertRadius} from '../kit.mjs';
 
 const W=960,H=540,LIMIT=6.5,VIEW={cx:372,cy:292,ppm:40};
 // The survey limit: linework stops at a drafted border where the detail map ends.
@@ -41,7 +41,7 @@ function ui(){
   root.append(el('div','bp-grid'),$.canvas,$.svg);
   root.insertAdjacentHTML('beforeend',`
     <header class="bp-head"><div class="bp-k">Plan view · airspace over</div><div class="bp-city"></div><div class="bp-time"><b class="bp-clock"></b><span class="bp-date"></span><span class="bp-status"></span></div></header>
-    <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Overhead</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
+    <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Above</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
     <div class="bp-stamp" hidden><b class="bp-stamp-a"></b><span class="bp-stamp-b"></span></div>
     <div class="bp-block">
       <div class="bp-cell bp-obj"><i>Object</i><b class="bp-fl"></b><span class="bp-op"></span></div>
@@ -53,7 +53,6 @@ function ui(){
       <div class="bp-cell"><i>Closest pass</i><b class="bp-cpa"></b></div>
       <div class="bp-cell"><i>Climb</i><b class="bp-vs"></b></div>
       <div class="bp-cell bp-note" hidden></div>
-      <div class="bp-cell bp-foot"><i>Sources</i><span>${DATA_ATTRIBUTION}<br>Map ${MAP_ATTRIBUTION}</span></div>
     </div>
     <div class="bp-scale"></div>`);
   for(const c of ['city','clock','date','status','rev-b','stamp','stamp-a','stamp-b','fl','op','type','route','alt','spd','hdg','cpa','vs','note','scale'])

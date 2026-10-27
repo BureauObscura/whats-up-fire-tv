@@ -1,7 +1,6 @@
-// Layout 6, Swiss: an off-white poster. One giant number (how far away the nearest
+// Layout 7, Swiss: an off-white poster. One giant number (how far away the nearest
 // aircraft is) dominates; the map is only the river/coastline and a red home dot.
-import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,
-  DATA_ATTRIBUTION,MAP_ATTRIBUTION,number,RANGE} from '../kit.mjs';
+import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,RANGE} from '../kit.mjs';
 
 const MAPSIZE=284,MAP=[
   {layer:'water',fill:'#d3cdc0'},
@@ -22,8 +21,7 @@ function ui(){
       <div class="mapbox"><svg class="marks" viewBox="0 0 ${MAPSIZE} ${MAPSIZE}"></svg></div>
       <div class="facts"></div>
       <div class="status"></div>
-    </div>
-    <footer class="credits"><span>${DATA_ATTRIBUTION}</span><span>${MAP_ATTRIBUTION}</span></footer>`;
+    </div>`;
   for(const c of ['city','clock','kicker','giant','num','unit','flight','route','mapbox','marks','facts','status'])$[c]=root.querySelector('.'+c);
   $.canvas=makeCanvas(MAPSIZE,MAPSIZE,'map');$.mapbox.prepend($.canvas);
   view={cx:MAPSIZE/2,cy:MAPSIZE/2,ppm:MAPSIZE/2/RANGE,clip:{x:0,y:0,w:MAPSIZE,h:MAPSIZE}};
@@ -33,7 +31,7 @@ const drawMap=()=>paintMap($.canvas,maps,view,MAP);
 // Size the number so it fills the left of the poster without running into the map.
 function giant(text){
   const em=[...text].reduce((s,c)=>s+(c==='.'?.3:c==='—'?.85:c==='1'?.5:.68),0)-.065*text.length;
-  $.num.style.fontSize=`${Math.min(330,450/Math.max(em,.6))}px`;
+  $.num.style.fontSize=`${Math.min(330,420/Math.max(em+.195,.8))}px`; // .195em: the gap before the rule (swiss.css)
   setText($.num,text);
 }
 
@@ -55,7 +53,7 @@ function render(m){
     setText($.flight,hero.flight);
   }else{
     const live=demo||m.fresh;
-    setText($.kicker,live?'Overhead right now':statusText(m,demo));
+    setText($.kicker,live?'Above you right now':statusText(m,demo));
     giant(live?'0':'—');setText($.unit,live?`aircraft within ${metric()?'16 km':'10 mi'}`:'');
     setText($.flight,'');
   }

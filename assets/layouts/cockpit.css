@@ -1,4 +1,4 @@
-/* Layout 9, Cockpit: Boeing-style navigation display. Black, white symbology,
+/* Layout 10, Cockpit: Boeing-style navigation display. Black, white symbology,
    green data, cyan labels and traffic, magenta for the selected target. B612 Mono. */
 @font-face{font-family:'B612 Mono';src:url(../fonts/B612Mono-Regular.woff2) format('woff2');font-weight:400;font-display:block}
 @font-face{font-family:'B612 Mono';src:url(../fonts/B612Mono-Bold.woff2) format('woff2');font-weight:700;font-display:block}
@@ -104,4 +104,3 @@
 .L-cockpit .rec{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline}
 .L-cockpit .rec b{color:var(--w)}.L-cockpit .rec span{color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.L-cockpit .rec i{font-style:normal;color:var(--g)}
 .L-cockpit .rec.none{color:var(--w);opacity:.6;display:block}
-.L-cockpit .credits{position:absolute;left:4px;right:12px;bottom:8px;font-size:9.5px;line-height:1.4;color:rgba(242,242,242,.55)}

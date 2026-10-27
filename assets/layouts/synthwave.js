@@ -2,8 +2,8 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,RANGE,DATA_ATTRIBUTION,MAP_ATTRIBUTION}=__modules["kit.mjs"];
-// Layout 7, Synthwave: a neon sunset. The map is a glowing grid floor tilted with a
+  number,RANGE}=__modules["kit.mjs"];
+// Layout 8, Synthwave: a neon sunset. The map is a glowing grid floor tilted with a
 // CSS 3D transform (looking north from behind home); planes are glowing chevrons in a
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
@@ -54,10 +54,9 @@ function ui(){
       <span><i>CARGO TONIGHT</i><b class="s-cargo"></b></span>
       <span><i>SEEN TODAY</i><b class="s-seen"></b></span>
       <span><i>HIGHEST</i><b class="s-high"></b></span>
-      <span><i>LAST OVERHEAD</i><b class="s-last"></b></span>
+      <span><i>LAST ABOVE</i><b class="s-last"></b></span>
       <span class="s-status"></span>
-    </div>
-    <div class="credits">${DATA_ATTRIBUTION}<br>${MAP_ATTRIBUTION}</div>`;
+    </div>`;
   const floor=root.querySelector('.floor');
   Object.assign(floor.style,{left:`${LEFT}px`,top:`${TOP}px`,width:`${W}px`,height:`${H}px`});
   root.querySelector('.world').style.perspectiveOrigin=`${VP.x}px ${VP.y}px`;

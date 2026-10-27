@@ -1,8 +1,8 @@
-// Layout 10, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
+// Layout 11, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
 import {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  TrailBook,placeBox,DATA_ATTRIBUTION,MAP_ATTRIBUTION,number} from '../kit.mjs';
+  TrailBook,placeBox,number} from '../kit.mjs';
 
 const W=960,H=540,TRAIL_AGE=8*60000;
 const VIEW={cx:480,cy:300,ppm:24};
@@ -35,7 +35,7 @@ function ui(){
       <div class="time"><div class="clock"></div><div class="date"></div></div>
     </header>
     <div class="quiet-note" hidden><div class="big">A quiet sky.</div><div class="small"></div></div>
-    <footer class="foot"><div class="credits"><div>${DATA_ATTRIBUTION}</div><div>${MAP_ATTRIBUTION}</div></div><div class="count"></div></footer>`;
+    <footer class="foot"><div></div><div class="count"></div></footer>`;
   for(const c of ['twinkles','city','clock','date','quiet-note','count'])$[c]=root.querySelector('.'+c);
   $.canvas=makeCanvas(W,H,'sky');root.prepend($.canvas);
   $.svg=svg('svg',{class:'stars',viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});
@@ -106,7 +106,7 @@ function render(m){
       const l1=a.emergency?`${a.flight} · squawk ${a.squawk} · ${a.emergency.toLowerCase()}`:a.flight;
       const l2=[r?`${city(r.from?.city)||r.origin} to ${city(r.to?.city)||r.destination}`:a.operator||a.type||'',fmt.alt(a.altitude_ft)].filter(Boolean).join(', ');
       const w=Math.max(l1.length*9.5,l2.length*7.4)+8,h=40;
-      // Near an edge none of the spots may fit: keep it clear of the header and credits.
+      // Near an edge none of the spots may fit: keep it clear of the header and footer.
       const b=placeBox(boxes,p,w,h,[[22,-h-6],[-w-22,-h-6],[22,10],[-w-22,10]],{x:6,y:96,w:W-12,h:H-146})||
         {x:Math.max(6,Math.min(W-w-6,p.x+(p.x>W/2?-w-22:22))),y:Math.max(100,Math.min(H-54-h,p.y-h-6)),w,h};
       const left=b.x<p.x,t=svg('text',{class:'hero-label',x:b.x+(left?w:0),y:b.y+17,'text-anchor':left?'end':'start'});

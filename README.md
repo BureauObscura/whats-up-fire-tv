@@ -1,8 +1,7 @@
 # What's Up for Fire TV (Vega OS)
 
-A "what's flying over me" display for Fire TV (Vega OS), for anywhere, in ten layouts.
-Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
-`THIRD_PARTY_NOTICES.md`. Package id `com.bureauobscura.whatsup`.
+A "what's flying over me" display for Fire TV (Vega OS), for anywhere, in eleven layouts.
+Includes MIT-licensed code by Alex Miller; see `THIRD_PARTY_NOTICES.md`. Package id `com.bureauobscura.whatsup`.
 
 * **Location.** First launch looks up an approximate location from the IP address (GeoJS:
   the Vega SDK has a geolocation interface, but only as native C++ IDL with no JS package)
@@ -22,10 +21,12 @@ Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
 * **Layouts.** Settings > Layout opens a bar over the live dashboard: left/right switch
   layouts on the spot, OK keeps one, Back goes back to the saved one. 1 Radar (green
   phosphor scope), 2 Glass, 3 Departures (split-flap board), 4 Blueprint, 5 Atlas (full city
-  map), 6 Swiss (poster), 7 Synthwave, 8 Sectional (VFR chart), 9 Cockpit (navigation
-  display), 10 Night Sky. Each picks its own fields, colours, fonts and map style; all keep
-  the data and map credits on screen, handle an empty sky, and show squawk 7500/7600/7700 in
-  their own style. Only the chosen layout's code, stylesheet and font are loaded.
+  map), 6 Atlas Dark (Atlas at night), 7 Swiss (poster), 8 Synthwave, 9 Sectional (VFR
+  chart), 10 Cockpit (navigation
+  display), 11 Night Sky. Each picks its own fields, colours, fonts and map style, handles an
+  empty sky and shows squawk 7500/7600/7700 in its own style. Data and map credits show for
+  ~5 s (on open, layout change and a new location's map), then fade; Settings lists them in full.
+  Only the chosen layout's code, stylesheet and font are loaded.
 * **Maps.** Built on the device for any location from OpenMapTiles vector tiles
   (OpenFreeMap), decoded with @mapbox/vector-tile + pbf. Every layout has the base map
   (z10, the 10-mile area: water, rivers, motorways, runways, airport codes, town names;
@@ -36,7 +37,7 @@ Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
   painted once onto a canvas; aircraft are an SVG/DOM layer on top.
 * **Display.** Hero target (route, progress, altitude/vertical speed, speed, look-up
   direction and elevation, closest approach, type, registration), cargo tonight by operator
-  (callsign prefixes worldwide; Amazon Air by owner), today's logbook, recently overhead,
+  (callsign prefixes worldwide; Amazon Air by owner), today's logbook, recently above,
   and a red takeover on squawk 7500/7600/7700. Airports come from the map data.
 
 ## Code
@@ -46,7 +47,7 @@ Forked from [Overhead](https://github.com/alexlmiller/overhead) (MIT); see
   placement, credits), `layouts/<id>.mjs` + `layouts/<id>.css` (one per layout, see the
   contract at the top of `kit.mjs`), `model.mjs` (enrichment, cargo, logbook, demo),
   `mapgen.mjs` (vector tiles → base and detail maps), `place.mjs` (IP location, geocoding,
-  settings), `live.mjs` (adsb.fi + ADSB.lol, from Overhead), `mvt.js` (bundled vector-tile
+  settings), `live.mjs` (adsb.fi + ADSB.lol), `mvt.js` (bundled vector-tile
   decoder, rebuild with `npm run build:vendor`), `fonts/` (OFL fonts, Latin subsets).
 * `scripts/build-web.mjs` joins the shared modules into `assets/whatsup.js` (ES modules don't
   load from `file:///pkg/assets/`) and turns each layout into `assets/layouts/<id>.js`, which

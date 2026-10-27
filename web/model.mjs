@@ -146,7 +146,7 @@ function pickHero(planes,radius,range){
   const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.miles<radius+1&&a.cpa.seconds<600&&a.ground<=range;
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||planes[0]||null;
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Overhead now':approaching(hero)?'Approaching':'Nearest';
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Above you now':approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
 

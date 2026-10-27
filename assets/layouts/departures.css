@@ -37,7 +37,6 @@
 .L-departures .ticker{flex:1;min-width:0;border-top:2px solid var(--amber-faint);padding-top:10px;position:relative}
 .L-departures .hero-line{font:600 24px/1.15 'Barlow Condensed';color:#ffe2a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .L-departures .sub-line{font:500 18px/1.3 'Barlow Condensed';color:var(--amber-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.L-departures .credits{position:absolute;left:0;bottom:0;font:500 11px/1.35 'Barlow Condensed';letter-spacing:.04em;color:rgba(255,178,30,.48)}
 .L-departures .inset{position:relative;width:236px;height:118px;flex:none;align-self:flex-end;border:1px solid var(--amber-faint);background:#070605;border-radius:3px;overflow:hidden}
 .L-departures .inset-map,.L-departures .dots{position:absolute;left:0;top:0;width:236px;height:118px}
 .L-departures .dots .home{fill:#ffe2a8}.L-departures .dots .ring{fill:none;stroke:rgba(255,178,30,.4);stroke-dasharray:3 3}

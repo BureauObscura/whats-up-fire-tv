@@ -60,7 +60,6 @@
 .L-glass .gl-mini b{display:block;font:400 26px/1.3 Michroma}
 .L-glass .gl-mini i{display:block;font:500 12px Inter;font-style:normal;color:var(--gl-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .L-glass .gl-mini.cargo b{color:var(--gl-cargo)}
-.L-glass .gl-credit{position:absolute;left:22px;bottom:12px;font:500 10px/1.4 Inter;color:rgba(200,220,245,.62);background:rgba(4,6,10,.6);padding:3px 8px;border-radius:8px}
 .L-glass .gl-tiles b.gl-look{font:700 17px/1.35 Inter}
 
 /* Emergency: a red glass banner, the hero card glows red */

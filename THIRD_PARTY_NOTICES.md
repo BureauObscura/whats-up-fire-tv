@@ -1,9 +1,9 @@
 # Third-party notices
 
-What's Up is a fork of [Overhead](https://github.com/alexlmiller/overhead) by Alex Miller
-(MIT, see `LICENSE`): its adsb.fi selection logic, ADSB.lol route matching
-(`web/live.mjs`, `web/core.mjs`, `web/routes.mjs`), aircraft type table and aircraft
-silhouettes come from that project and its Vega port. Thank you, Overhead.
+Portions (adsb.fi selection logic, ADSB.lol route matching in `web/live.mjs`, `web/core.mjs`,
+`web/routes.mjs`, the aircraft type table and aircraft silhouettes) are adapted from
+https://github.com/alexlmiller/overhead, Copyright (c) 2026 Alex Miller, MIT License; the
+full copyright and permission notice is in `LICENSE`.
 
 The MIT license covers this project's code, not third-party services, fonts, datasets,
 trademarks or imagery.
@@ -20,7 +20,7 @@ trademarks or imagery.
 - **@mapbox/vector-tile 2.0.5 and pbf 4.0.2** (`web/mvt.js`, bundled by `vendor/`):
   BSD-3-Clause, © Mapbox.
 - **Aircraft types** (`web/aircraft-types.mjs`): factual manufacturer/model data from
-  [ICAO Doc 8643](https://doc8643.icao.int/), via Overhead.
+  [ICAO Doc 8643](https://doc8643.icao.int/), via the MIT-licensed project above.
 - **Map tile fixture** (`tests/fixtures/*.pbf`): one OpenFreeMap tile, used only by tests.
   © OpenMapTiles © OpenStreetMap contributors (ODbL).
 

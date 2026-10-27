@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,DATA_ATTRIBUTION,MAP_ATTRIBUTION,metric,KM,alertRadius}=__modules["kit.mjs"];
+  compass,number,placeBox,metric,KM,alertRadius}=__modules["kit.mjs"];
 // Layout 4, Blueprint: a technical drawing on navy drafting paper. The map is
 // linework only (roads by weight, water outlines, runways); aircraft are outline
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
@@ -44,7 +44,7 @@ function ui(){
   root.append(el('div','bp-grid'),$.canvas,$.svg);
   root.insertAdjacentHTML('beforeend',`
     <header class="bp-head"><div class="bp-k">Plan view · airspace over</div><div class="bp-city"></div><div class="bp-time"><b class="bp-clock"></b><span class="bp-date"></span><span class="bp-status"></span></div></header>
-    <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Overhead</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
+    <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Above</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
     <div class="bp-stamp" hidden><b class="bp-stamp-a"></b><span class="bp-stamp-b"></span></div>
     <div class="bp-block">
       <div class="bp-cell bp-obj"><i>Object</i><b class="bp-fl"></b><span class="bp-op"></span></div>
@@ -56,7 +56,6 @@ function ui(){
       <div class="bp-cell"><i>Closest pass</i><b class="bp-cpa"></b></div>
       <div class="bp-cell"><i>Climb</i><b class="bp-vs"></b></div>
       <div class="bp-cell bp-note" hidden></div>
-      <div class="bp-cell bp-foot"><i>Sources</i><span>${DATA_ATTRIBUTION}<br>Map ${MAP_ATTRIBUTION}</span></div>
     </div>
     <div class="bp-scale"></div>`);
   for(const c of ['city','clock','date','status','rev-b','stamp','stamp-a','stamp-b','fl','op','type','route','alt','spd','hdg','cpa','vs','note','scale'])

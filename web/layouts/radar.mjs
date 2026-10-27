@@ -1,5 +1,5 @@
 // Layout 1, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
-// a panel with the hero flight, cargo tonight, today's logbook and recent overhead.
+// a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
   makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,RANGE} from '../kit.mjs';
 
@@ -24,10 +24,8 @@ function ui(){
   $.scope=svg('svg',{class:'scope',viewBox:'0 0 540 540','aria-hidden':'true'});
   for(const id of ['rings','labels','trails','blips','blocks'])$.scope.append($[id]=svg('g'));
   $.note=el('div','scope-note');
-  const tl=el('div','corner tl');tl.innerHTML='Aircraft adsb.fi<br>Routes ADSB.lol';
-  const bl=el('div','corner bl');bl.innerHTML='© OpenFreeMap<br>© OpenMapTiles<br>© OpenStreetMap contributors';
   $.ringNote=el('div','corner br');
-  wrap.append(el('div','sweep'),$.canvas,$.scope,$.note,tl,bl,$.ringNote,el('div','corner tr','Select ▸ Settings'));
+  wrap.append(el('div','sweep'),$.canvas,$.scope,$.note,$.ringNote,el('div','corner tr','Select ▸ Settings'));
   panel.innerHTML=`
     <header class="head"><div class="city"></div><div class="clock"></div></header>
     <div class="where"><span class="today"></span><span class="status"></span></div>
@@ -48,7 +46,7 @@ function ui(){
       <div class="cargo"><div class="label">Cargo tonight</div><div class="cargo-row"><b class="cargo-n"></b><div class="cargo-by"></div></div></div>
       <div class="today-log"><div class="label">Today</div><div class="log"></div></div>
     </div>
-    <div class="recent-wrap"><div class="label">Recently overhead</div><div class="recent"></div></div>`;
+    <div class="recent-wrap"><div class="label">Recently above</div><div class="recent"></div></div>`;
   for(const c of ['city','clock','today','status','hero','hero-label','alert','fl','op','route','progress','bar','prog','alt','spd','look','cpa',
     'aircraft','empty-sky','cargo-n','cargo-by','log','recent'])$[c]=panel.querySelector('.'+c);
   $.barFill=$.bar.firstChild;

@@ -1,8 +1,7 @@
 // Layout 3, Departures: an amber split-flap board. Rows are the aircraft in range
-// now (hero first) and then those recently overhead; only the characters that change
+// now (hero first) and then those recently above; only the characters that change
 // flip. A small dark map inset shows where they are.
-import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  DATA_ATTRIBUTION,MAP_ATTRIBUTION,number,RANGE} from '../kit.mjs';
+import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,RANGE} from '../kit.mjs';
 
 // Columns: [key, label, width in characters, align]
 const COLS=[['flight','Flight',7],['dest','Destination',11],['type','Type',4],['alt','Alt',5,'r'],['dist','Dist',4,'r'],['remark','Remarks',10]];
@@ -39,15 +38,14 @@ const fit=(s,n,right)=>{s=String(s??'').toUpperCase();s=s.length>n?s.slice(0,n):
 function ui(){
   root.innerHTML=`
     <header class="top">
-      <div class="where"><div class="kicker">Overhead</div><div class="city"></div></div>
+      <div class="where"><div class="kicker">Above</div><div class="city"></div></div>
       <div class="banner" hidden></div>
       <div class="clockbox"><div class="kicker status"></div></div>
     </header>
     <div class="cols"></div>
     <div class="board"></div>
     <footer class="foot">
-      <div class="ticker"><div class="hero-line"></div><div class="sub-line"></div>
-        <div class="credits"><div>${DATA_ATTRIBUTION}</div><div>Map ${MAP_ATTRIBUTION}</div></div></div>
+      <div class="ticker"><div class="hero-line"></div><div class="sub-line"></div></div>
       <div class="inset"><svg class="dots" viewBox="0 0 ${INSET.w} ${INSET.h}"></svg><div class="inset-label"></div></div>
     </footer>`;
   for(const c of ['city','banner','clockbox','status','cols','board','hero-line','sub-line','inset','dots','inset-label'])$[c]=root.querySelector('.'+c);
@@ -69,7 +67,7 @@ function drawMap(){paintMap($.canvas,maps,view,MAP);}
 
 function remark(a){
   if(a.emergency)return `SQUAWK${a.squawk||''}`;
-  if(a.inside)return 'OVERHEAD';
+  if(a.inside)return 'ABOVE';
   if(a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.cpa.miles<ctxRadius()+1)return `DUE ${Math.max(1,Math.round(a.cpa.seconds/60))} MIN`;
   if(number(a.vertical)&&a.vertical>500)return 'CLIMBING';
   if(number(a.vertical)&&a.vertical<-500)return 'DESCENDING';

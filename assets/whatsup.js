@@ -3741,7 +3741,7 @@ function pickHero(planes,radius,range){
   const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.miles<radius+1&&a.cpa.seconds<600&&a.ground<=range;
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||planes[0]||null;
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Overhead now':approaching(hero)?'Approaching':'Nearest';
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Above you now':approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
 
@@ -3848,7 +3848,7 @@ const {tz,compass,offset}=__modules["model.mjs"];
 // route {origin,destination,from,to}, progress {flown,left,share}, x/y (miles east/
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
-// hero also has status ('Overhead now', 'Approaching', 'Nearest', 'Emergency').
+// hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 
 
 
@@ -4055,36 +4055,53 @@ useSettings(settings);
 const RANGE=CONFIG.rangeMiles;
 const maps={base:null,detail:null};
 
+// --- Credits: always in Settings; on the dashboard one line that fades out ~5 s after
+// the app opens, the layout changes or a new location's map is drawn.
+let creditTimer=0;
+function flashCredits(){
+  const c=$('credit-flash');c.classList.add('on');
+  clearTimeout(creditTimer);creditTimer=setTimeout(()=>c.classList.remove('on'),5000);
+}
+
 // --- Layouts. Order is the Settings order; the first is the default.
 const LAYOUTS=[['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['atlas','Atlas'],
-  ['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
+  ['atlas-dark','Atlas Dark'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
 const layoutName=id=>(LAYOUTS.find(([k])=>k===id)||LAYOUTS[0])[1];
 const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:'radar';
+// A variant reuses another layout's code with its own stylesheet on top (ctx.layout() tells it which).
+const VARIANTS={'atlas-dark':'atlas'};
+const codeOf=id=>VARIANTS[id]||id;
 const bundled=!!window.__whatsupModules;
 const registry={};
 window.__whatsupLayout=(id,mod)=>{registry[id]=mod;};
+function addCss(id,done){
+  if(document.querySelector(`link[data-layout="${id}"]`))return done();
+  const css=Object.assign(document.createElement('link'),{rel:'stylesheet',href:`layouts/${id}.css`,onload:done,onerror:done});
+  css.dataset.layout=id;document.head.append(css);
+}
 function loadLayout(id){
-  if(registry[id])return Promise.resolve(registry[id]);
+  const code=codeOf(id);
   return new Promise((resolve,reject)=>{
-    let waiting=2;
-    const done=()=>{if(--waiting)return;registry[id]?resolve(registry[id]):reject(new Error(`layout ${id} failed to load`));};
-    const css=Object.assign(document.createElement('link'),{rel:'stylesheet',href:`layouts/${id}.css`,onload:done,onerror:done});
-    css.dataset.layout=id;document.head.append(css);
-    if(bundled){
-      const s=Object.assign(document.createElement('script'),{src:`layouts/${id}.js`});
+    let waiting=code===id?2:3;
+    const done=()=>{if(--waiting)return;registry[code]?resolve(registry[code]):reject(new Error(`layout ${id} failed to load`));};
+    addCss(code,done);if(code!==id)addCss(id,done);
+    if(registry[code])done();
+    else if(bundled){
+      const s=Object.assign(document.createElement('script'),{src:`layouts/${code}.js`});
       s.onload=s.onerror=()=>{s.remove();done();};document.head.append(s);
-    }else import(`./layouts/${id}.mjs`).then(m=>{registry[id]=m.default;done();},e=>{console.error(e);done();});
+    }else import(`./layouts/${code}.mjs`).then(m=>{registry[code]=m.default;done();},e=>{console.error(e);done();});
   });
 }
-// Drop a layout's code and stylesheet so only the active one costs memory.
-function unloadLayout(id){
-  delete registry[id];
-  for(const l of document.querySelectorAll('link[data-layout]'))if(l.dataset.layout===id)l.remove();
+// Keep only the active layout's code and stylesheets so only it costs memory.
+function unloadExcept(id){
+  const keep=new Set([id,codeOf(id)]);
+  for(const k of Object.keys(registry))if(!keep.has(k))delete registry[k];
+  for(const l of document.querySelectorAll('link[data-layout]'))if(!keep.has(l.dataset.layout))l.remove();
 }
 
 let active=null,layoutToken=0;
 const root=$('layout');
-const ctx={settings:()=>settings,place:()=>settings.place,demo};
+const ctx={settings:()=>settings,place:()=>settings.place,layout:()=>active?.id,demo};
 async function useLayout(id){
   id=validLayout(id);
   if(active?.id===id)return;
@@ -4095,11 +4112,11 @@ async function useLayout(id){
   const old=active;
   if(old){
     try{old.mod.unmount?.();}catch(e){console.error('unmount',e);}
-    stage.classList.remove(`L-${old.id}`);
-    if(old.id!==id)unloadLayout(old.id);
+    stage.classList.remove(`L-${old.id}`,`L-${codeOf(old.id)}`);
   }
+  unloadExcept(id);
   root.replaceChildren();root.className='layout';
-  stage.classList.add(`L-${id}`);stage.dataset.layout=id;
+  stage.classList.add(`L-${codeOf(id)}`,`L-${id}`);stage.dataset.layout=id;
   active={id,mod};
   if(mod.map!=='detail')maps.detail=null; // free it; it reloads from storage when needed
   try{
@@ -4108,6 +4125,7 @@ async function useLayout(id){
     if(lastModel&&!adj)mod.render(lastModel);
   }catch(e){console.error(`layout ${id}`,e);}
   if(mod.map==='detail')ensureDetail();
+  flashCredits();
 }
 function draw(m){
   if(!active||adj)return;
@@ -4155,7 +4173,7 @@ async function applyPlace(place,{fresh=false}={}){
     try{
       const m=await buildMap(place,RANGE);
       if(token!==placeToken)return;
-      maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');
+      maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');flashCredits();
       break;
     }catch(e){
       console.error('map',e?.message||e);
