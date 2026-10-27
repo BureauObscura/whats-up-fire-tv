@@ -61,6 +61,7 @@ Automated: `npm run test:web` (node, 23 tests) and `npx jest` (3 tests). All pas
 | Credits: none on the dashboards; one line fades ~5 s after open / layout change / new map; full list in Settings | D | PASS |
 | Far cities: London (GMT), Tokyo, Honolulu (previous day), Cape Town | D | PASS: local clock and date correct; coast/ocean maps draw. |
 | Map radius 2 mi and 250 mi in every layout | D | PASS after fixes: hard-coded "10 mi" text in Glass, Departures, Night Sky and Swiss now follows the radius; Atlas no longer says "Drawing streets…" when wider than 10 mi. |
+| Map tiles: first launch fetches (34 tiles base+detail), relaunch fetches none, a new radius fetches only its own (9 at 50 mi), a new city refetches (Sydney 30) | D | PASS |
 | Hundreds of aircraft at 250 mi | D | PASS: nearest 300 drawn, ≤9 labels per layout. On the stick: PENDING. |
 | Long callsigns / missing fields (N-numbers, no route, no type) | D | PASS (demo N8UH/N451PA: "Private", "Route not reported"). |
 | Memory over ~30 min, layout-switch spam on the stick | S | PENDING |
@@ -84,7 +85,8 @@ Automated: `npm run test:web` (node, 23 tests) and `npx jest` (3 tests). All pas
 
 ## Could not test / notes
 
-* The stick went into standby after its screensaver at 05:59 UTC and does not wake from injected
-  keys or app launches; the on-stick checks above wait for a real remote press.
+* The stick went into standby after its screensaver at 05:59 UTC and stayed asleep until at least
+  07:15 UTC; injected keys and app launches do not wake it. The new build (with every fix above) is
+  built but not yet installed; the on-stick checks above wait for a real remote press.
 * Injected `inputd-cli` key presses may not count as user activity for the idle timer, so idle
   timing on the stick is measured from the last *real* remote press.
