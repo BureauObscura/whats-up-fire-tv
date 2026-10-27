@@ -9,8 +9,8 @@ __modules["config.js"]=(()=>{
 // (Settings) and saved there; nothing here is tied to one city.
 const CONFIG = Object.freeze({
   radiusMiles: 3,   // alert boundary, 1-10
-  rangeMiles: 10,   // radar scope radius
-  searchNm: 15,     // surrounding traffic fetched from adsb.fi
+  rangeMiles: 10,   // default map radius (Settings: 2-250 mi)
+  searchNm: 15,     // surrounding traffic fetched from adsb.fi at the default radius
   pollSeconds: 5,   // adsb.fi asks for at most 1 request per second; 5 s keeps well under it
 });
 
@@ -2882,6 +2882,8 @@ const {IDS,number,coordinates}=__modules["core.mjs"];
 
 const HOUR=3600,SIX_HOURS=6*HOUR;
 const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
+// adsb.fi serves at most 250 NM around a point.
+const MAX_NM=250;
 const FEED_URL=(lat,lon,nm)=>`https://opendata.adsb.fi/api/v3/lat/${lat.toFixed(2)}/lon/${lon.toFixed(2)}/dist/${nm}`;
 const ROUTE_URL=call=>`https://vrs-standing-data.adsb.lol/routes/${call.slice(0,2)}/${call}.json`;
 const HEX=/^[0-9a-f]{6}$/;
@@ -3189,7 +3191,7 @@ function startLive(onUpdate,config){
   return {stop(){stopped=true;clearTimeout(timer);}};
 }
 
-return {HISTORY_KEY,FEED_URL,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
+return {HISTORY_KEY,MAX_NM,FEED_URL,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
 })();
 // ---- place.mjs
 __modules["place.mjs"]=(()=>{
@@ -3244,9 +3246,14 @@ function makePlace(o){
     accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
 }
 
+// Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
+const MAP_RADII=[2,5,10,15,25,50,100,150,250];
+// The alert ring sits inside the map: never wider than the map radius.
+const alertFor=(radius,mapMiles)=>Math.max(1,Math.min(radius,mapMiles));
 function loadSettings(){
   const s=store.get(KEY)||{};
-  return {place:s.place?makePlace(s.place):null,
+  const mapMiles=MAP_RADII.includes(Number(s.mapMiles))?Number(s.mapMiles):CONFIG.rangeMiles;
+  return {place:s.place?makePlace(s.place):null,mapMiles,
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
@@ -3313,7 +3320,7 @@ async function searchAddress(query,{skipCensus=false}={}){
   return found;
 }
 
-return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,searchAddress};
+return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,searchAddress};
 })();
 // ---- mapgen.mjs
 __modules["mapgen.mjs"]=(()=>{
@@ -3334,8 +3341,13 @@ const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\
 const KEY='whatsup.map.v2',VERSION=2,MAX_AGE=30*86400000;
 const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
-// and z10 already carries runways and IATA-coded airport labels.
+// and z10 already carries runways and IATA-coded airport labels. Wider map radii use
+// lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
+// features at low zooms by itself.
 const ZOOM=10;
+const zoomFor=range=>range<=10?10:range<=25?9:range<=50?8:range<=100?7:6;
+// The street-detail map only makes sense close in; wider views draw the base map.
+const DETAIL_MAX_RANGE=10;
 const STREETS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service']),MAJOR=new Set(['motorway','trunk','primary','secondary']);
 const DETAIL_ROADS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service','rail']);
 const LANDUSE=new Set(['residential','commercial','industrial','retail','cemetery','hospital','school','university','college',
@@ -3418,9 +3430,10 @@ const nameOf=pr=>String(pr.name_en||pr['name:en']||pr.name_int||pr.name||'').sli
 // Build the map for home; `range` in miles. Throws when tiles can't be fetched.
 // detail: a close-up street map (Adjust position) instead of the radar's major roads.
 // `net` and `MVT` are replaceable for tests.
-async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,zoom=ZOOM,detail=false}={}){
+async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,zoom=zoomFor(range),detail=false}={}){
   if(!MVT)throw new Error('mvt.js missing');
-  const lim=range+1.5;
+  // Wide layouts (Glass) show ~1.5x the radius sideways; the 10-mile map keeps its original reach.
+  const lim=range<=10?range+1.5:range*1.5,k=Math.max(1,range/10); // simplify/clip coarser as the view widens
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
     water:[],rivers:[],roads:[],runways:[],airports:[],shields:[],places:[]};
@@ -3429,14 +3442,14 @@ async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
     each('water',(f,e)=>{
       if(f.type!==3)return;
-      for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim))out.water.push(round(simplify(ring,.04)));
+      for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim)){const r=simplify(ring,.04*k);if(r.length>3)out.water.push(round(r));}
     });
-    each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04));});
+    each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04*k));});
     each('transportation',(f,e)=>{
       const c=f.properties.class;
       const wanted=detail?STREETS.has(c):c==='motorway'||c==='trunk';
       if(f.type===2&&wanted&&!f.properties.ramp)
-        for(const l of lines(f,e,detail?.005:.03))out.roads.push({c,major:detail?MAJOR.has(c):c==='motorway',p:l});
+        for(const l of lines(f,e,detail?.005:.03*k))out.roads.push({c,major:detail?MAJOR.has(c):c==='motorway',p:l});
     });
     each('transportation_name',(f,e)=>{
       const ref=String(f.properties.ref||'').trim();
@@ -3478,14 +3491,24 @@ async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window
   return out;
 }
 
-// Saved map near this home (within ~1 km: drawing shifts it), younger than 30 days, else null.
+// Saved maps: one per map radius (each at its own tile zoom), the 3 most recently
+// used kept. A saved map near this home (within ~1 km: drawing shifts it), younger
+// than 30 days, else null. The 10-mile map keeps the original key, so maps saved
+// before map radius existed still count.
+const keyFor=range=>range===10?KEY:`${KEY}.r${range}`;
+const RECENT_KEY='whatsup.map.recent';
 function savedMap(home,range){
-  const m=store.get(KEY);
+  const m=store.get(keyFor(range));
   const same=m&&m.v===VERSION&&m.range===range&&Math.abs(m.latitude-home.latitude)<.01&&
     Math.abs(m.longitude-home.longitude)<.01&&Date.now()-m.built<MAX_AGE;
   return same?m:null;
 }
-const saveMap=m=>store.set(KEY,m);
+function saveMap(m){
+  const recent=[m.range,...(store.get(RECENT_KEY)||[]).filter(r=>r!==m.range)];
+  for(const r of recent.slice(3))store.remove(keyFor(r));
+  store.set(RECENT_KEY,recent.slice(0,3));
+  store.set(keyFor(m.range),m);
+}
 
 // --- Detail map. Coordinates in thousandths of a mile (~5 ft). Each line or ring is
 // saved as a delta-encoded string ("x,y,dx,dy,...") and decoded into an Int16Array,
@@ -3586,7 +3609,7 @@ function saveDetail(m){
   catch{try{localStorage.removeItem(DETAIL_KEY);}catch{/* no storage */}return false;}
 }
 
-return {MAP_ATTRIBUTION,buildMap,savedMap,saveMap,DETAIL_RANGE,decodeDetail,buildDetail,savedDetail,saveDetail};
+return {MAP_ATTRIBUTION,zoomFor,DETAIL_MAX_RANGE,buildMap,savedMap,saveMap,DETAIL_RANGE,decodeDetail,buildDetail,savedDetail,saveDetail};
 })();
 // ---- model.mjs
 __modules["model.mjs"]=(()=>{
@@ -3746,6 +3769,7 @@ function pickHero(planes,radius,range){
 }
 
 // --- Live
+const MAX_PLANES=300;
 function liveSource(config,onModel){
   const routes=new RouteLookup();let log=store.get(LOG_KEY),lastOk=0;
   return startLive((states,ok)=>{
@@ -3754,7 +3778,9 @@ function liveSource(config,onModel){
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).map(r=>[String(r.hex).toLowerCase(),r]));
-    const planes=all.map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
+    // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
+    // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
+    const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
     pruneSamples(now);
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
@@ -3855,7 +3881,12 @@ const {tz,compass,offset}=__modules["model.mjs"];
 
 
 const DATA_ATTRIBUTION='Aircraft: adsb.fi · Routes: ADSB.lol';
-const RANGE=10; // miles, the area the feed and base map cover
+// Map radius in miles (Settings > Map radius). Layouts are drawn for a 10-mile view
+// (BASE_RANGE); paintMap and toView scale every view by zoom() = 10 / map radius, so
+// fixed pixel sizes in a layout stay put while distances shrink or grow.
+const BASE_RANGE=10;
+const range=()=>S.mapMiles||BASE_RANGE;
+const zoom=()=>BASE_RANGE/range();
 
 const NS='http://www.w3.org/2000/svg';
 const svg=(tag,attrs={},text)=>{
@@ -3903,7 +3934,7 @@ const fmt={
 };
 const placeName=()=>placeLabel(S.place)||'';
 const cityName=()=>S.place?.name||'';
-const alertRadius=()=>S.radiusMiles||3;
+const alertRadius=()=>Math.min(S.radiusMiles||3,range());
 const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
@@ -3957,8 +3988,21 @@ function mapShift(m,home=S.place){
   const cos=Math.cos(home.latitude*Math.PI/180);
   return [(m.longitude-home.longitude)*69.172*cos,(m.latitude-home.latitude)*69];
 }
-// view: {cx,cy (home, in canvas CSS px), ppm (px per mile), clip?: {r} circle or {x,y,w,h} rect,
-//   rotate?: deg (heading up), center?: place}.
+// view: {cx,cy (home, in canvas CSS px), ppm (px per mile at the 10-mile view), clip?: {r} circle or
+//   {x,y,w,h} rect, rotate?: deg (heading up), center?: place, fixed?: true = ignore the map radius}.
+// ppmOf(view): the pixels per mile actually drawn.
+const ppmOf=view=>view.fixed?view.ppm:view.ppm*zoom();
+// The round number (1, 2 or 5 x 10^n) nearest above ~.75x.
+function niceStep(raw){
+  const p=10**Math.floor(Math.log10(raw));
+  return [1,2,5,10].map(m=>m*p).find(v=>v>=raw*.75)||10*p;
+}
+// A round distance (1, 2, 5 x 10^n mi or km) near `target` px long at this view: {px, value, label}.
+function niceDistance(view,target=70){
+  const unit=S.distance==='km'?1/KM:1,ppm=ppmOf(view)*unit,value=niceStep(target/ppm);
+  const label=`${+value.toPrecision(3)} ${S.distance==='km'?'km':value===1?'mile':'miles'}`;
+  return {px:value*ppm,value,label};
+}
 // spec: [{layer, from?:'base'|'detail', classes?:[...], not?:[...], fill?, stroke?, width?, dash?,
 //   alpha?, glow?, glowColor?, cap?, join?, minPx?}] painted in order. Layers: base water, rivers,
 //   roads (c), runways; detail water, waterways (c), roads (c), landuse (c), parks (c), aero (c),
@@ -3973,7 +4017,7 @@ function paintMap(canvas,maps,view,spec){
   for(const s of spec){
     const from=s.from||(['landuse','parks','aero','buildings','waterways'].includes(s.layer)?'detail':'base');
     const m=maps?.[from];if(!m||!m[s.layer]?.length)continue;
-    const [sx,sy]=mapShift(m,view.center),ppm=view.ppm;
+    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view);
     const X=(x,y)=>{x+=sx;y+=sy;return view.cx+(x*cr-y*sr)*ppm;},Y=(x,y)=>{x+=sx;y+=sy;return view.cy-(x*sr+y*cr)*ppm;};
     g.beginPath();
     for(const f of m[s.layer]){
@@ -3996,19 +4040,21 @@ function paintMap(canvas,maps,view,spec){
 }
 // Screen position (CSS px) of a point in miles from home, for the same view.
 const toView=(view,x,y)=>{
-  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot);
-  return {x:view.cx+(x*cr-y*sr)*view.ppm,y:view.cy-(x*sr+y*cr)*view.ppm};
+  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot),ppm=ppmOf(view);
+  return {x:view.cx+(x*cr-y*sr)*ppm,y:view.cy-(x*sr+y*cr)*ppm};
 };
 // Map labels near home: [{name,x,y,kind}] in miles, nearest/most important first.
-function placesNear(maps,range,{kinds=['city','town','suburb'],max=12}={}){
+// `within` (and airportsNear's) is in miles at the 10-mile view; it grows with the map radius.
+function placesNear(maps,within,{kinds=['city','town','suburb'],max=12}={}){
+  const range=within/zoom();
   const src=maps?.detail?.places?.length?maps.detail:maps?.base;
   if(!src?.places)return [];
   const [sx,sy]=mapShift(src);
   return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
     .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
 }
-function airportsNear(maps,range,max=6){
-  const m=maps?.base;if(!m?.airports)return [];
+function airportsNear(maps,within,max=6){
+  const m=maps?.base,range=within/zoom();if(!m?.airports)return [];
   const [sx,sy]=mapShift(m);
   return m.airports.map(a=>({...a,x:a.x+sx,y:a.y+sy})).filter(a=>Math.hypot(a.x,a.y)<range).slice(0,max);
 }
@@ -4020,15 +4066,15 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {DATA_ATTRIBUTION,RANGE,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,paintMap,toView,placesNear,airportsNear,credits,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,airportsNear,credits,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
 const {CONFIG}=__modules["config.js"];
-const {HISTORY_KEY,store}=__modules["live.mjs"];
+const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog}=__modules["model.mjs"];
-const {loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
-const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail}=__modules["mapgen.mjs"];
+const {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
+const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,DETAIL_MAX_RANGE}=__modules["mapgen.mjs"];
 const {svg,useSettings,fmt,makeCanvas,paintMap}=__modules["kit.mjs"];
 // What's Up: the page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
@@ -4052,7 +4098,15 @@ const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* deskt
 
 let settings=loadSettings(),feed=null,lastModel=null,placeToken=0;
 useSettings(settings);
-const RANGE=CONFIG.rangeMiles;
+const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
+// The feed follows the map radius: adsb.fi is asked for ~1.5x the radius (wide layouts
+// show that far sideways), at most its 250 NM, and polled less often over big areas.
+const feedConfig=()=>{
+  const r=mapMiles();
+  return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
+    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(r*1.5/1.15078))),
+    pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
+};
 const maps={base:null,detail:null};
 
 // --- Credits: always in Settings; on the dashboard one line that fades out ~5 s after
@@ -4139,7 +4193,7 @@ function mapsChanged(){
 let detailToken=0,detailBusy=false;
 async function ensureDetail(){
   const place=settings.place;
-  if(!place||maps.detail||detailBusy)return;
+  if(!place||maps.detail||detailBusy||mapMiles()>DETAIL_MAX_RANGE)return;
   const saved=savedDetail(place);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
@@ -4163,15 +4217,16 @@ async function applyPlace(place,{fresh=false}={}){
   const token=++placeToken;
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
-  maps.base=savedMap(place,RANGE);maps.detail=null;detailToken++;detailBusy=false;
+  const range=mapMiles();
+  maps.base=savedMap(place,range);maps.detail=null;detailToken++;detailBusy=false;
   mapsChanged();
   if(active?.mod.map==='detail')ensureDetail();
-  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,{...CONFIG,radiusMiles:settings.radiusMiles},render,maps.base?.airports);};
+  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,feedConfig(),render,maps.base?.airports);};
   if(!demo)startFeed();
   if(maps.base){startFeed();return;}
   for(let attempt=0;token===placeToken;attempt++){
     try{
-      const m=await buildMap(place,RANGE);
+      const m=await buildMap(place,range);
       if(token!==placeToken)return;
       maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');flashCredits();
       break;
@@ -4258,19 +4313,42 @@ function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
   setText('set-layout-v',`${i+1}. ${layoutName(settings.layout)}`);
   setText('set-location-v',settings.place?[settings.place.street,placeLabel(settings.place)].filter(Boolean).join(', '):'Not set');
-  setText('set-radius-v',fmt.dist(settings.radiusMiles,0));
+  const alert=alertFor(settings.radiusMiles,mapMiles());
+  setText('set-radius-v',alert<settings.radiusMiles?`${fmt.dist(alert,0)} (the map radius)`:fmt.dist(settings.radiusMiles,0));
+  setText('set-map-v',fmt.dist(mapMiles(),0));
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
   if(el.id==='set-radius')settings.radiusMiles=RADII[Math.max(0,Math.min(RADII.length-1,RADII.indexOf(settings.radiusMiles)+dir))];
+  else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
   if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
   else refreshLayout();
+}
+
+// Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
+// once (the current map, rescaled); the map for the new radius and the wider or
+// narrower feed follow after a short pause, so stepping through sizes is cheap.
+let mapTimer=0,toastTimer=0;
+function stepMap(dir){
+  const i=MAP_RADII.indexOf(mapMiles()),next=MAP_RADII[Math.max(0,Math.min(MAP_RADII.length-1,(i<0?2:i)+dir))];
+  if(next===mapMiles())return toast(`Map radius ${fmt.dist(next,0)} (${dir<0?'closest':'widest'})`);
+  settings.mapMiles=next;saveSettings(settings);useSettings(settings);
+  if(layer?.id==='settings')showSettings();
+  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
+  if(next>DETAIL_MAX_RANGE)maps.detail=null;
+  mapsChanged();refreshLayout();
+  clearTimeout(mapTimer);
+  mapTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},700);
+}
+function toast(text){
+  const t=$('toast');t.textContent=text;t.classList.add('on');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),1800);
 }
 
 // Layout picker: the dashboard behind the bar is the real layout, switched live.
@@ -4417,7 +4495,7 @@ async function startAdjust(place){
 }
 function drawAdjust(){
   const c={latitude:adj.latitude,longitude:adj.longitude},ppm=AR/ADJ_RANGE;
-  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c},ADJ_MAP);
+  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c,fixed:true},ADJ_MAP);
   const nodes=[svg('circle',{class:'ring edge',cx:ACX,cy:ACY,r:AR})];
   for(const f of [.25,.5,.75])nodes.push(svg('circle',{class:'ring',cx:ACX,cy:ACY,r:AR*f}));
   nodes.push(svg('line',{class:'cross',x1:ACX-26,y1:ACY,x2:ACX+26,y2:ACY}),svg('line',{class:'cross',x1:ACX,y1:ACY-26,x2:ACX,y2:ACY+26}),
@@ -4458,6 +4536,8 @@ document.addEventListener('keydown',e=>{
     return;
   }
   if(!layer){
+    // Up/Down on the dashboard: zoom the map in/out (Settings > Map radius).
+    if(dir==='up'||dir==='down'){e.preventDefault();return stepMap(dir==='up'?-1:1);}
     if(k==='Enter'||k===' '||k==='ContextMenu'||k==='Menu'||e.keyCode===82){e.preventDefault();showSettings();open('settings');}
     return;
   }
@@ -4496,6 +4576,8 @@ async function boot(){
   buildKeys();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
+  // Screenshot hook: ?map=50 sets the map radius for this launch.
+  if(MAP_RADII.includes(Number(query.get('map'))))settings.mapMiles=Number(query.get('map'));
   // Screenshot hook: ?layout=atlas shows that layout for this launch.
   if(query.get('layout'))settings.layout=validLayout(query.get('layout'));
   settings.layout=validLayout(settings.layout);

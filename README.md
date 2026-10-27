@@ -16,7 +16,8 @@ Includes MIT-licensed code by Alex Miller; see `THIRD_PARTY_NOTICES.md`. Package
   (faster when held); OK saves. Exact coordinates stay on the device: adsb.fi gets them rounded
   to 2 decimals (~1 km; the 15 NM query loses nothing), the time-zone lookup the same, the
   geocoders only the typed text, and map tiles only the z10/z12/z13/z14 tile area.
-* **Settings** (press Select on the dashboard): layout, location, alert radius 1–10 mi,
+* **Settings** (press Select on the dashboard): layout, location, alert radius 1–10 mi, map
+  radius 2–250 mi (also Up/Down on the dashboard; the alert ring never exceeds it),
   distance mi/km (speed kt or km/h), altitude ft/m. Back closes.
 * **Layouts.** Settings > Layout opens a bar over the live dashboard: left/right switch
   layouts on the spot, OK keeps one, Back goes back to the saved one. 1 Radar (green

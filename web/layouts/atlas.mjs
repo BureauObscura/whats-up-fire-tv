@@ -4,8 +4,9 @@
 // layout: hero flight, route and progress, six stats, cargo tonight, today, recent.
 // Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css.
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airportsNear,compass,number,TrailBook,placeBox,metric,KM,alertRadius} from '../kit.mjs';
+  airportsNear,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range} from '../kit.mjs';
 
+const DETAIL_MAX=10; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
 const road=(classes,casing,fill,cw,fw)=>[{layer:'roads',from:'detail',classes,stroke:casing,width:cw},{layer:'roads',from:'detail',classes,stroke:fill,width:fw}];
 const DETAIL=[
@@ -115,7 +116,7 @@ function ui(){
 
 function drawMap(){
   paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
-  setText($.note,maps.detail?'':maps.base?'Drawing streets…':'Drawing the map…');
+  setText($.note,maps.detail||maps.base&&range()>DETAIL_MAX?'':maps.base?'Drawing streets…':'Drawing the map…');
   // Place and airport names, set once per map with a white halo like print.
   const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24}];
   const bounds={x:6,y:6,w:W-12,h:H-40};
@@ -133,9 +134,9 @@ function drawMap(){
     nodes.push(svg('text',{class:`at-place ${big?'big':''}`,x:b.x+w/2,y:b.y+h-4,'text-anchor':'middle'},name));
   }
   $.labels.replaceChildren(...nodes);
-  // Scale bar: 1 mi or 2 km.
-  const unit=metric()?2:1,px=unit*(metric()?1/KM:1)*VIEW.ppm;
-  $.scale.innerHTML=`<i style="width:${px.toFixed(0)}px"></i><span>${metric()?'2 km':'1 mile'}</span>`;
+  // Scale bar: a round distance about 60 px long at the current map radius.
+  const bar=niceDistance(VIEW,60);
+  $.scale.innerHTML=`<i style="width:${bar.px.toFixed(0)}px"></i><span>${bar.label}</span>`;
 }
 
 function render(m){
@@ -147,7 +148,7 @@ function render(m){
   trails.update(m.planes,now);
 
   // Alert ring around home.
-  const h=toView(VIEW,0,0),rr=alertRadius()*VIEW.ppm;
+  const h=toView(VIEW,0,0),rr=alertRadius()*ppmOf(VIEW);
   $.ring.replaceChildren(svg('circle',{class:'at-alertring',cx:h.x,cy:h.y,r:rr}),
     svg('circle',{class:'at-home',cx:h.x,cy:h.y,r:6}),svg('text',{class:'at-homet',x:h.x+10,y:h.y+4},'HOME'));
 

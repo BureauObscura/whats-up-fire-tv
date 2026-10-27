@@ -1,7 +1,7 @@
 // Layout 3, Departures: an amber split-flap board. Rows are the aircraft in range
 // now (hero first) and then those recently above; only the characters that change
 // flip. A small dark map inset shows where they are.
-import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,RANGE} from '../kit.mjs';
+import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius} from '../kit.mjs';
 
 // Columns: [key, label, width in characters, align]
 const COLS=[['flight','Flight',7],['dest','Destination',11],['type','Type',4],['alt','Alt',5,'r'],['dist','Dist',4,'r'],['remark','Remarks',10]];
@@ -59,8 +59,8 @@ function ui(){
     $.board.append(row);$.rows.push(row);
   }
   $.canvas=makeCanvas(INSET.w,INSET.h,'inset-map');$.inset.prepend($.canvas);
-  view={cx:INSET.w/2,cy:INSET.h/2,ppm:INSET.h/2/RANGE*.96,clip:{x:0,y:0,w:INSET.w,h:INSET.h}};
-  setText($['inset-label'],`${metric()?'16 km':'10 mi'} radius`);
+  view={cx:INSET.w/2,cy:INSET.h/2,ppm:INSET.h/2/BASE_RANGE*.96,clip:{x:0,y:0,w:INSET.w,h:INSET.h}};
+  setText($['inset-label'],`${fmt.dist(range(),0)} radius`);
 }
 
 function drawMap(){paintMap($.canvas,maps,view,MAP);}
@@ -68,7 +68,7 @@ function drawMap(){paintMap($.canvas,maps,view,MAP);}
 function remark(a){
   if(a.emergency)return `SQUAWK${a.squawk||''}`;
   if(a.inside)return 'ABOVE';
-  if(a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.cpa.miles<ctxRadius()+1)return `DUE ${Math.max(1,Math.round(a.cpa.seconds/60))} MIN`;
+  if(a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.cpa.miles<alertRadius()+1)return `DUE ${Math.max(1,Math.round(a.cpa.seconds/60))} MIN`;
   if(number(a.vertical)&&a.vertical>500)return 'CLIMBING';
   if(number(a.vertical)&&a.vertical<-500)return 'DESCENDING';
   return a.cpa?.receding?'LEAVING':'IN RANGE';
@@ -89,7 +89,7 @@ function render(m){
   $.banner.hidden=!emergency;
   if(emergency)setText($.banner,`${hero.squawk||''} ${emergency} · ${hero.flight}`);
 
-  const live=byInterest(m).filter(a=>a.ground<=RANGE+1).slice(0,ROWS);
+  const live=byInterest(m).filter(a=>a.ground<=range()*1.1).slice(0,ROWS);
   const lines=live.map(a=>({a,cells:[a.flight,dest(a),a.aircraft_type||'',altText(a.altitude_ft),distText(a.ground),remark(a)],cls:a===hero?'hero':a.inside?'in':''}));
   for(const r of m.recent){
     if(lines.length>=ROWS)break;
@@ -115,7 +115,7 @@ function render(m){
     setText($['sub-line'],`Seen today ${fmt.int(m.log.today)} · cargo tonight ${m.log.cargoTonight}`);
   }
   // Inset: home and plane dots.
-  const dots=[svg('circle',{class:'home',cx:view.cx,cy:view.cy,r:2.6}),svg('circle',{class:'ring',cx:view.cx,cy:view.cy,r:view.ppm*ctxRadius()})];
+  const dots=[svg('circle',{class:'home',cx:view.cx,cy:view.cy,r:2.6}),svg('circle',{class:'ring',cx:view.cx,cy:view.cy,r:ppmOf(view)*alertRadius()})];
   for(const a of m.planes){
     const p=toView(view,a.x,a.y);
     if(p.x<0||p.y<0||p.x>INSET.w||p.y>INSET.h)continue;
@@ -124,13 +124,12 @@ function render(m){
   $.dots.replaceChildren(...dots);
 }
 let ctx=null;
-const ctxRadius=()=>ctx?.settings().radiusMiles||3;
 
 export default {
   name:'Departures',map:'base',
   mount(r,c){root=r;ctx=c;demo=c.demo;$={};ui();drawMap();},
   setMap(m){maps=m;drawMap();},
   render,
-  refresh(){setText($['inset-label'],`${metric()?'16 km':'10 mi'} radius`);for(const row of $.rows)for(const g of row._parts)setFlaps(g,'');},
+  refresh(){setText($['inset-label'],`${fmt.dist(range(),0)} radius`);for(const row of $.rows)for(const g of row._parts)setFlaps(g,'');},
   unmount(){root=null;$={};maps={};ctx=null;},
 };

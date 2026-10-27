@@ -151,6 +151,7 @@ function pickHero(planes,radius,range){
 }
 
 // --- Live
+const MAX_PLANES=300;
 function liveSource(config,onModel){
   const routes=new RouteLookup();let log=store.get(LOG_KEY),lastOk=0;
   return startLive((states,ok)=>{
@@ -159,7 +160,9 @@ function liveSource(config,onModel){
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).map(r=>[String(r.hex).toLowerCase(),r]));
-    const planes=all.map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
+    // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
+    // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
+    const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
     pruneSamples(now);
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),

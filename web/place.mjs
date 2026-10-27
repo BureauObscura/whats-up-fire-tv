@@ -47,9 +47,14 @@ function makePlace(o){
     accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
 }
 
+// Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
+export const MAP_RADII=[2,5,10,15,25,50,100,150,250];
+// The alert ring sits inside the map: never wider than the map radius.
+export const alertFor=(radius,mapMiles)=>Math.max(1,Math.min(radius,mapMiles));
 export function loadSettings(){
   const s=store.get(KEY)||{};
-  return {place:s.place?makePlace(s.place):null,
+  const mapMiles=MAP_RADII.includes(Number(s.mapMiles))?Number(s.mapMiles):CONFIG.rangeMiles;
+  return {place:s.place?makePlace(s.place):null,mapMiles,
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};

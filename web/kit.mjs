@@ -23,7 +23,12 @@ import {tz,compass,offset} from './model.mjs';
 
 export {number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 export const DATA_ATTRIBUTION='Aircraft: adsb.fi · Routes: ADSB.lol';
-export const RANGE=10; // miles, the area the feed and base map cover
+// Map radius in miles (Settings > Map radius). Layouts are drawn for a 10-mile view
+// (BASE_RANGE); paintMap and toView scale every view by zoom() = 10 / map radius, so
+// fixed pixel sizes in a layout stay put while distances shrink or grow.
+export const BASE_RANGE=10;
+export const range=()=>S.mapMiles||BASE_RANGE;
+export const zoom=()=>BASE_RANGE/range();
 
 const NS='http://www.w3.org/2000/svg';
 export const svg=(tag,attrs={},text)=>{
@@ -71,7 +76,7 @@ export const fmt={
 };
 export const placeName=()=>placeLabel(S.place)||'';
 export const cityName=()=>S.place?.name||'';
-export const alertRadius=()=>S.radiusMiles||3;
+export const alertRadius=()=>Math.min(S.radiusMiles||3,range());
 export const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 export const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
@@ -125,8 +130,21 @@ export function mapShift(m,home=S.place){
   const cos=Math.cos(home.latitude*Math.PI/180);
   return [(m.longitude-home.longitude)*69.172*cos,(m.latitude-home.latitude)*69];
 }
-// view: {cx,cy (home, in canvas CSS px), ppm (px per mile), clip?: {r} circle or {x,y,w,h} rect,
-//   rotate?: deg (heading up), center?: place}.
+// view: {cx,cy (home, in canvas CSS px), ppm (px per mile at the 10-mile view), clip?: {r} circle or
+//   {x,y,w,h} rect, rotate?: deg (heading up), center?: place, fixed?: true = ignore the map radius}.
+// ppmOf(view): the pixels per mile actually drawn.
+export const ppmOf=view=>view.fixed?view.ppm:view.ppm*zoom();
+// The round number (1, 2 or 5 x 10^n) nearest above ~.75x.
+export function niceStep(raw){
+  const p=10**Math.floor(Math.log10(raw));
+  return [1,2,5,10].map(m=>m*p).find(v=>v>=raw*.75)||10*p;
+}
+// A round distance (1, 2, 5 x 10^n mi or km) near `target` px long at this view: {px, value, label}.
+export function niceDistance(view,target=70){
+  const unit=S.distance==='km'?1/KM:1,ppm=ppmOf(view)*unit,value=niceStep(target/ppm);
+  const label=`${+value.toPrecision(3)} ${S.distance==='km'?'km':value===1?'mile':'miles'}`;
+  return {px:value*ppm,value,label};
+}
 // spec: [{layer, from?:'base'|'detail', classes?:[...], not?:[...], fill?, stroke?, width?, dash?,
 //   alpha?, glow?, glowColor?, cap?, join?, minPx?}] painted in order. Layers: base water, rivers,
 //   roads (c), runways; detail water, waterways (c), roads (c), landuse (c), parks (c), aero (c),
@@ -141,7 +159,7 @@ export function paintMap(canvas,maps,view,spec){
   for(const s of spec){
     const from=s.from||(['landuse','parks','aero','buildings','waterways'].includes(s.layer)?'detail':'base');
     const m=maps?.[from];if(!m||!m[s.layer]?.length)continue;
-    const [sx,sy]=mapShift(m,view.center),ppm=view.ppm;
+    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view);
     const X=(x,y)=>{x+=sx;y+=sy;return view.cx+(x*cr-y*sr)*ppm;},Y=(x,y)=>{x+=sx;y+=sy;return view.cy-(x*sr+y*cr)*ppm;};
     g.beginPath();
     for(const f of m[s.layer]){
@@ -164,19 +182,21 @@ export function paintMap(canvas,maps,view,spec){
 }
 // Screen position (CSS px) of a point in miles from home, for the same view.
 export const toView=(view,x,y)=>{
-  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot);
-  return {x:view.cx+(x*cr-y*sr)*view.ppm,y:view.cy-(x*sr+y*cr)*view.ppm};
+  const rot=(view.rotate||0)*Math.PI/180,cr=Math.cos(rot),sr=Math.sin(rot),ppm=ppmOf(view);
+  return {x:view.cx+(x*cr-y*sr)*ppm,y:view.cy-(x*sr+y*cr)*ppm};
 };
 // Map labels near home: [{name,x,y,kind}] in miles, nearest/most important first.
-export function placesNear(maps,range,{kinds=['city','town','suburb'],max=12}={}){
+// `within` (and airportsNear's) is in miles at the 10-mile view; it grows with the map radius.
+export function placesNear(maps,within,{kinds=['city','town','suburb'],max=12}={}){
+  const range=within/zoom();
   const src=maps?.detail?.places?.length?maps.detail:maps?.base;
   if(!src?.places)return [];
   const [sx,sy]=mapShift(src);
   return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
     .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
 }
-export function airportsNear(maps,range,max=6){
-  const m=maps?.base;if(!m?.airports)return [];
+export function airportsNear(maps,within,max=6){
+  const m=maps?.base,range=within/zoom();if(!m?.airports)return [];
   const [sx,sy]=mapShift(m);
   return m.airports.map(a=>({...a,x:a.x+sx,y:a.y+sy})).filter(a=>Math.hypot(a.x,a.y)<range).slice(0,max);
 }

@@ -6,6 +6,8 @@ import {IDS,number,coordinates} from './core.mjs';
 
 const HOUR=3600,SIX_HOURS=6*HOUR;
 export const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
+// adsb.fi serves at most 250 NM around a point.
+export const MAX_NM=250;
 export const FEED_URL=(lat,lon,nm)=>`https://opendata.adsb.fi/api/v3/lat/${lat.toFixed(2)}/lon/${lon.toFixed(2)}/dist/${nm}`;
 export const ROUTE_URL=call=>`https://vrs-standing-data.adsb.lol/routes/${call.slice(0,2)}/${call}.json`;
 const HEX=/^[0-9a-f]{6}$/;

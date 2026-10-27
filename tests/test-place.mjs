@@ -94,3 +94,37 @@ test('units: miles/knots/feet and km/km-h/metres, flight levels above 18,000 ft'
   assert.equal(fmt.dist(1),'1.6 km');assert.equal(fmt.speed(100),'185 km/h');assert.match(fmt.alt(10000),/^3,?048 m$/);
   assert.equal(fmt.dist(undefined),'—');
 });
+
+// --- Map radius
+import {MAP_RADII,alertFor} from '../web/place.mjs';
+import {niceStep,niceDistance,zoom,range} from '../web/kit.mjs';
+import {zoomFor,savedMap,saveMap} from '../web/mapgen.mjs';
+test('map radius: saved value must be a step, default 10; alert ring never wider than the map',()=>{
+  for(const [saved,want] of [[50,50],[7,10],['250',250],[undefined,10]]){
+    globalThis.localStorage={getItem:()=>JSON.stringify({mapMiles:saved}),setItem(){},removeItem(){}};
+    assert.equal(loadSettings().mapMiles,want);
+  }
+  delete globalThis.localStorage;
+  assert.deepEqual(MAP_RADII,[2,5,10,15,25,50,100,150,250]);
+  assert.equal(alertFor(3,2),2);assert.equal(alertFor(3,250),3);assert.equal(alertFor(10,5),5);
+});
+test('map radius: view zoom, round ring/scale steps, tile zoom per radius',()=>{
+  useSettings({mapMiles:250,distance:'mi'});
+  assert.equal(range(),250);assert.equal(zoom(),.04);
+  assert.equal(niceStep(25),20);assert.equal(niceStep(1),1);assert.equal(niceStep(.16),.2);assert.equal(niceStep(3.3),5);
+  const bar=niceDistance({ppm:54},60);
+  assert.equal(bar.label,'50 miles');assert.ok(bar.px>40&&bar.px<120,String(bar.px));
+  useSettings({mapMiles:2,distance:'km'});
+  assert.equal(niceDistance({ppm:54},60).label,'0.5 km');
+  assert.deepEqual([2,10,15,25,50,100,150,250].map(zoomFor),[10,10,9,9,8,7,6,6]);
+});
+test('map radius: one saved map per radius, the 3 most recent kept',()=>{
+  const data=new Map();
+  globalThis.localStorage={getItem:k=>data.has(k)?data.get(k):null,setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k)};
+  const home={latitude:39.05,longitude:-84.65};
+  for(const range of [10,50,250,2])saveMap({v:2,latitude:39.05,longitude:-84.65,range,built:Date.now()});
+  assert.equal(savedMap(home,10),null,'oldest dropped');
+  for(const r of [50,250,2])assert.equal(savedMap(home,r)?.range,r);
+  assert.equal(savedMap({latitude:40,longitude:-84.65},2),null,'another place');
+  delete globalThis.localStorage;
+});

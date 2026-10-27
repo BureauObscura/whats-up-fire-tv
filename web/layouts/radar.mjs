@@ -1,9 +1,11 @@
 // Layout 1, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
 // a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,RANGE} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep} from '../kit.mjs';
 
-const CX=270,CY=270,R=250,PPM=R/RANGE;
+const CX=270,CY=270,R=250,PPM0=R/BASE_RANGE;
+let PPM=PPM0; // px per mile at the current map radius (set before each draw)
+const setScale=()=>{PPM=PPM0*zoom();};
 const MAP=[
   {layer:'water',fill:'rgba(61,255,116,.15)'},
   {layer:'rivers',stroke:'rgba(61,255,116,.3)',width:1.4},
@@ -53,12 +55,14 @@ function ui(){
 }
 
 function drawRings(){
-  const nodes=[],km=metric();ringBoxes=[];
-  const step=km?2/KM:1,major=km?4/KM:2,label=km?4:2;
+  setScale();
+  // About ten rings across the scope at a round step (1 mi / 2 km at 10 mi), every other one labelled.
+  const nodes=[],km=metric(),unit=km?1/KM:1,RANGE=range();ringBoxes=[];
+  const stepU=niceStep(RANGE/unit/10),step=stepU*unit;
   for(let mi=step,i=1;mi<RANGE-.01;mi+=step,i++){
-    const isMajor=Math.abs(mi/major-Math.round(mi/major))<.01;
+    const isMajor=i%2===0;
     nodes.push(svg('circle',{class:`ring${isMajor?' major':''}`,cx:CX,cy:CY,r:mi*PPM}));
-    if(isMajor&&mi<RANGE-.6)nodes.push(svg('text',{class:'ring-label',x:CX+4,y:CY-mi*PPM-3},String(Math.round(i*step*(km?KM:1)/label)*label)));
+    if(isMajor&&mi<RANGE-.06*RANGE)nodes.push(svg('text',{class:'ring-label',x:CX+4,y:CY-mi*PPM-3},String(+(i*stepU).toPrecision(3))));
   }
   nodes.push(svg('circle',{class:'ring edge',cx:CX,cy:CY,r:R}));
   nodes.push(svg('circle',{class:'ring boundary',cx:CX,cy:CY,r:alertRadius()*PPM}));
@@ -74,14 +78,15 @@ function drawRings(){
   }
   nodes.push(svg('rect',{class:'home',x:CX-2.5,y:CY-2.5,width:5,height:5}));
   $.rings.replaceChildren(...nodes);
-  setText($.ringNote,`Rings ${km?'2 km':'1 mi'} · alert ${fmt.dist(alertRadius(),0)}`);
+  setText($.ringNote,`Rings ${+stepU.toPrecision(3)} ${km?'km':'mi'} · alert ${fmt.dist(alertRadius(),0)}`);
 }
 
 function drawMap(){
-  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM,clip:{r:R}},MAP);
+  setScale();const RANGE=range();
+  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM0,clip:{r:R}},MAP);
   const labels=[];labelBoxes=[];
   let shown=0;
-  for(const a of airportsNear(maps,RANGE-.6,12)){
+  for(const a of airportsNear(maps,BASE_RANGE-.6,12)){
     if(shown>=6||(!a.iata&&shown>=3))continue;
     const p=P(a.x,a.y),x=p.x,y=p.y+20,w=(a.iata||a.code).length*7.6+4,box={x:x-w/2,y:y-11,w,h:14};
     if(labelBoxes.some(b=>overlap(b,box)))continue;
@@ -92,7 +97,7 @@ function drawMap(){
   for(const s of (m?.shields||[]).slice(0,6)){
     const x=s.x+sx,y=s.y+sy,p=P(x,y),ref=s.ref.replace(/^I /,'I-').replace(/^US /,'US-');
     const box={x:p.x-ref.length*3.2,y:p.y-9,w:ref.length*6.4,h:11};
-    if(Math.hypot(x,y)>RANGE-1||Math.hypot(x,y)<1||labelBoxes.some(b=>overlap(b,box)))continue;
+    if(Math.hypot(x,y)>RANGE*.9||Math.hypot(x,y)<RANGE*.1||labelBoxes.some(b=>overlap(b,box)))continue;
     labelBoxes.push(box);labels.push(svg('text',{class:'map-shield',x:p.x,y:p.y,'text-anchor':'middle'},ref));
   }
   $.labels.replaceChildren(...labels);
@@ -113,7 +118,8 @@ function render(m){
   root.classList.toggle('emergency',!!hero?.emergency);
 
   const trails=[],blips=[],blocks=[],boxes=[...labelBoxes,...ringBoxes,{x:CX-6,y:CY-6,w:12,h:12}];
-  const visible=m.planes.filter(a=>a.ground<=RANGE);
+  setScale();
+  const visible=m.planes.filter(a=>a.ground<=range());
   const labelled=new Set(byInterest({...m,planes:visible}).slice(0,9));
   for(const a of visible){
     const p=P(a.x,a.y),isHero=a===hero;

@@ -15,8 +15,13 @@ const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\
 const KEY='whatsup.map.v2',VERSION=2,MAX_AGE=30*86400000;
 const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
-// and z10 already carries runways and IATA-coded airport labels.
+// and z10 already carries runways and IATA-coded airport labels. Wider map radii use
+// lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
+// features at low zooms by itself.
 const ZOOM=10;
+export const zoomFor=range=>range<=10?10:range<=25?9:range<=50?8:range<=100?7:6;
+// The street-detail map only makes sense close in; wider views draw the base map.
+export const DETAIL_MAX_RANGE=10;
 const STREETS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service']),MAJOR=new Set(['motorway','trunk','primary','secondary']);
 const DETAIL_ROADS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service','rail']);
 const LANDUSE=new Set(['residential','commercial','industrial','retail','cemetery','hospital','school','university','college',
@@ -99,9 +104,10 @@ const nameOf=pr=>String(pr.name_en||pr['name:en']||pr.name_int||pr.name||'').sli
 // Build the map for home; `range` in miles. Throws when tiles can't be fetched.
 // detail: a close-up street map (Adjust position) instead of the radar's major roads.
 // `net` and `MVT` are replaceable for tests.
-export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,zoom=ZOOM,detail=false}={}){
+export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,zoom=zoomFor(range),detail=false}={}){
   if(!MVT)throw new Error('mvt.js missing');
-  const lim=range+1.5;
+  // Wide layouts (Glass) show ~1.5x the radius sideways; the 10-mile map keeps its original reach.
+  const lim=range<=10?range+1.5:range*1.5,k=Math.max(1,range/10); // simplify/clip coarser as the view widens
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
     water:[],rivers:[],roads:[],runways:[],airports:[],shields:[],places:[]};
@@ -110,14 +116,14 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
     each('water',(f,e)=>{
       if(f.type!==3)return;
-      for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim))out.water.push(round(simplify(ring,.04)));
+      for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim)){const r=simplify(ring,.04*k);if(r.length>3)out.water.push(round(r));}
     });
-    each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04));});
+    each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04*k));});
     each('transportation',(f,e)=>{
       const c=f.properties.class;
       const wanted=detail?STREETS.has(c):c==='motorway'||c==='trunk';
       if(f.type===2&&wanted&&!f.properties.ramp)
-        for(const l of lines(f,e,detail?.005:.03))out.roads.push({c,major:detail?MAJOR.has(c):c==='motorway',p:l});
+        for(const l of lines(f,e,detail?.005:.03*k))out.roads.push({c,major:detail?MAJOR.has(c):c==='motorway',p:l});
     });
     each('transportation_name',(f,e)=>{
       const ref=String(f.properties.ref||'').trim();
@@ -159,14 +165,24 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
   return out;
 }
 
-// Saved map near this home (within ~1 km: drawing shifts it), younger than 30 days, else null.
+// Saved maps: one per map radius (each at its own tile zoom), the 3 most recently
+// used kept. A saved map near this home (within ~1 km: drawing shifts it), younger
+// than 30 days, else null. The 10-mile map keeps the original key, so maps saved
+// before map radius existed still count.
+const keyFor=range=>range===10?KEY:`${KEY}.r${range}`;
+const RECENT_KEY='whatsup.map.recent';
 export function savedMap(home,range){
-  const m=store.get(KEY);
+  const m=store.get(keyFor(range));
   const same=m&&m.v===VERSION&&m.range===range&&Math.abs(m.latitude-home.latitude)<.01&&
     Math.abs(m.longitude-home.longitude)<.01&&Date.now()-m.built<MAX_AGE;
   return same?m:null;
 }
-export const saveMap=m=>store.set(KEY,m);
+export function saveMap(m){
+  const recent=[m.range,...(store.get(RECENT_KEY)||[]).filter(r=>r!==m.range)];
+  for(const r of recent.slice(3))store.remove(keyFor(r));
+  store.set(RECENT_KEY,recent.slice(0,3));
+  store.set(keyFor(m.range),m);
+}
 
 // --- Detail map. Coordinates in thousandths of a mile (~5 ft). Each line or ring is
 // saved as a delta-encoded string ("x,y,dx,dy,...") and decoded into an Int16Array,

@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  TrailBook,placeBox,number}=__modules["kit.mjs"];
+  TrailBook,placeBox,number,ppmOf,alertRadius,range}=__modules["kit.mjs"];
 // Layout 11, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
@@ -58,7 +58,7 @@ function ui(){
   drawHome();
 }
 function drawHome(){
-  const {cx,cy,ppm}=VIEW;
+  const {cx,cy}=VIEW,ppm=ppmOf(VIEW);
   $.home.replaceChildren(svg('circle',{class:'ring',cx,cy,r:radius*ppm}),svg('circle',{class:'me',cx,cy,r:3.2}));
 }
 
@@ -124,8 +124,8 @@ function render(m){
   $.planes.replaceChildren(...stars);$.labels.replaceChildren(...labels);
 
   $['quiet-note'].hidden=!!hero;
-  if(!hero)setText($['quiet-note'].lastChild,demo||m.fresh?`Nothing within ${metric()?'16 km':'10 miles'} right now.`:quietText(m,demo));
-  // Everything drawn counts (the sky reaches a little past 10 miles at the sides).
+  if(!hero)setText($['quiet-note'].lastChild,demo||m.fresh?`Nothing within ${fmt.dist(range(),0)} right now.`:quietText(m,demo));
+  // Everything drawn counts (the sky reaches a little past the map radius at the sides).
   const n=m.planes.filter(a=>{const p=toView(VIEW,a.x,a.y);return p.x>=0&&p.y>=0&&p.x<=W&&p.y<=H;}).length;
   setText($.count,`${n?`${n} aircraft in this sky`:'no aircraft in this sky'} · ${fmt.int(m.log.today)} seen today`);
 }
@@ -133,10 +133,10 @@ function render(m){
 
 window.__whatsupLayout("night-sky",{
   name:'Night Sky',map:'base',
-  mount(r,c){root=r;ctx=c;demo=c.demo;$={};trails=new TrailBook(TRAIL_AGE,4000);radius=c.settings().radiusMiles||3;ui();paint();},
+  mount(r,c){root=r;ctx=c;demo=c.demo;$={};trails=new TrailBook(TRAIL_AGE,4000);radius=alertRadius();ui();paint();},
   setMap(m){maps=m;paint();},
   render,
-  refresh(){radius=ctx.settings().radiusMiles||3;drawHome();},
+  refresh(){radius=alertRadius();drawHome();},
   unmount(){trails?.clear();trails=null;root=null;$={};maps={};ctx=null;},
 });
 })();

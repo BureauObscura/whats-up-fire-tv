@@ -17,6 +17,7 @@
   <div class="layout" id="layout"></div>
   <div class="layout-note" id="layout-note"></div>
   <!-- Data and map credits: shown on open, layout switch and new map, then fade (full list in Settings). -->
+  <div class="toast" id="toast" aria-live="polite"></div>
   <div class="credit-flash" id="credit-flash" aria-hidden="true">Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors</div>
 
   <!-- Adjust position: a close-up street map with a fixed dot; arrows move the map. -->
@@ -47,6 +48,7 @@
       <button class="row" id="set-location" data-focus><span>Location</span><b id="set-location-v"></b><i>Change ›</i></button>
       <button class="row" id="set-adjust" data-focus><span>Fine-tune</span><b>Adjust position</b><i>›</i></button>
       <button class="row" id="set-radius" data-focus data-adjust><span>Alert radius</span><b id="set-radius-v"></b><i>‹ ›</i></button>
+      <button class="row" id="set-map" data-focus data-adjust><span>Map radius</span><b id="set-map-v"></b><i>‹ ›</i></button>
       <button class="row" id="set-distance" data-focus data-adjust><span>Distance</span><b id="set-distance-v"></b><i>‹ ›</i></button>
       <button class="row" id="set-altitude" data-focus data-adjust><span>Altitude</span><b id="set-altitude-v"></b><i>‹ ›</i></button>
       <button class="row done" id="set-done" data-focus><span>Done</span></button>

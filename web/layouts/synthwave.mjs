@@ -3,7 +3,7 @@
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
 import {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,RANGE} from '../kit.mjs';
+  number,BASE_RANGE,range,zoom} from '../kit.mjs';
 
 // Floor: a W x H canvas (1 px per CSS px: a soft neon floor needs no more), home at its
 // centre, rotated about its centre by TILT under a perspective of PERSP px seen from VP.
@@ -20,7 +20,7 @@ const MAP=[
 // Floor point (miles east/north of home) -> screen point, and its depth scale.
 const COS=Math.cos(TILT*Math.PI/180),SIN=Math.sin(TILT*Math.PI/180);
 function project(x,y){
-  const Y=-y*PPM,X=x*PPM; // floor-local, relative to the rotation origin (home)
+  const k=PPM*zoom(),Y=-y*k,X=x*k; // floor-local, relative to the rotation origin (home); the grid stays 1 per PPM px
   const yy=Y*COS,z=Y*SIN,s=PERSP/(PERSP-z);
   const ox=LEFT+W/2+X,oy=TOP+H/2+yy;
   return {x:VP.x+(ox-VP.x)*s,y:VP.y+(oy-VP.y)*s,s};
@@ -85,7 +85,7 @@ function drawMap(){
   const h=project(0,0);
   m.push(svg('path',{class:'home',d:`M${h.x} ${h.y-9}L${h.x+12} ${h.y}L${h.x} ${h.y+9}L${h.x-12} ${h.y}Z`}),
     svg('text',{class:'home-t',x:h.x,y:h.y+26,'text-anchor':'middle'},'HOME'));
-  for(const a of airportsNear(maps,RANGE+1,4)){
+  for(const a of airportsNear(maps,BASE_RANGE+1,4)){
     const p=project(a.x,a.y);if(p.y<VP.y+6||p.y>530||p.x<10||p.x>950)continue;
     m.push(svg('text',{class:'apt',x:p.x,y:p.y-8,'text-anchor':'middle'},a.iata||a.code));
   }
@@ -104,7 +104,7 @@ function render(m){
   const tagged=new Set(byInterest(m).slice(0,6));
   const order=[...m.planes].sort((a,b)=>(b===hero)-(a===hero)||b.y-a.y); // hero, then far (north) first
   for(const a of order){
-    if(a.ground>RANGE+2)continue;
+    if(a.ground>range()*1.2)continue;
     const g=project(a.x,a.y);
     let off=false,gx=g.x,gy=g.y;
     if(gy>522||gx<14||gx>946){off=true;gx=Math.max(24,Math.min(936,gx));gy=Math.min(gy,522);}

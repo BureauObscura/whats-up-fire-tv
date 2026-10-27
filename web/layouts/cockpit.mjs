@@ -3,9 +3,11 @@
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
 // hero like a primary flight display. Map: airports and runways only.
 import {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
-  makeCanvas,paintMap,airportsNear,compass,number,RANGE} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom} from '../kit.mjs';
 
-const CX=300,CY=292,R=226,PPM=R/RANGE;
+const CX=300,CY=292,R=226,PPM0=R/BASE_RANGE;
+let PPM=PPM0,RANGE=BASE_RANGE; // at the current map radius (set before each draw)
+const setScale=()=>{RANGE=range();PPM=PPM0*zoom();};
 const MAP=[{layer:'runways',stroke:'#f2f2f2',width:2.2,cap:'butt'}];
 const P=(x,y)=>({x:CX+x*PPM,y:CY-y*PPM});
 const deg=d=>String(Math.round(((d%360)+360)%360)).padStart(3,'0');
@@ -76,10 +78,11 @@ function drawRose(){
   // Lubber triangle at north (the display is north up).
   n.push(svg('path',{class:'lubber',d:`M${CX} ${CY-R-2}l-9 -14h18z`}));
   // Alert radius as a dashed cyan circle.
+  setScale();
   n.push(svg('circle',{class:'alert-r',cx:CX,cy:CY,r:alertRadius()*PPM}));
   const r=metric()?RANGE*KM:RANGE;
   n.push(svg('text',{class:'range-n',x:CX-R*.707-6,y:CY-R*.707+2,'text-anchor':'end'},String(Math.round(r))));
-  n.push(svg('text',{class:'range-n',x:CX-R*.354-6,y:CY-R*.354+2,'text-anchor':'end'},String(Math.round(r/2))));
+  n.push(svg('text',{class:'range-n',x:CX-R*.354-6,y:CY-R*.354+2,'text-anchor':'end'},String(r/2>=10?Math.round(r/2):+(r/2).toPrecision(2))));
   $.rose.replaceChildren(...n);
   // Own ship (home).
   $.own.replaceChildren(svg('path',{class:'own',d:`M${CX} ${CY-13}L${CX+8} ${CY+9}L${CX} ${CY+4}L${CX-8} ${CY+9}Z`}),
@@ -88,10 +91,11 @@ function drawRose(){
 }
 
 function drawMap(){
-  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM,clip:{r:R}},MAP);
+  setScale();
+  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM0,clip:{r:R}},MAP);
   const n=[];
-  for(const a of airportsNear(maps,RANGE+.6,5)){
-    const d=Math.hypot(a.x,a.y),k=d>RANGE-.9?(RANGE-.9)/d:1,p=P(a.x*k,a.y*k),code=a.icao||a.code;
+  for(const a of airportsNear(maps,BASE_RANGE+.6,5)){
+    const d=Math.hypot(a.x,a.y),k=d>RANGE*.91?RANGE*.91/d:1,p=P(a.x*k,a.y*k),code=a.icao||a.code;
     n.push(svg('circle',{class:'apt',cx:p.x,cy:p.y,r:7}),svg('text',{class:'apt-t',x:p.x+11,y:p.y+16},code));
   }
   $.apts.replaceChildren(...n);
@@ -130,6 +134,7 @@ function render(m){
   setText($.status,statusText(m,demo).toUpperCase());$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);
 
+  setScale();
   const visible=m.planes.filter(a=>a.ground<=RANGE);
   const tagged=new Set(byInterest({...m,planes:visible}).slice(0,6));
   const t=[];

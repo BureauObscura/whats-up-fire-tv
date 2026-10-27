@@ -3,7 +3,7 @@
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
 // from home, and the data lives in a title block and a revision table.
 import {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius} from '../kit.mjs';
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom} from '../kit.mjs';
 
 const W=960,H=540,LIMIT=6.5,VIEW={cx:372,cy:292,ppm:40};
 // The survey limit: linework stops at a drafted border where the detail map ends.
@@ -63,29 +63,30 @@ function ui(){
 function construction(){
   const h=toView(VIEW,0,0),n=[],c=CLIPPED.clip;ringBoxes=[];
   n.push(svg('rect',{class:'bp-limit',x:c.x,y:c.y,width:c.w,height:c.h}),
-    svg('text',{class:'bp-limitt',x:c.x+c.w-8,y:c.y+16,'text-anchor':'end'},`LIMIT OF DETAIL ±${metric()?Math.round(LIMIT*KM)+' KM':LIMIT+' MI'}`));
+    svg('text',{class:'bp-limitt',x:c.x+c.w-8,y:c.y+16,'text-anchor':'end'},`LIMIT OF DETAIL ±${fmt.dist(LIMIT/zoom(),LIMIT/zoom()<20?1:0).toUpperCase()}`));
   ringBoxes.push({x:c.x+c.w-190,y:c.y+2,w:190,h:20});
-  const unit=metric()?1/KM:1,step=metric()?3:2;
+  // Three rings at a round step (2 mi / 3 km at the 10-mile view), rescaled with the map radius.
+  const ring=niceDistance(VIEW,80),step=ring.value,unit=metric()?1/KM:1,ppm=ppmOf(VIEW);
   n.push(svg('line',{class:'bp-center',x1:h.x,y1:0,x2:h.x,y2:H}),svg('line',{class:'bp-center',x1:0,y1:h.y,x2:W,y2:h.y}));
   for(let i=1;i<=3;i++){
-    const r=i*step*unit*VIEW.ppm;
+    const r=i*step*unit*ppm;
     n.push(svg('circle',{class:'bp-ring',cx:h.x,cy:h.y,r}));
     const a=-Math.PI/4,tx=h.x+Math.cos(a)*r,ty=h.y+Math.sin(a)*r;
-    n.push(svg('text',{class:'bp-ringt',x:tx+4,y:ty-4},`R ${i*step} ${metric()?'KM':'MI'}`));ringBoxes.push({x:tx,y:ty-18,w:50,h:18});
+    n.push(svg('text',{class:'bp-ringt',x:tx+4,y:ty-4},`R ${+(i*step).toPrecision(3)} ${metric()?'KM':'MI'}`));ringBoxes.push({x:tx,y:ty-18,w:50,h:18});
   }
-  n.push(svg('circle',{class:'bp-alert',cx:h.x,cy:h.y,r:alertRadius()*VIEW.ppm}));
+  n.push(svg('circle',{class:'bp-alert',cx:h.x,cy:h.y,r:alertRadius()*ppm}));
   n.push(svg('circle',{class:'bp-datum',cx:h.x,cy:h.y,r:7}),svg('line',{class:'bp-datumx',x1:h.x-11,y1:h.y,x2:h.x+11,y2:h.y}),
     svg('line',{class:'bp-datumx',x1:h.x,y1:h.y-11,x2:h.x,y2:h.y+11}),svg('text',{class:'bp-datumt',x:h.x+10,y:h.y+20},'DATUM · HOME'));
   // Compass rose ticks on the outer ring.
-  const R=3*step*unit*VIEW.ppm;
+  const R=3*step*unit*ppm;
   for(let d=0;d<360;d+=10){
     const a=d*Math.PI/180,l=d%90?5:12;
     n.push(svg('line',{class:'bp-tick',x1:h.x+Math.sin(a)*R,y1:h.y-Math.cos(a)*R,x2:h.x+Math.sin(a)*(R+l),y2:h.y-Math.cos(a)*(R+l)}));
   }
   n.push(svg('text',{class:'bp-north',x:h.x,y:h.y-R-16,'text-anchor':'middle'},'N'));
   $.construct.replaceChildren(...n);
-  const px=(metric()?1/KM:1)*VIEW.ppm;
-  $.scale.innerHTML=`<i style="width:${(px*2).toFixed(0)}px"><em></em><em></em></i><span>0</span><span style="left:${px.toFixed(0)}px">1</span><span style="left:${(px*2).toFixed(0)}px">2 ${metric()?'KM':'MI'}</span>`;
+  const bar=niceDistance(VIEW,40),px=bar.px;
+  $.scale.innerHTML=`<i style="width:${(px*2).toFixed(0)}px"><em></em><em></em></i><span>0</span><span style="left:${px.toFixed(0)}px">${+bar.value.toPrecision(3)}</span><span style="left:${(px*2).toFixed(0)}px">${+(bar.value*2).toPrecision(3)} ${metric()?'KM':'MI'}</span>`;
 }
 
 function drawMap(){paintMap($.canvas,maps,CLIPPED,maps.detail?DETAIL:BASE);construction();}

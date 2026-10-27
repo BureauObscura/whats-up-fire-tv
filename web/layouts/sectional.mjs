@@ -2,9 +2,11 @@
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance} from '../kit.mjs';
 
-const W=680,H=540,CX=345,CY=282,PPM=30,ROSE=118;
+const W=680,H=540,CX=345,CY=282,PPM0=30,ROSE=118;
+let PPM=PPM0; // at the current map radius (set before each draw)
+const setScale=()=>{PPM=PPM0*zoom();};
 const NM=1.15078;
 const BLUE='#2a63ad',MAG='#a3237f',INK='#2a2622';
 const MAP=[
@@ -72,19 +74,21 @@ function ui(){
 
 let boxes=[];
 function drawMap(){
-  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM,clip:{x:0,y:0,w:W,h:H}},MAP);
+  setScale();
+  paintMap($.canvas,maps,{cx:CX,cy:CY,ppm:PPM0,clip:{x:0,y:0,w:W,h:H}},MAP);
   const home=ctx.place();boxes=[];
   // Graticule every 5 minutes of arc, with chart-margin labels.
   const g=[];
   const lat0=home?.latitude,lon0=home?.longitude;
   if(home){
-    const cos=Math.cos(lat0*Math.PI/180),step=5/60;
+    // Graticule every 5' at 10 mi, coarser as the map widens (whole minutes or degrees).
+    const cos=Math.cos(lat0*Math.PI/180),step=([5,10,15,30,60,120,300].find(m=>m*69/60*PPM>=70)||300)/60,span=Math.max(.2,range()/69*1.6);
     const fmtDeg=(v,pos,neg)=>{const a=Math.abs(v),d=Math.floor(a+1e-9),m=Math.round((a-d)*60);return `${d}°${String(m).padStart(2,'0')}′${v>=0?pos:neg}`;};
-    for(let la=Math.ceil((lat0-.2)/step)*step;la<lat0+.2;la+=step){
+    for(let la=Math.ceil((lat0-span)/step)*step;la<lat0+span;la+=step){
       const y=CY-(la-lat0)*69*PPM;if(y<8||y>H-8)continue;
       g.push(svg('line',{class:'grat',x1:0,y1:y,x2:W,y2:y}));if(y<H-60)g.push(svg('text',{class:'grat-t',x:6,y:y-4},fmtDeg(la,'N','S')));
     }
-    for(let lo=Math.ceil((lon0-.3)/step)*step;lo<lon0+.3;lo+=step){
+    for(let lo=Math.ceil((lon0-span*1.5)/step)*step;lo<lon0+span*1.5;lo+=step){
       const x=CX+(lo-lon0)*69.172*cos*PPM;if(x<8||x>W-8)continue;
       g.push(svg('line',{class:'grat',x1:x,y1:0,x2:x,y2:H}),svg('text',{class:'grat-t',x:x+4,y:H-8},fmtDeg(lo,'E','W')));
     }
@@ -140,10 +144,10 @@ function drawRose(){
   n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
   $.rose.replaceChildren(...n);
   // Scale bar: 0-5 miles (or 0-8 km).
-  const km=metric(),len=km?8:5,px=(km?len/KM:len)*PPM,x0=18,y0=H-34,s=[];
+  const km=metric(),bar=niceDistance({ppm:PPM0},120),len=5,px=bar.px,x0=18,y0=H-34,s=[];
   s.push(svg('rect',{class:'scale-bg',x:x0-8,y:y0-18,width:px+48,height:30}));
   for(let i=0;i<len;i++)s.push(svg('rect',{class:i%2?'sc-w':'sc-b',x:x0+i*px/len,y:y0,width:px/len,height:5}));
-  s.push(svg('text',{class:'sc-t',x:x0,y:y0-5},'0'),svg('text',{class:'sc-t',x:x0+px,y:y0-5,'text-anchor':'middle'},String(len)),
+  s.push(svg('text',{class:'sc-t',x:x0,y:y0-5},'0'),svg('text',{class:'sc-t',x:x0+px,y:y0-5,'text-anchor':'middle'},String(+bar.value.toPrecision(3))),
     svg('text',{class:'sc-t',x:x0+px+10,y:y0+6},km?'KM':'MI'));
   $.scale.replaceChildren(...s);
 }

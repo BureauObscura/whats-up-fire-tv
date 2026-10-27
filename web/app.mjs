@@ -3,10 +3,10 @@
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
-import {HISTORY_KEY,store} from './live.mjs';
+import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog} from './model.mjs';
-import {loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
-import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail} from './mapgen.mjs';
+import {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
+import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,DETAIL_MAX_RANGE} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
@@ -21,7 +21,15 @@ const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* deskt
 
 let settings=loadSettings(),feed=null,lastModel=null,placeToken=0;
 useSettings(settings);
-const RANGE=CONFIG.rangeMiles;
+const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
+// The feed follows the map radius: adsb.fi is asked for ~1.5x the radius (wide layouts
+// show that far sideways), at most its 250 NM, and polled less often over big areas.
+const feedConfig=()=>{
+  const r=mapMiles();
+  return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
+    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(r*1.5/1.15078))),
+    pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
+};
 const maps={base:null,detail:null};
 
 // --- Credits: always in Settings; on the dashboard one line that fades out ~5 s after
@@ -108,7 +116,7 @@ function mapsChanged(){
 let detailToken=0,detailBusy=false;
 async function ensureDetail(){
   const place=settings.place;
-  if(!place||maps.detail||detailBusy)return;
+  if(!place||maps.detail||detailBusy||mapMiles()>DETAIL_MAX_RANGE)return;
   const saved=savedDetail(place);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
@@ -132,15 +140,16 @@ async function applyPlace(place,{fresh=false}={}){
   const token=++placeToken;
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
-  maps.base=savedMap(place,RANGE);maps.detail=null;detailToken++;detailBusy=false;
+  const range=mapMiles();
+  maps.base=savedMap(place,range);maps.detail=null;detailToken++;detailBusy=false;
   mapsChanged();
   if(active?.mod.map==='detail')ensureDetail();
-  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,{...CONFIG,radiusMiles:settings.radiusMiles},render,maps.base?.airports);};
+  const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,feedConfig(),render,maps.base?.airports);};
   if(!demo)startFeed();
   if(maps.base){startFeed();return;}
   for(let attempt=0;token===placeToken;attempt++){
     try{
-      const m=await buildMap(place,RANGE);
+      const m=await buildMap(place,range);
       if(token!==placeToken)return;
       maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');flashCredits();
       break;
@@ -227,19 +236,42 @@ function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
   setText('set-layout-v',`${i+1}. ${layoutName(settings.layout)}`);
   setText('set-location-v',settings.place?[settings.place.street,placeLabel(settings.place)].filter(Boolean).join(', '):'Not set');
-  setText('set-radius-v',fmt.dist(settings.radiusMiles,0));
+  const alert=alertFor(settings.radiusMiles,mapMiles());
+  setText('set-radius-v',alert<settings.radiusMiles?`${fmt.dist(alert,0)} (the map radius)`:fmt.dist(settings.radiusMiles,0));
+  setText('set-map-v',fmt.dist(mapMiles(),0));
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
   if(el.id==='set-radius')settings.radiusMiles=RADII[Math.max(0,Math.min(RADII.length-1,RADII.indexOf(settings.radiusMiles)+dir))];
+  else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
   if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
   else refreshLayout();
+}
+
+// Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
+// once (the current map, rescaled); the map for the new radius and the wider or
+// narrower feed follow after a short pause, so stepping through sizes is cheap.
+let mapTimer=0,toastTimer=0;
+function stepMap(dir){
+  const i=MAP_RADII.indexOf(mapMiles()),next=MAP_RADII[Math.max(0,Math.min(MAP_RADII.length-1,(i<0?2:i)+dir))];
+  if(next===mapMiles())return toast(`Map radius ${fmt.dist(next,0)} (${dir<0?'closest':'widest'})`);
+  settings.mapMiles=next;saveSettings(settings);useSettings(settings);
+  if(layer?.id==='settings')showSettings();
+  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
+  if(next>DETAIL_MAX_RANGE)maps.detail=null;
+  mapsChanged();refreshLayout();
+  clearTimeout(mapTimer);
+  mapTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},700);
+}
+function toast(text){
+  const t=$('toast');t.textContent=text;t.classList.add('on');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),1800);
 }
 
 // Layout picker: the dashboard behind the bar is the real layout, switched live.
@@ -386,7 +418,7 @@ async function startAdjust(place){
 }
 function drawAdjust(){
   const c={latitude:adj.latitude,longitude:adj.longitude},ppm=AR/ADJ_RANGE;
-  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c},ADJ_MAP);
+  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c,fixed:true},ADJ_MAP);
   const nodes=[svg('circle',{class:'ring edge',cx:ACX,cy:ACY,r:AR})];
   for(const f of [.25,.5,.75])nodes.push(svg('circle',{class:'ring',cx:ACX,cy:ACY,r:AR*f}));
   nodes.push(svg('line',{class:'cross',x1:ACX-26,y1:ACY,x2:ACX+26,y2:ACY}),svg('line',{class:'cross',x1:ACX,y1:ACY-26,x2:ACX,y2:ACY+26}),
@@ -427,6 +459,8 @@ document.addEventListener('keydown',e=>{
     return;
   }
   if(!layer){
+    // Up/Down on the dashboard: zoom the map in/out (Settings > Map radius).
+    if(dir==='up'||dir==='down'){e.preventDefault();return stepMap(dir==='up'?-1:1);}
     if(k==='Enter'||k===' '||k==='ContextMenu'||k==='Menu'||e.keyCode===82){e.preventDefault();showSettings();open('settings');}
     return;
   }
@@ -465,6 +499,8 @@ async function boot(){
   buildKeys();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
+  // Screenshot hook: ?map=50 sets the map radius for this launch.
+  if(MAP_RADII.includes(Number(query.get('map'))))settings.mapMiles=Number(query.get('map'));
   // Screenshot hook: ?layout=atlas shows that layout for this launch.
   if(query.get('layout'))settings.layout=validLayout(query.get('layout'));
   settings.layout=validLayout(settings.layout);

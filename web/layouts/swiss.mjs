@@ -1,6 +1,6 @@
 // Layout 7, Swiss: an off-white poster. One giant number (how far away the nearest
 // aircraft is) dominates; the map is only the river/coastline and a red home dot.
-import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,RANGE} from '../kit.mjs';
+import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,BASE_RANGE,range} from '../kit.mjs';
 
 const MAPSIZE=284,MAP=[
   {layer:'water',fill:'#d3cdc0'},
@@ -24,7 +24,7 @@ function ui(){
     </div>`;
   for(const c of ['city','clock','kicker','giant','num','unit','flight','route','mapbox','marks','facts','status'])$[c]=root.querySelector('.'+c);
   $.canvas=makeCanvas(MAPSIZE,MAPSIZE,'map');$.mapbox.prepend($.canvas);
-  view={cx:MAPSIZE/2,cy:MAPSIZE/2,ppm:MAPSIZE/2/RANGE,clip:{x:0,y:0,w:MAPSIZE,h:MAPSIZE}};
+  view={cx:MAPSIZE/2,cy:MAPSIZE/2,ppm:MAPSIZE/2/BASE_RANGE,clip:{x:0,y:0,w:MAPSIZE,h:MAPSIZE}};
 }
 const drawMap=()=>paintMap($.canvas,maps,view,MAP);
 
@@ -54,7 +54,7 @@ function render(m){
   }else{
     const live=demo||m.fresh;
     setText($.kicker,live?'Above you right now':statusText(m,demo));
-    giant(live?'0':'—');setText($.unit,live?`aircraft within ${metric()?'16 km':'10 mi'}`:'');
+    giant(live?'0':'—');setText($.unit,live?`aircraft within ${fmt.dist(range(),0)}`:'');
     setText($.flight,'');
   }
   const r=hero?.route;
