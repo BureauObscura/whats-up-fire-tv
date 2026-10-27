@@ -45,4 +45,18 @@ describe('App', () => {
     unmount();
     expect(mockKeepAwake.stop).toHaveBeenCalledTimes(2);
   });
+
+  it('re-reports engagement every 4 minutes only while active', () => {
+    jest.useFakeTimers();
+    mockKeepAwake.start.mockClear();
+    mockKeepAwake.stop.mockClear();
+    const {unmount} = render(<App />);
+    jest.advanceTimersByTime(4 * 60 * 1000);
+    expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
+    mockAppState.listener('background');
+    jest.advanceTimersByTime(8 * 60 * 1000);
+    expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
+    unmount();
+    jest.useRealTimers();
+  });
 });

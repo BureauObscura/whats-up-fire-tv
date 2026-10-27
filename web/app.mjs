@@ -345,7 +345,11 @@ async function runSearch(explicit=false){
   const found=await Promise.race([work,new Promise(r=>setTimeout(()=>r('timeout'),SEARCH_LIMIT_MS))]);
   if(seq!==searchSeq||layer?.id!=='locate'&&!layers.some(l=>l.id==='locate'))return;
   lastQuery=q;
-  if(found==='timeout'||!found)return show(msg(found?'The search is taking too long.':'Search is unavailable. Check the connection.'),retry());
+  if(found==='timeout'||!found){
+    show(msg(found?'The search is taking too long.':'Search is unavailable. Check the connection.'),retry());
+    if(explicit&&layer?.id==='locate')setFocus($('search-retry'));
+    return;
+  }
   if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
   show(...found.slice(0,5).map(p=>{
     const b=document.createElement('button');b.dataset.focus='';

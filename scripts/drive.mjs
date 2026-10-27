@@ -17,7 +17,7 @@ ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&waiting.has(m.id)){waiting.
   if(m.method==='Fetch.requestPaused')send('Fetch.failRequest',{requestId:m.params.requestId,errorReason:'Failed'});};
 await new Promise(r=>ws.onopen=r);
 const send=(method,params={})=>new Promise(r=>{waiting.set(++id,r);ws.send(JSON.stringify({id,method,params}));});
-await send('Runtime.enable');await send('Network.enable');
+await send('Runtime.enable');await send('Network.enable');await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride',{width:960,height:540,deviceScaleFactor:2,mobile:false});
 const CODES={Enter:13,ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Escape:27,Backspace:8};
 const STATE=`(()=>{const vis=[...document.querySelectorAll('.overlay,.picker')].filter(e=>!e.hidden).sort((a,b)=>(+b.style.zIndex||0)-(+a.style.zIndex||0));
@@ -27,18 +27,22 @@ const STATE=`(()=>{const vis=[...document.querySelectorAll('.overlay,.picker')].
     entry:document.getElementById('entry-text')?.textContent,results:document.getElementById('results')?.textContent.trim().slice(0,90),
     place:document.querySelector('[class*=place],h1')?.textContent?.slice(0,30)});})()`;
 const state=async()=>(await send('Runtime.evaluate',{expression:STATE,returnByValue:true})).result?.value;
+// DRIVE_BLOCK=regex: answer matching bridge requests as a dropped connection (services down).
+if(process.env.DRIVE_BLOCK)await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const re=new RegExp(${JSON.stringify(process.env.DRIVE_BLOCK)});let v;
+  Object.defineProperty(window,'ReactNativeWebView',{configurable:true,get:()=>v,set:b=>{const pm=b.postMessage.bind(b);
+    b.postMessage=d=>{const r=JSON.parse(d);if(r.url&&re.test(r.url))return setTimeout(()=>window.__whatsupReply(r.id,'connection_error',''),50);pm(d);};v=b;}});})();`});
 await send('Page.navigate',{url});await new Promise(r=>setTimeout(r,Number(process.env.DRIVE_WAIT)||6000));
 console.log('start',await state());
 for(const s of steps){
   if(s.offline!==undefined)await send('Network.emulateNetworkConditions',{offline:s.offline,latency:0,downloadThroughput:-1,uploadThroughput:-1});
   if(s.block){await send('Fetch.enable',{patterns:[{urlPattern:s.block}]});}
   if(s.unblock)await send('Fetch.disable');
-  if(s.eval)console.log('  eval',(await send('Runtime.evaluate',{expression:s.eval,returnByValue:true,awaitPromise:true})).result?.value);
   for(const key of (s.keys||'').split(',').filter(Boolean)){
     for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key,code:key,windowsVirtualKeyCode:CODES[key]||key.toUpperCase().charCodeAt(0),text:type==='keyDown'&&key.length===1?key:undefined});
     await new Promise(r=>setTimeout(r,s.gap??250));
   }
   if(s.wait)await new Promise(r=>setTimeout(r,s.wait));
+  if(s.eval)console.log('  eval',(await send('Runtime.evaluate',{expression:s.eval,returnByValue:true,awaitPromise:true})).result?.value);
   if(s.shot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(s.shot,Buffer.from(shot.data,'base64'));}
   console.log(s.label||JSON.stringify(s).slice(0,60),await state());
 }

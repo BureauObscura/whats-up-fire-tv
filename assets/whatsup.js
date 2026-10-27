@@ -3771,7 +3771,7 @@ function pickHero(planes,radius,range){
 // --- Live
 const MAX_PLANES=300;
 function liveSource(config,onModel){
-  const routes=new RouteLookup();let log=store.get(LOG_KEY),lastOk=0;
+  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0;
   return startLive((states,ok)=>{
     if(ok)lastOk=Date.now();
     const now=Date.now();
@@ -3785,7 +3785,7 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,connecting:!lastOk,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
+    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
   },config);
 }
 
@@ -4422,7 +4422,11 @@ async function runSearch(explicit=false){
   const found=await Promise.race([work,new Promise(r=>setTimeout(()=>r('timeout'),SEARCH_LIMIT_MS))]);
   if(seq!==searchSeq||layer?.id!=='locate'&&!layers.some(l=>l.id==='locate'))return;
   lastQuery=q;
-  if(found==='timeout'||!found)return show(msg(found?'The search is taking too long.':'Search is unavailable. Check the connection.'),retry());
+  if(found==='timeout'||!found){
+    show(msg(found?'The search is taking too long.':'Search is unavailable. Check the connection.'),retry());
+    if(explicit&&layer?.id==='locate')setFocus($('search-retry'));
+    return;
+  }
   if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
   show(...found.slice(0,5).map(p=>{
     const b=document.createElement('button');b.dataset.focus='';

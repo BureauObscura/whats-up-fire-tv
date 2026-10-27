@@ -153,7 +153,7 @@ function pickHero(planes,radius,range){
 // --- Live
 const MAX_PLANES=300;
 function liveSource(config,onModel){
-  const routes=new RouteLookup();let log=store.get(LOG_KEY),lastOk=0;
+  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0;
   return startLive((states,ok)=>{
     if(ok)lastOk=Date.now();
     const now=Date.now();
@@ -167,7 +167,7 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,connecting:!lastOk,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
+    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
   },config);
 }
 

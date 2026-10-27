@@ -90,6 +90,7 @@ async function get(
 // While the app is on screen it is a display people glance at, not a menu: tell
 // Vega the user is engaged (User Engagement API, via native/keep-awake) so the
 // screensaver stays away, and give that up as soon as the app leaves the screen.
+const REASSERT_MS = 4 * 60 * 1000;
 function engage(on: boolean) {
   try {
     const error = on ? KeepAwake.start() : KeepAwake.stop();
@@ -110,11 +111,22 @@ export const App = () => {
   const hideSplashScreenCallback = useHideSplashScreenCallback();
 
   useEffect(() => {
-    engage(AppState.currentState !== 'background');
-    const sub = AppState.addEventListener('change', state =>
-      engage(state === 'active'),
-    );
+    let active = AppState.currentState !== 'background';
+    engage(active);
+    // Re-report engagement every few minutes while shown: the platform may let a
+    // single long-running report lapse (seen on the stick after ~15-20 min).
+    const timer = setInterval(() => {
+      if (active) {
+        engage(false);
+        engage(true);
+      }
+    }, REASSERT_MS);
+    const sub = AppState.addEventListener('change', state => {
+      active = state === 'active';
+      engage(active);
+    });
     return () => {
+      clearInterval(timer);
       sub.remove();
       engage(false);
     };
