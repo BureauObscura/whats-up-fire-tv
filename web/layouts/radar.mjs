@@ -1,4 +1,4 @@
-// Layout 1, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
+// Layout 4, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
 // a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
   makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone} from '../kit.mjs';
@@ -186,7 +186,7 @@ function render(m){
   $.recent.replaceChildren(...(recent.length?recent.flatMap(a=>[
     cell(a.flight,'b',a.cargo?'cargo-row-t':''),
     cell([a.route&&`${a.route.origin}→${a.route.destination}`,a.type].filter(Boolean).join(' ')),
-    cell(fmt.ago(a.last_seen,now),'span','t')]):[cell('Nothing inside the alert ring yet.')]));
+    cell(fmt.ago(a.last_seen,now),'span','t')]):[cell(windowView()?'Nothing through your window yet.':'Nothing inside the alert zone yet.')]));
 }
 
 export default {

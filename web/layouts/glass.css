@@ -1,4 +1,4 @@
-/* Layout 2, Glass: near-black street map under see-through glass cards, cool blue accent.
+/* Layout 5, Glass: near-black street map under see-through glass cards, cool blue accent.
    No backdrop-filter (too costly on the stick): the glass is gradient, hairline and highlight. */
 @font-face{font-family:'Michroma';src:url(../fonts/Michroma.woff2) format('woff2');font-display:block}
 @font-face{font-family:'Inter';src:url(../fonts/Inter.woff2) format('woff2');font-weight:300 900;font-display:block}

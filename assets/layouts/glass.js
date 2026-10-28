@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
   compass,placeBox,alertRadius,ppmOf,range,zonePath}=__modules["kit.mjs"];
-// Layout 2, Glass: a near-black street map (roads by class, water, parks, faint
+// Layout 5, Glass: a near-black street map (roads by class, water, parks, faint
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
 
@@ -68,7 +68,7 @@ function drawMap(){
   paintMap($.canvas,maps,VIEW,maps.detail?DETAIL:BASE);
   const home=toView(VIEW,0,0);placeBoxes=[{x:home.x-16,y:home.y-16,w:32,h:32}];
   const nodes=[],bounds={x:20,y:110,w:580,h:400};
-  for(const p of placesNear(maps,9,{kinds:['city','town','suburb','neighbourhood'],max:40})){
+  for(const p of placesNear(maps,9,{max:40})){
     if(placeBoxes.length>=15)break;
     const q=toView(VIEW,p.x,p.y),t=p.name.toUpperCase(),w=t.length*6.4+4,h=12;
     const b=placeBox(placeBoxes,q,w,h,[[-w/2,-h/2]],bounds);if(!b)continue;

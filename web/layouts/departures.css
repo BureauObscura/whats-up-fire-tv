@@ -1,4 +1,4 @@
-/* Layout 3, Departures: amber split-flap board on a dark station wall. */
+/* Layout 6, Departures: amber split-flap board on a dark station wall. */
 @font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-SemiBold.woff2) format('woff2');font-weight:600;font-display:block}
 @font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-Medium.woff2) format('woff2');font-weight:500;font-display:block}
 .L-departures{--amber:#ffb21e;--amber-dim:rgba(255,178,30,.62);--amber-faint:rgba(255,178,30,.3);--red:#ff3b2f;

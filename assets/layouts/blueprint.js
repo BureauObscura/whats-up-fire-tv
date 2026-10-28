@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
   compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath}=__modules["kit.mjs"];
-// Layout 4, Blueprint: a technical drawing on navy drafting paper. The map is
+// Layout 7, Blueprint: a technical drawing on navy drafting paper. The map is
 // linework only (roads by weight, water outlines, runways); aircraft are outline
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
 // from home, and the data lives in a title block and a revision table.

@@ -51,10 +51,10 @@ function flashCredits(){
 }
 
 // --- Layouts. Order is the Settings order; the first is the default.
-const LAYOUTS=[['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['atlas','Atlas'],
-  ['atlas-dark','Atlas Dark'],['atlas-satellite','Atlas Satellite'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
+const LAYOUTS=[['atlas-dark','Atlas Dark'],['atlas','Atlas Light'],['atlas-satellite','Atlas Satellite'],
+  ['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
 const layoutName=id=>(LAYOUTS.find(([k])=>k===id)||LAYOUTS[0])[1];
-const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:'radar';
+const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:LAYOUTS[0][0];
 // A variant reuses another layout's code, with stylesheets layered on top in order
 // (each also becomes an L-<id> class on the stage); ctx.layout() tells the code which.
 const VARIANTS={'atlas-dark':['atlas','atlas-dark'],'atlas-satellite':['atlas','atlas-dark','atlas-satellite']};
@@ -96,7 +96,7 @@ async function useLayout(id){
   if(active?.id===id)return;
   const token=++layoutToken;
   let mod;
-  try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!=='radar')useLayout('radar');return;}
+  try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!==LAYOUTS[0][0])useLayout(LAYOUTS[0][0]);return;}
   if(token!==layoutToken)return;
   const old=active;
   if(old){
@@ -278,6 +278,7 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  setText('set-places-v',{off:'Off',cities:'Cities',hoods:'Neighborhoods',both:'Cities & neighborhoods'}[settings.placeNames]);
   setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
@@ -296,6 +297,11 @@ function adjustSetting(el,dir){
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
   else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
+  else if(el.id==='set-places'){
+    const steps=['off','cities','hoods','both'],i=steps.indexOf(settings.placeNames);
+    settings.placeNames=steps[(i+dir+steps.length)%steps.length];saveSettings(settings);useSettings(settings);showSettings();
+    return mapsChanged(); // layouts set place labels when the map is (re)drawn
+  }
   else if(el.id==='set-chime'){
     const steps=['off','low','med','high'],i=steps.indexOf(settings.chime);
     settings.chime=steps[Math.max(0,Math.min(steps.length-1,i+dir))];saveSettings(settings);showSettings();

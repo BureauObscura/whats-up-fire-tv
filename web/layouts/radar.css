@@ -1,4 +1,4 @@
-/* Layout 1, Radar: green phosphor scope. Uses the page's JetBrains Mono. */
+/* Layout 4, Radar: green phosphor scope. Uses the page's JetBrains Mono. */
 .L-radar{--ink:#3dff74;--dim:rgba(61,255,116,.66);--faint:rgba(61,255,116,.36);--cargo:#c2ff5a;--alert:#ff4a3d}
 .L-radar .layout{background:#000;color:var(--ink);font-family:var(--mono)}
 .L-radar .layout:after{content:'';position:absolute;inset:0;pointer-events:none;

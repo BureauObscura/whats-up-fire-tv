@@ -200,13 +200,20 @@ export const toView=(view,x,y)=>{
 };
 // Map labels near home: [{name,x,y,kind}] in miles, nearest/most important first.
 // `within` (and airportsNear's) is in miles at the 10-mile view; it grows with the map radius.
-export function placesNear(maps,within,{kinds=['city','town','suburb'],max=12}={}){
-  const range=within/zoom();
+// Settings > Place names: which OpenStreetMap place classes are labelled on every map.
+const PLACE_KINDS={off:[],cities:['city','town','village'],hoods:['suburb','quarter','neighbourhood'],
+  both:['city','town','village','suburb','quarter','neighbourhood']};
+export const placeKinds=()=>PLACE_KINDS[S.placeNames]||PLACE_KINDS.cities;
+// Bigger places first (city, town, village, then neighbourhoods), so collisions drop the small ones.
+const PLACE_ORDER={city:0,town:1,village:2,suburb:3,quarter:4,neighbourhood:5};
+export function placesNear(maps,within,{max=12}={}){
+  const range=within/zoom(),kinds=placeKinds();
   const src=maps?.detail?.places?.length?maps.detail:maps?.base;
   if(!src?.places)return [];
   const [sx,sy]=mapShift(src);
   return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
-    .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
+    .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range)
+    .sort((a,b)=>(PLACE_ORDER[a.c]??9)-(PLACE_ORDER[b.c]??9)||(a.rank||20)-(b.rank||20)).slice(0,max);
 }
 // Every airfield (big airports first, then coded fields, then the rest), with a short name:
 // "Butler County Regional Airport" -> "Butler County".

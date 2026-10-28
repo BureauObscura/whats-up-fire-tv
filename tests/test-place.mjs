@@ -84,7 +84,7 @@ test('IP location: GeoJS reply becomes an unconfirmed guess with its accuracy',a
 test('settings: bad saved values fall back to safe defaults',()=>{
   globalThis.localStorage={getItem:()=>JSON.stringify({radiusMiles:99,distance:'parsecs',altitude:'m',layout:'<script>'}),setItem(){},removeItem(){}};
   const s=loadSettings();
-  assert.equal(s.radiusMiles,10);assert.equal(s.distance,'mi');assert.equal(s.altitude,'m');assert.equal(s.layout,'radar');
+  assert.equal(s.radiusMiles,10);assert.equal(s.distance,'mi');assert.equal(s.altitude,'m');assert.equal(s.layout,'atlas-dark');assert.equal(s.placeNames,'cities');
   delete globalThis.localStorage;
 });
 test('units: miles/knots/feet and km/km-h/metres, flight levels above 18,000 ft',()=>{

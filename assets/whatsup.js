@@ -3524,11 +3524,12 @@ function loadSettings(){
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
     chime:['off','low','med','high'].includes(s.chime)?s.chime:'med', // Settings > Chime (a plane enters your zone)
+    placeNames:['off','cities','hoods','both'].includes(s.placeNames)?s.placeNames:'cities', // Settings > Place names
     // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
     alertZone:s.alertZone==='window'?'window':'circle',
     viewFrom:deg(s.viewFrom,90),viewTo:deg(s.viewTo,180),
     viewMiles:VIEW_MILES.includes(Number(s.viewMiles))?Number(s.viewMiles):25,
-    layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
+    layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'atlas-dark'};
 }
 const saveSettings=s=>store.set(KEY,s);
 
@@ -4432,13 +4433,20 @@ const toView=(view,x,y)=>{
 };
 // Map labels near home: [{name,x,y,kind}] in miles, nearest/most important first.
 // `within` (and airportsNear's) is in miles at the 10-mile view; it grows with the map radius.
-function placesNear(maps,within,{kinds=['city','town','suburb'],max=12}={}){
-  const range=within/zoom();
+// Settings > Place names: which OpenStreetMap place classes are labelled on every map.
+const PLACE_KINDS={off:[],cities:['city','town','village'],hoods:['suburb','quarter','neighbourhood'],
+  both:['city','town','village','suburb','quarter','neighbourhood']};
+const placeKinds=()=>PLACE_KINDS[S.placeNames]||PLACE_KINDS.cities;
+// Bigger places first (city, town, village, then neighbourhoods), so collisions drop the small ones.
+const PLACE_ORDER={city:0,town:1,village:2,suburb:3,quarter:4,neighbourhood:5};
+function placesNear(maps,within,{max=12}={}){
+  const range=within/zoom(),kinds=placeKinds();
   const src=maps?.detail?.places?.length?maps.detail:maps?.base;
   if(!src?.places)return [];
   const [sx,sy]=mapShift(src);
   return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
-    .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
+    .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range)
+    .sort((a,b)=>(PLACE_ORDER[a.c]??9)-(PLACE_ORDER[b.c]??9)||(a.rank||20)-(b.rank||20)).slice(0,max);
 }
 // Every airfield (big airports first, then coded fields, then the rest), with a short name:
 // "Butler County Regional Airport" -> "Butler County".
@@ -4461,7 +4469,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
@@ -4524,10 +4532,10 @@ function flashCredits(){
 }
 
 // --- Layouts. Order is the Settings order; the first is the default.
-const LAYOUTS=[['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['atlas','Atlas'],
-  ['atlas-dark','Atlas Dark'],['atlas-satellite','Atlas Satellite'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
+const LAYOUTS=[['atlas-dark','Atlas Dark'],['atlas','Atlas Light'],['atlas-satellite','Atlas Satellite'],
+  ['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
 const layoutName=id=>(LAYOUTS.find(([k])=>k===id)||LAYOUTS[0])[1];
-const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:'radar';
+const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:LAYOUTS[0][0];
 // A variant reuses another layout's code, with stylesheets layered on top in order
 // (each also becomes an L-<id> class on the stage); ctx.layout() tells the code which.
 const VARIANTS={'atlas-dark':['atlas','atlas-dark'],'atlas-satellite':['atlas','atlas-dark','atlas-satellite']};
@@ -4569,7 +4577,7 @@ async function useLayout(id){
   if(active?.id===id)return;
   const token=++layoutToken;
   let mod;
-  try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!=='radar')useLayout('radar');return;}
+  try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!==LAYOUTS[0][0])useLayout(LAYOUTS[0][0]);return;}
   if(token!==layoutToken)return;
   const old=active;
   if(old){
@@ -4751,6 +4759,7 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  setText('set-places-v',{off:'Off',cities:'Cities',hoods:'Neighborhoods',both:'Cities & neighborhoods'}[settings.placeNames]);
   setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
@@ -4769,6 +4778,11 @@ function adjustSetting(el,dir){
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
   else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
+  else if(el.id==='set-places'){
+    const steps=['off','cities','hoods','both'],i=steps.indexOf(settings.placeNames);
+    settings.placeNames=steps[(i+dir+steps.length)%steps.length];saveSettings(settings);useSettings(settings);showSettings();
+    return mapsChanged(); // layouts set place labels when the map is (re)drawn
+  }
   else if(el.id==='set-chime'){
     const steps=['off','low','med','high'],i=steps.indexOf(settings.chime);
     settings.chime=steps[Math.max(0,Math.min(steps.length-1,i+dir))];saveSettings(settings);showSettings();

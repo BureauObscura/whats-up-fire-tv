@@ -1,8 +1,9 @@
 // Layout 10, Sectional: a cream VFR sectional chart around home. Towns in chart
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
+import {zoneOutline} from '../core.mjs';
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone} from '../kit.mjs';
 
 const W=680,H=540,CX=345,CY=282,PPM0=30,ROSE=118;
 let PPM=PPM0; // at the current map radius (set before each draw)
@@ -55,7 +56,7 @@ function ui(){
         <header><span class="tl">Legend</span></header>
         <div class="keys">
           <div><svg viewBox="0 0 30 18"><path d="M15 2C16 2 16.4 5 16.4 7L16.4 8 27 12 27 14 16.4 11 16 15 19 17 11 17 14 15 13.6 11 3 14 3 12 13.6 8 13.6 7C13.6 5 14 2 15 2Z" fill="#1d2f5e"/></svg>Aircraft</div>
-          <div><svg viewBox="0 0 30 18"><circle cx="15" cy="9" r="7" fill="none" stroke="#a3237f" stroke-width="2" stroke-dasharray="2 2.6"/></svg>Alert ring</div>
+          <div><svg class="key-zone" viewBox="0 0 30 18"></svg>Zone</div>
           <div><svg viewBox="0 0 30 18"><path d="M2 9a13 13 0 0 1 26 0" fill="none" stroke="#2a63ad" stroke-width="3"/></svg>Major airport</div>
           <div><svg viewBox="0 0 30 18"><path d="M2 9a13 13 0 0 1 26 0" fill="none" stroke="#2a63ad" stroke-width="2.4" stroke-dasharray="5 3"/></svg>Airport</div>
           <div><svg viewBox="0 0 30 18"><path d="M11 3.8L19 3.8 23 9 19 14.2 11 14.2 7 9Z" fill="#fff" stroke="#2a63ad" stroke-width="2"/></svg>Home</div>
@@ -117,7 +118,7 @@ function drawMap(){
   $.air.replaceChildren(...a,...lab);
   // Towns.
   const pl=[];
-  for(const t of placesNear(maps,12,{kinds:['city','town'],max:14})){
+  for(const t of placesNear(maps,12,{max:14})){
     const p=P(t.x,t.y),big=t.c==='city',name=t.name.toUpperCase(),w=name.length*(big?9:7)+4,h=big?16:13;
     const box={x:p.x-w/2,y:p.y-h+3,w,h};
     if(box.x<4||box.x+w>W-4||box.y<4||box.y+h>H-24||Math.hypot(p.x-CX,p.y-CY)<ROSE+10||boxes.some(b=>overlap(b,box)))continue;
@@ -143,6 +144,13 @@ function drawRose(){
   n.push(svg('path',{class:'hex',d:`M${hex}Z`}),svg('circle',{class:'hex-dot',cx:CX,cy:CY,r:2.2}));
   if(!windowView())n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
   $.rose.replaceChildren(...n);
+  // Legend: the zone as it is drawn, a ring (All around) or the window's wedge.
+  // Legend: the zone's own outline (ring or wedge), scaled to fit the 30x18 key.
+  const k=root.querySelector('.key-zone'),pts=zoneOutline(alertZone());
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const f=Math.min(24/(x1-x0||1),14/(y1-y0||1)),ox=15-(x0+x1)/2*f,oy=9+(y0+y1)/2*f;
+  if(k)k.replaceChildren(svg('path',{d:'M'+pts.map(([x,y])=>`${(ox+x*f).toFixed(1)} ${(oy-y*f).toFixed(1)}`).join('L')+'Z',
+    fill:'rgba(163,35,127,.12)',stroke:'#a3237f','stroke-width':1.6,'stroke-dasharray':'2 2.4'}));
   // Scale bar: 0-5 miles (or 0-8 km).
   const km=metric(),bar=niceDistance({ppm:PPM0},120),len=5,px=bar.px,x0=18,y0=H-34,s=[];
   s.push(svg('rect',{class:'scale-bg',x:x0-8,y:y0-18,width:px+48,height:30}));

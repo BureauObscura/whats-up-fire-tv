@@ -62,11 +62,12 @@ export function loadSettings(){
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
     chime:['off','low','med','high'].includes(s.chime)?s.chime:'med', // Settings > Chime (a plane enters your zone)
+    placeNames:['off','cities','hoods','both'].includes(s.placeNames)?s.placeNames:'cities', // Settings > Place names
     // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
     alertZone:s.alertZone==='window'?'window':'circle',
     viewFrom:deg(s.viewFrom,90),viewTo:deg(s.viewTo,180),
     viewMiles:VIEW_MILES.includes(Number(s.viewMiles))?Number(s.viewMiles):25,
-    layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
+    layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'atlas-dark'};
 }
 export const saveSettings=s=>store.set(KEY,s);
 

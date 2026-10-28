@@ -22,10 +22,9 @@ Includes MIT-licensed code by Alex Miller; see `THIRD_PARTY_NOTICES.md`. By Spac
   holds off the screensaver while the app is shown; see `src/silentLoop.ts` before an Appstore build),
   distance mi/km (speed kt or km/h), altitude ft/m. Back closes.
 * **Layouts.** Settings > Layout opens a bar over the live dashboard: left/right switch
-  layouts on the spot, OK keeps one, Back goes back to the saved one. 1 Radar (green
-  phosphor scope), 2 Glass, 3 Departures (split-flap board), 4 Blueprint, 5 Atlas (full city
-  map), 6 Atlas Dark (Atlas at night), 7 Atlas Satellite (USGS / Sentinel-2 imagery), 8 Swiss
-  (poster), 9 Synthwave, 10 Sectional (VFR chart), 11 Cockpit (navigation display), 12 Night Sky. Each picks its own fields, colours, fonts and map style, handles an
+  layouts on the spot, OK keeps one, Back goes back to the saved one. 1 Atlas Dark (default), 2 Atlas Light (full city map), 3 Atlas Satellite (USGS / Sentinel-2
+  imagery), 4 Radar (green phosphor scope), 5 Glass, 6 Departures (split-flap board), 7 Blueprint,
+  8 Swiss (poster), 9 Synthwave, 10 Sectional (VFR chart), 11 Cockpit (navigation display), 12 Night Sky. Each picks its own fields, colours, fonts and map style, handles an
   empty sky and shows squawk 7500/7600/7700 in its own style. Data and map credits show for
   ~5 s (on open, layout change and a new location's map), then fade; Settings lists them in full.
   Only the chosen layout's code, stylesheet and font are loaded.

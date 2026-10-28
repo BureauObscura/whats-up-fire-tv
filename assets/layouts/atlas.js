@@ -3,11 +3,11 @@
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
   airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto}=__modules["kit.mjs"];
-// Layout 5, Atlas: a light, fully detailed printed city map (landuse, parks, water,
+// Layout 2, Atlas Light: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
 // layout: hero flight, route and progress, six stats, cargo tonight, today, recent.
-// Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 7,
+// Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
@@ -189,10 +189,10 @@ function drawMap(){
     g._box=b?{x:Math.min(b.x,p.x-7),y:Math.min(b.y,p.y-7),w:Math.max(b.x+w,p.x+7)-Math.min(b.x,p.x-7),h:Math.max(b.y+h,p.y+7)-Math.min(b.y,p.y-7)}:{x:p.x-7,y:p.y-7,w:14,h:14};
     nodes.push(g);
   };
-  // Coded airports claim their space first, then (wide) the cities. Uncoded fields
+  // Coded airports claim their space first, then place names (Settings > Place names). Uncoded fields
   // (farm strips, ultralight parks) aren't shown.
   airfieldsNear(maps,7).filter(a=>a.code).forEach(field);
-  if(wide)for(const pl of placesNear(maps,7,{kinds:['city','town','village'],max:60})){
+  for(const pl of placesNear(maps,7,{max:60})){ // Settings > Place names
     const p=toView(VIEW,pl.x,pl.y),big=pl.c==='city',name=big?pl.name.toUpperCase():pl.name;
     const size=big?15:12.5,w=name.length*size*(big?.66:.52)+6,h=size+4;
     if(staticBoxes.length>44)break;
@@ -324,7 +324,7 @@ function render(m){
   const rec=m.recent.slice(0,hero?3:5);
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
-  }):[el('div','at-rr none','Nothing inside the alert ring yet.')]));
+  }):[el('div','at-rr none',windowView()?'Nothing through your window yet.':'Nothing inside the alert zone yet.')]));
   // One-line rows (cargo by brand, Rarest, Farthest): the type shrinks until they fit.
   for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
   // Nothing is cut short: long names wrap, and the sections spread down the full
@@ -345,7 +345,7 @@ function render(m){
 
 
 window.__whatsupLayout("atlas",{
-  name:'Atlas',map:'detail',
+  name:'Atlas Light',map:'detail',
   mount(r,c){root=r;ctx=c;demo=c.demo;sat=c.layout?.()==='atlas-satellite';dark=c.layout?.()==='atlas-dark'||sat;$={};trails.clear();ui();drawMap();},
   setMap(m){maps=m;drawMap();},
   render,

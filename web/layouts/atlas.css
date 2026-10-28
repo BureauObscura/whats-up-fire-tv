@@ -1,4 +1,4 @@
-/* Layout 5, Atlas: a printed city map on warm paper, with a slim data column. */
+/* Layout 2, Atlas Light: a printed city map on warm paper, with a slim data column. */
 @font-face{font-family:'Inter';src:url(../fonts/Inter.woff2) format('woff2');font-weight:300 900;font-display:block}
 .L-atlas{--ui-ink:#1e2a4a;--ui-dim:rgba(30,42,74,.68);--ui-faint:rgba(30,42,74,.3);--ui-bg:#fbf8f1;--ui-shade:rgba(240,235,224,.8);
   --ui-on:#fbf8f1;--ui-glow:rgba(30,42,74,.15);--ui-font:'Inter',system-ui,sans-serif;--ui-radius:6px;
