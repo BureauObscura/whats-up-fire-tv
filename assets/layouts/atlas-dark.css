@@ -4,6 +4,7 @@
   --at-ink:#e6e8ec;--at-dim:#9aa1ad;--at-paper:#121417;--at-red:#ff5b52;--at-cargo:#ffa23a;--at-accent:#46d6ff;--at-hero:#ffd23f}
 .L-atlas-dark .at-place{fill:#b9bec7;stroke:#121417}
 .L-atlas-dark .at-place.big{fill:#dfe2e7}
+.L-atlas-dark .at-fieldm,.L-atlas-dark .at-field{fill:#c7cbe8;stroke:#121417}
 .L-atlas-dark .at-apt{fill:#b3b6d6;stroke:#121417}
 .L-atlas-dark .at-alertring{fill:rgba(255,91,82,.05)}
 .L-atlas-dark .at-home{stroke:#121417}

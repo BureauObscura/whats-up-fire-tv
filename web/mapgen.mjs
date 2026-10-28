@@ -12,14 +12,17 @@ import {getJson,getBytes,store} from './live.mjs';
 export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
-const KEY='whatsup.map.v2',VERSION=2,MAX_AGE=30*86400000;
+const KEY='whatsup.map.v2',VERSION=3,MAX_AGE=30*86400000; // v3: airfields
 const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
 // features at low zooms by itself.
 const ZOOM=10;
-export const zoomFor=range=>range<=10?10:range<=25?9:range<=50?8:range<=100?7:6;
+export const zoomFor=range=>range<=15?10:range<=25?9:range<=50?8:range<=100?7:6;
+// Small airfields are only in z10 tiles (lower zooms carry international airports only),
+// so maps up to this radius read their labels from z10 tiles too (one extra pass).
+export const AIRFIELD_MAX_RANGE=50;
 // The street-detail map is drawn up to a 15-mile map radius; wider views draw the base map.
 export const DETAIL_MAX_RANGE=15;
 const STREETS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service']),MAJOR=new Set(['motorway','trunk','primary','secondary']);
@@ -110,7 +113,7 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
   const lim=range<=10?range+1.5:range*1.5,k=Math.max(1,range/10); // simplify/clip coarser as the view widens
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
-    water:[],rivers:[],roads:[],runways:[],airports:[],shields:[],places:[]};
+    water:[],rivers:[],roads:[],runways:[],airports:[],airfields:[],shields:[],places:[]};
   const shields=new Map(),places=new Map();
   const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
@@ -143,6 +146,12 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
       if(f.type!==1)return;
       const pr=f.properties,[x,y]=point(f,e);
       const code=String(pr.iata||pr.icao||'').toUpperCase();
+      if(Math.hypot(x,y)>range*1.5+12)return;
+      // Every airfield, coded or not (Atlas labels them all); `airports` stays the coded ones.
+      const name=nameOf(pr);
+      if(name&&out.airfields.length<200&&!out.airfields.some(a=>a.name===name))
+        out.airfields.push({name,code:String(pr.iata||pr.icao||'').toUpperCase(),iata:String(pr.iata||''),
+          kind:String(pr.class||''),x:Math.round(x*100)/100,y:Math.round(y*100)/100});
       if(!code||Math.hypot(x,y)>range+12)return;
       if(out.airports.some(a=>a.code===code))return;
       out.airports.push({code,iata:String(pr.iata||''),icao:String(pr.icao||''),name:nameOf(pr),
@@ -157,11 +166,24 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
     });
   });
   if(!fetched)throw new Error('no tiles');
+  if(zoom<10&&range<=AIRFIELD_MAX_RANGE){
+    const flim=range*1.5;
+    try{
+      await eachTile(home,flim,10,template,net,MVT,({each,point})=>each('aerodrome_label',(f,e)=>{
+        if(f.type!==1)return;
+        const pr=f.properties,name=nameOf(pr),[x,y]=point(f,e);
+        if(!name||Math.abs(x)>flim||Math.abs(y)>flim||out.airfields.length>=200||out.airfields.some(a=>a.name===name))return;
+        out.airfields.push({name,code:String(pr.iata||pr.icao||'').toUpperCase(),iata:String(pr.iata||''),
+          kind:String(pr.class||''),x:Math.round(x*100)/100,y:Math.round(y*100)/100});
+      }));
+    }catch(e){/* the big airports from the map itself still show */}
+  }
   out.shields=[...shields.values()].map(({ref,x,y})=>({ref,x:Math.round(x*100)/100,y:Math.round(y*100)/100}));
   const order={city:0,town:1,suburb:2};
   out.places=[...places.values()].sort((a,b)=>order[a.c]-order[b.c]||a.rank-b.rank).slice(0,40);
   const rank={international:0,public:1,regional:1,military:2};
   out.airports.sort((a,b)=>(rank[a.kind]??3)-(rank[b.kind]??3)||Math.hypot(a.x,a.y)-Math.hypot(b.x,b.y));
+  out.airfields.sort((a,b)=>(rank[a.kind]??3)-(rank[b.kind]??3)||!a.code-!b.code||Math.hypot(a.x,a.y)-Math.hypot(b.x,b.y));
   return out;
 }
 

@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airportsNear,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range}=__modules["kit.mjs"];
 // Layout 5, Atlas: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -120,22 +120,36 @@ function ui(){
 function drawMap(){
   paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
   setText($.note,maps.detail||maps.base&&range()>DETAIL_MAX?'':maps.base?'Drawing streets…':'Drawing the map…');
-  // Place and airport names, set once per map with a white halo like print.
+  // Labels, set once per map with a halo like print. Up to 15 mi: no place names, every
+  // airfield in view (marker + code and short name). Wider: coded airfields, then cities
+  // and towns, then the small fields that still have room.
   const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24}];
-  const bounds={x:6,y:6,w:W-12,h:H-40};
-  for(const a of airportsNear(maps,9,4)){
-    const p=toView(VIEW,a.x,a.y),t=a.iata||a.code,w=t.length*9+26;
-    if(p.x<20||p.x>W-20||p.y<20||p.y>H-40)continue;
-    const b=placeBox(staticBoxes,p,w,18,[[-w/2,10],[-w/2,-28]],bounds);if(!b)continue;
-    nodes.push(svg('text',{class:'at-apt',x:b.x+w/2,y:b.y+14,'text-anchor':'middle'},`✈ ${t}`));
-  }
-  for(const pl of placesNear(maps,7,{kinds:['city','town','suburb','neighbourhood','quarter','village'],max:60})){
-    const p=toView(VIEW,pl.x,pl.y),big=pl.c==='city'||pl.c==='town',name=big?pl.name.toUpperCase():pl.name;
+  const bounds={x:6,y:6,w:W-12,h:H-40},wide=range()>DETAIL_MAX;
+  const field=a=>{
+    const p=toView(VIEW,a.x,a.y);
+    if(p.x<8||p.x>W-8||p.y<8||p.y>H-34)return;
+    const name=shortField(a.name),major=a.kind==='international'||a.kind==='regional'||a.kind==='public';
+    const w=(a.code?a.code.length*8.6+8:0)+name.length*6.6+16,h=17;
+    const b=placeBox(staticBoxes,p,w,h,[[10,-h/2],[-w-10,-h/2],[-w/2,9],[-w/2,-h-9]],bounds);
+    if(!b&&wide)return;
+    staticBoxes.push({x:p.x-7,y:p.y-7,w:14,h:14});
+    nodes.push(svg('text',{class:`at-fieldm${major?' major':''}`,x:p.x,y:p.y+5,'text-anchor':'middle'},'✈'));
+    if(!b)return;
+    const t=svg('text',{class:'at-field',x:b.x+2,y:b.y+13});
+    if(a.code)t.append(svg('tspan',{class:'at-fieldc'},`${a.code} `));
+    t.append(svg('tspan',{},name));nodes.push(t);
+  };
+  // Coded airfields claim their space first, then (wide) the cities, then the small fields.
+  const fields=airfieldsNear(maps,7);
+  fields.filter(a=>a.code).forEach(field);
+  if(wide)for(const pl of placesNear(maps,7,{kinds:['city','town'],max:40})){
+    const p=toView(VIEW,pl.x,pl.y),big=pl.c==='city',name=big?pl.name.toUpperCase():pl.name;
     const size=big?15:12.5,w=name.length*size*(big?.66:.52)+6,h=size+4;
-    if(staticBoxes.length>34)break;
+    if(staticBoxes.length>44)break;
     const b=placeBox(staticBoxes,p,w,h,[[-w/2,-h/2]],bounds);if(!b)continue;
     nodes.push(svg('text',{class:`at-place ${big?'big':''}`,x:b.x+w/2,y:b.y+h-4,'text-anchor':'middle'},name));
   }
+  fields.filter(a=>!a.code).forEach(field);
   $.labels.replaceChildren(...nodes);
   // Scale bar: a round distance about 60 px long at the current map radius.
   const bar=niceDistance(VIEW,60);
@@ -144,9 +158,11 @@ function drawMap(){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());setText($.clock,fmt.clock(now));
+  setText($.city,cityName()||placeName());setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now));
-  setText($.status,statusText(m,demo));$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
+  // Status only when it matters (Connecting / No signal); Live and Preview go unsaid.
+  const status=statusText(m,demo);setText($.status,status==='Live'||status==='Preview'?'':status);
+  $.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);
   trails.update(m.planes,now);
 
@@ -198,7 +214,8 @@ function render(m){
   setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'none yet':'counted 6 pm – 6 am');
   const cell=(k,v,cls='')=>{const d=el('div',cls);d.append(el('dt','',k),el('dd','',v));return d;};
   $.log.replaceChildren(cell('Seen',fmt.int(L.today)),cell('Highest',L.highest?fmt.alt(L.highest.value):'—'),
-    cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide'));
+    cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide'),
+    cell('Farthest',L.farthest?`${L.farthest.name} · ${L.farthest.from} · ${fmt.far(L.farthest.value)}`:'—','wide far'));
   const rec=m.recent.slice(0,hero?3:5);
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;

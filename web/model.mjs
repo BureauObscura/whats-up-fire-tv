@@ -92,6 +92,13 @@ function updateLog(log,planes,now){
     if(number(a.altitude_ft)&&(!log.highest||a.altitude_ft>log.highest.value))log.highest={name,value:a.altitude_ft};
     if(number(a.speed_kt)&&(!log.fastest||a.speed_kt>log.fastest.value))log.fastest={name,value:a.speed_kt};
     if(night&&a.cargo&&!log.cargo.seen[a.hex])log.cargo.seen[a.hex]=a.cargo;
+    // Farthest: of the planes that came overhead (inside the alert ring), the longest trip
+    // from their route's origin airport to here.
+    const from=a.route?.from;
+    if(a.inside&&from&&number(from.lat)&&number(from.lon)){
+      const value=haversine(from.lat,from.lon,HOME.latitude,HOME.longitude);
+      if(!log.farthest||value>log.farthest.value)log.farthest={name,value,from:from.city||a.route.origin,code:a.route.origin};
+    }
   }
   return log;
 }
@@ -100,10 +107,10 @@ export function cargoCounts(seen){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
 }
 function logSummary(log){
-  if(!log)return {today:0,highest:null,fastest:null,rarest:null,cargoTonight:0,cargoBy:[],night:false};
+  if(!log)return {today:0,highest:null,fastest:null,farthest:null,rarest:null,cargoTonight:0,cargoBy:[],night:false};
   const rarest=log.typesToday.slice().sort((a,b)=>(log.typesAll[a]||0)-(log.typesAll[b]||0))[0];
   const cargoBy=cargoCounts(log.cargo.seen);
-  return {today:log.seen.length,highest:log.highest,fastest:log.fastest,night:!!log.cargo.night,
+  return {today:log.seen.length,highest:log.highest,fastest:log.fastest,farthest:log.farthest||null,night:!!log.cargo.night,
     rarest:rarest?{code:rarest,name:typeName(rarest),count:log.typesAll[rarest]}:null,
     cargoTonight:cargoBy.reduce((s,[,n])=>s+n,0),cargoBy};
 }
@@ -203,7 +210,7 @@ function demoSource(config,onModel,airports){
     ['a0c9f5','N8UH','N8UH','EC35','UNIVERSITY HOSPITAL','2009',-1.2,3.7,1300,118,20,0,null],
   ];
   const started=Date.now(),log={today:184,highest:{name:'UAE2VL',value:41000},fastest:{name:'SWA1987',value:512},
-    rarest:{code:'C130',name:typeName('C130'),count:1},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
+    rarest:{code:'C130',name:typeName('C130'),count:1},farthest:{name:'DHK283',value:4207,from:'Leipzig',code:'LEJ'},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
     ['a9f8e7','DAL2370','B712',leg('HOME','ATL'),19],['a8b7c6','N22PG','C25B',null,28]];
   // scene=long: the hero and a neighbour get the longest names a TV is likely to see.

@@ -195,6 +195,14 @@ export function placesNear(maps,within,{kinds=['city','town','suburb'],max=12}={
   return src.places.filter(p=>kinds.includes(p.c)).map(p=>({...p,x:p.x+sx,y:p.y+sy}))
     .filter(p=>Math.abs(p.x)<range&&Math.abs(p.y)<range).slice(0,max);
 }
+// Every airfield (big airports first, then coded fields, then the rest), with a short name:
+// "Butler County Regional Airport" -> "Butler County".
+export const shortField=name=>name.replace(/\s*\b(International |Regional |Municipal )?(Airport|Airfield|Airpark|Aerodrome|Ultralight ?port|Flightpark)\b.*$/i,'').trim()||name;
+export function airfieldsNear(maps,within,max=60){
+  const m=maps?.base,range=within/zoom();if(!m?.airfields)return [];
+  const [sx,sy]=mapShift(m);
+  return m.airfields.map(a=>({...a,x:a.x+sx,y:a.y+sy})).filter(a=>Math.abs(a.x)<range*1.5&&Math.abs(a.y)<range).slice(0,max);
+}
 export function airportsNear(maps,within,max=6){
   const m=maps?.base,range=within/zoom();if(!m?.airports)return [];
   const [sx,sy]=mapShift(m);

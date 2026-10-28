@@ -8,6 +8,10 @@
 .L-atlas .at-canvas,.L-atlas .at-svg{position:absolute;left:0;top:0;width:700px;height:540px}
 .L-atlas .at-place{fill:#5d5446;font:italic 500 12.5px Inter;letter-spacing:.02em;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
 .L-atlas .at-place.big{fill:#3c3428;font:700 15px Inter;font-style:normal;letter-spacing:.16em}
+.L-atlas .at-fieldm{fill:#4f4777;font:700 14px Inter;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
+.L-atlas .at-fieldm.major{font-size:18px}
+.L-atlas .at-field{fill:#4f4777;font:600 12.5px Inter;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
+.L-atlas .at-fieldc{font-weight:800;letter-spacing:.04em}
 .L-atlas .at-apt{fill:#4f4777;font:800 14px Inter;letter-spacing:.06em;paint-order:stroke;stroke:#f6f1e7;stroke-width:4px;stroke-linejoin:round}
 .L-atlas .at-alertring{fill:rgba(200,55,45,.05);stroke:var(--at-red);stroke-width:1.4;stroke-dasharray:7 5}
 .L-atlas .at-home{fill:var(--at-red);stroke:#fff;stroke-width:2.5}
@@ -38,6 +42,7 @@
 .L-atlas .at-clock{display:block;font:800 20px/1.15 Inter;font-variant-numeric:tabular-nums}
 .L-atlas .at-status{font:600 11.5px Inter;color:#2f7d4f;text-transform:uppercase;letter-spacing:.1em}
 .L-atlas .at-status.off{color:var(--at-red)}
+.L-atlas .at-status:empty{display:none}
 .L-atlas .at-date{font:500 14px Inter;color:var(--at-dim);margin-top:2px;padding-bottom:9px;border-bottom:2px solid var(--at-ink)}
 .L-atlas .at-hero{display:flex;flex-direction:column;gap:4px}
 .L-atlas .at-kicker{font:700 12.5px Inter;letter-spacing:.12em;text-transform:uppercase;color:var(--at-red)}
@@ -85,4 +90,4 @@
 .L-atlas .tight .at-cargo-n{font-size:32px}.L-atlas .tight .at-cargo{margin-bottom:4px}
 .L-atlas .tight .at-route{font-size:15.5px}.L-atlas .tight .at-type{font-size:14px;margin-top:2px}.L-atlas .tight .at-books{padding-top:6px}
 /* Tighter: the least useful lines go before any text would be cut. */
-.L-atlas .tighter .at-prog,.L-atlas .tighter .at-log .wide{display:none}
+.L-atlas .tighter .at-prog,.L-atlas .tighter .at-log .wide:not(.far){display:none}
