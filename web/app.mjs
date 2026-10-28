@@ -6,7 +6,7 @@ import {CONFIG} from './config.js';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog} from './model.mjs';
 import {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
-import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,DETAIL_MAX_RANGE,detailRangeFor} from './mapgen.mjs';
+import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
@@ -118,13 +118,13 @@ function mapsChanged(){
 let detailToken=0,detailBusy=false;
 async function ensureDetail(){
   const place=settings.place;
-  if(!place||maps.detail||detailBusy||mapMiles()>DETAIL_MAX_RANGE)return;
-  const reach=detailRangeFor(mapMiles()),saved=savedDetail(place,reach);
+  if(!place||maps.detail||detailBusy)return;
+  const spec=detailSpec(mapMiles()),saved=savedDetail(place,spec);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
-  setText('layout-note','Drawing the street map…');
+  setText('layout-note',mapMiles()<=15?'Drawing the street map…':'Filling in map detail…');
   try{
-    const built=await buildDetail(place,{range:reach});
+    const built=await buildDetail(place,spec);
     if(token!==detailToken||settings.place!==place)return;
     saveDetail(built);
     if(active?.mod.map==='detail'){maps.detail=decodeDetail(built);mapsChanged();}
@@ -268,7 +268,7 @@ function stepMap(dir){
   settings.mapMiles=next;saveSettings(settings);useSettings(settings);
   if(layer?.id==='settings')showSettings();
   toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
-  if(next>DETAIL_MAX_RANGE||maps.detail&&maps.detail.range<detailRangeFor(next))maps.detail=null;
+  if(maps.detail&&!detailFits(maps.detail,detailSpec(next)))maps.detail=null;
   mapsChanged();refreshLayout();
   clearTimeout(mapTimer);
   mapTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},700);

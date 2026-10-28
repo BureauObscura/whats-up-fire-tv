@@ -119,12 +119,12 @@ function ui(){
 
 function drawMap(){
   paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
-  setText($.note,maps.detail||maps.base&&range()>DETAIL_MAX?'':maps.base?'Drawing streets…':'Drawing the map…');
+  setText($.note,maps.detail?'':maps.base?'Drawing detail…':'Drawing the map…');
   // Labels, set once per map with a halo like print. Up to 15 mi: no place names, just the
   // airports with an official code (IATA/ICAO/FAA), each a ring marker (never a plane
   // shape: planes are the aircraft) with "CODE Name". Wider: those airports, then cities.
   // Any map label under a flight tag is hidden while the tag is there (see render).
-  const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24}];
+  const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24},{x:8,y:H-54,w:170,h:30}]; // home, scale bar
   const bounds={x:6,y:6,w:W-12,h:H-40},wide=range()>DETAIL_MAX;
   const field=a=>{
     const p=toView(VIEW,a.x,a.y);
@@ -146,7 +146,7 @@ function drawMap(){
   // Coded airports claim their space first, then (wide) the cities. Uncoded fields
   // (farm strips, ultralight parks) aren't shown.
   airfieldsNear(maps,7).filter(a=>a.code).forEach(field);
-  if(wide)for(const pl of placesNear(maps,7,{kinds:['city','town'],max:40})){
+  if(wide)for(const pl of placesNear(maps,7,{kinds:['city','town','village'],max:60})){
     const p=toView(VIEW,pl.x,pl.y),big=pl.c==='city',name=big?pl.name.toUpperCase():pl.name;
     const size=big?15:12.5,w=name.length*size*(big?.66:.52)+6,h=size+4;
     if(staticBoxes.length>44)break;

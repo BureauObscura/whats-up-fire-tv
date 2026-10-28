@@ -3494,7 +3494,7 @@ async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window
   });
   if(!fetched)throw new Error('no tiles');
   if(zoom<10&&range<=AIRFIELD_MAX_RANGE){
-    const flim=range*1.5;
+    const flim=range*.85; // Atlas, the layout that shows airfields, sees ~0.7x the radius sideways
     try{
       await eachTile(home,flim,10,template,net,MVT,({each,point})=>each('aerodrome_label',(f,e)=>{
         if(f.type!==1)return;
@@ -3538,58 +3538,72 @@ function saveMap(m){
 // so ~150k points cost ~0.8 MB saved and ~0.6 MB in memory instead of nested arrays.
 // Buildings are capped (nearest first) to stay well under the localStorage quota.
 const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
-// How far the detail map must reach for a map radius: 6.5 mi covers every layout up to
-// 10 mi; at 15 mi Atlas shows ~10 mi sideways, so it is built that far (~2.5x the tiles).
-const detailRangeFor=mapMiles=>mapMiles<=10?DETAIL_RANGE:10.5;
+// The detail map for a map radius: how far it reaches (Atlas shows ~0.7x the radius
+// sideways), from which tile zoom, and whether it has buildings. Up to 15 mi it is the
+// full street map (z12 + z14 buildings). Wider, it is a mid-detail map from the most
+// detailed zoom that keeps it to ~16-36 tiles: roads by class as far as that zoom
+// carries them, land use, parks and woods, water, streams, rail, towns and villages.
+const DETAIL_SPECS=[[10,DETAIL_RANGE,12,BUILDING_RANGE],[15,10.5,12,BUILDING_RANGE],[25,18,11,0],[50,36,10,0],
+  [100,72,9,0],[150,108,8,0],[250,180,8,0]];
+function detailSpec(mapMiles){
+  const [max,range,zoom,buildings]=DETAIL_SPECS.find(([max])=>mapMiles<=max)||DETAIL_SPECS[DETAIL_SPECS.length-1];
+  return {range,zoom,buildings,key:max<=15?'street':`r${max}`};
+}
+// A built detail map serves a spec when it is the same kind, at least as far, same zoom.
+const detailFits=(m,spec)=>!!m&&(m.key||'street')===spec.key&&m.range>=spec.range&&(m.zoom||12)===spec.zoom;
 const MAX_BUILDING_POINTS=40000;
-// Clamped to Int16 (±32 mi): the extra point clipLine keeps past the edge can be far out.
-const int16=v=>Math.max(-32000,Math.min(32000,Math.round(v*1000)));
-const encode=pts=>{let px=0,py=0;return pts.map(([x,y])=>{const ix=int16(x),iy=int16(y),d=`${ix-px},${iy-py}`;px=ix;py=iy;return d;}).join(',');};
+// Points per mile: 1000 (~5 ft) for street maps; wide maps use fewer so ±1.6x their reach
+// still fits an Int16. Clamped: the extra point clipLine keeps past the edge can be far out.
+const perMile=range=>Math.min(1000,Math.floor(20000/range));
+const encoder=per=>{
+  const int16=v=>Math.max(-32000,Math.min(32000,Math.round(v*per)));
+  return pts=>{let px=0,py=0;return pts.map(([x,y])=>{const ix=int16(x),iy=int16(y),d=`${ix-px},${iy-py}`;px=ix;py=iy;return d;}).join(',');};
+};
 function decode(s){
   const v=s.split(','),out=new Int16Array(v.length);let x=0,y=0;
   for(let i=0;i<v.length;i+=2){x+=+v[i];y+=+v[i+1];out[i]=x;out[i+1]=y;}
   return out;
 }
 const DETAIL_LAYERS=['water','waterways','roads','landuse','parks','aero','buildings'];
-// Saved form -> drawable form (p: line, r: ring, both Int16Array in 1/1000 mi).
+// Saved form -> drawable form (p: line, r: ring, both Int16Array in 1/per mi; per defaults to 1000).
 function decodeDetail(m){
   if(!m)return null;
   const out={...m,decoded:true};
   for(const k of DETAIL_LAYERS)out[k]=m[k].map(f=>f.p?{...f,p:decode(f.p)}:{...f,r:decode(f.r)});
   return out;
 }
-async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,range=DETAIL_RANGE,buildings=BUILDING_RANGE}={}){
+async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,range=DETAIL_RANGE,buildings=BUILDING_RANGE,zoom=12,key='street'}={}){
   if(!MVT)throw new Error('mvt.js missing');
-  const lim=range+.5,template=await tileTemplate(net);
-  const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,buildingRange:buildings,built:Date.now(),
+  const lim=range+.5,template=await tileTemplate(net),per=perMile(range),encode=encoder(per),k=Math.max(1,range/10.5);
+  const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,key,per,buildingRange:buildings,built:Date.now(),
     water:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
   const places=new Map();
   const polys=(geom,f,e,tol,box=lim)=>geom(f,e).filter(r=>r.length>3&&touches(r,box)).map(r=>simplify(r,tol)).filter(r=>r.length>3).map(encode);
-  const fetched=await eachTile(home,lim,12,template,net,MVT,({each,geom,point})=>{
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
     const lines=(f,e,tol)=>geom(f,e).flatMap(l=>clipLine(l,lim)).map(l=>encode(simplify(l,tol)));
-    each('water',(f,e)=>{if(f.type===3&&f.properties.class!=='swimming_pool')for(const r of polys(geom,f,e,.008))out.water.push({r});});
+    each('water',(f,e)=>{if(f.type===3&&f.properties.class!=='swimming_pool')for(const r of polys(geom,f,e,(.008)*k))out.water.push({r});});
     each('waterway',(f,e)=>{
       const c=String(f.properties.class||'');
-      if(f.type===2&&['river','canal','stream'].includes(c))for(const p of lines(f,e,.008))out.waterways.push({c,p});
+      if(f.type===2&&['river','canal','stream'].includes(c))for(const p of lines(f,e,.008*k))out.waterways.push({c,p});
     });
     each('transportation',(f,e)=>{
       const c=String(f.properties.class||'');
       if(f.type!==2||!DETAIL_ROADS.has(c)||c==='rail'&&f.properties.subclass!=='rail')return;
-      for(const p of lines(f,e,.006))out.roads.push({c,p,...(f.properties.ramp?{ramp:1}:{}),...(f.properties.brunnel==='bridge'?{bridge:1}:{})});
+      for(const p of lines(f,e,.006*k))out.roads.push({c,p,...(f.properties.ramp?{ramp:1}:{}),...(f.properties.brunnel==='bridge'?{bridge:1}:{})});
     });
     each('landuse',(f,e)=>{
       const c=String(f.properties.class||'');
-      if(f.type===3&&LANDUSE.has(c))for(const r of polys(geom,f,e,c==='residential'?.02:.01))out.landuse.push({c,r});
+      if(f.type===3&&LANDUSE.has(c))for(const r of polys(geom,f,e,(c==='residential'?.02:.01)*k))out.landuse.push({c,r});
     });
     each('landcover',(f,e)=>{
       const c=String(f.properties.class||''),s=String(f.properties.subclass||'');
-      if(f.type===3&&(c==='wood'||c==='grass'))for(const r of polys(geom,f,e,c==='wood'?.02:.01))out.parks.push({c:s==='park'||s==='golf_course'?s:c,r});
+      if(f.type===3&&(c==='wood'||c==='grass'))for(const r of polys(geom,f,e,(c==='wood'?.02:.01)*k))out.parks.push({c:s==='park'||s==='golf_course'?s:c,r});
     });
-    each('park',(f,e)=>{if(f.type===3)for(const r of polys(geom,f,e,.015))out.parks.push({c:'park',r});});
+    each('park',(f,e)=>{if(f.type===3)for(const r of polys(geom,f,e,(.015)*k))out.parks.push({c:'park',r});});
     each('aeroway',(f,e)=>{
       const c=String(f.properties.class||'');
-      if(f.type===2&&(c==='runway'||c==='taxiway'))for(const p of lines(f,e,.004))out.aero.push({c,p});
-      else if(f.type===3&&['runway','aerodrome','apron','taxiway'].includes(c))for(const r of polys(geom,f,e,.004))out.aero.push({c,r});
+      if(f.type===2&&(c==='runway'||c==='taxiway'))for(const p of lines(f,e,.004*k))out.aero.push({c,p});
+      else if(f.type===3&&['runway','aerodrome','apron','taxiway'].includes(c))for(const r of polys(geom,f,e,(.004)*k))out.aero.push({c,r});
     });
     each('place',(f,e)=>{
       const pr=f.properties,c=String(pr.class||'');
@@ -3623,19 +3637,22 @@ async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.W
 
 // The detail map is saved straight to localStorage (not kept in memory by `store`),
 // so a layout that doesn't draw it costs nothing. Too big for the quota: not saved.
-function savedDetail(home,range=DETAIL_RANGE){
+// Two slots: the street map (up to 15 mi) and the most recent wide map.
+const detailKey=spec=>spec.key==='street'?DETAIL_KEY:`${DETAIL_KEY}.wide`;
+function savedDetail(home,spec=detailSpec(10)){
   try{
-    const m=JSON.parse(localStorage.getItem(DETAIL_KEY)||'null');
-    return m&&m.v===DETAIL_VERSION&&m.range>=range&&Math.abs(m.latitude-home.latitude)<.01&&Math.abs(m.longitude-home.longitude)<.01&&
+    const m=JSON.parse(localStorage.getItem(detailKey(spec))||'null');
+    return m&&m.v===DETAIL_VERSION&&detailFits(m,spec)&&Math.abs(m.latitude-home.latitude)<.01&&Math.abs(m.longitude-home.longitude)<.01&&
       Date.now()-m.built<MAX_AGE?m:null;
   }catch{return null;}
 }
 function saveDetail(m){
-  try{localStorage.setItem(DETAIL_KEY,JSON.stringify(m));return true;}
-  catch{try{localStorage.removeItem(DETAIL_KEY);}catch{/* no storage */}return false;}
+  const key=detailKey({key:m.key||'street'});
+  try{localStorage.setItem(key,JSON.stringify(m));return true;}
+  catch{try{localStorage.removeItem(key);}catch{/* no storage */}return false;}
 }
 
-return {MAP_ATTRIBUTION,zoomFor,AIRFIELD_MAX_RANGE,DETAIL_MAX_RANGE,buildMap,savedMap,saveMap,DETAIL_RANGE,detailRangeFor,decodeDetail,buildDetail,savedDetail,saveDetail};
+return {MAP_ATTRIBUTION,zoomFor,AIRFIELD_MAX_RANGE,DETAIL_MAX_RANGE,buildMap,savedMap,saveMap,DETAIL_RANGE,detailSpec,detailFits,decodeDetail,buildDetail,savedDetail,saveDetail};
 })();
 // ---- model.mjs
 __modules["model.mjs"]=(()=>{
@@ -4058,7 +4075,7 @@ function paintMap(canvas,maps,view,spec){
   for(const s of spec){
     const from=s.from||(['landuse','parks','aero','buildings','waterways'].includes(s.layer)?'detail':'base');
     const m=maps?.[from];if(!m||!m[s.layer]?.length)continue;
-    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view);
+    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view),div=m.per||1000; // detail maps: points per mile
     const X=(x,y)=>{x+=sx;y+=sy;return view.cx+(x*cr-y*sr)*ppm;},Y=(x,y)=>{x+=sx;y+=sy;return view.cy-(x*sr+y*cr)*ppm;};
     g.beginPath();
     for(const f of m[s.layer]){
@@ -4066,7 +4083,7 @@ function paintMap(canvas,maps,view,spec){
       if(s.not&&s.not.includes(f.c))continue;
       const pts=f.p||f.r||f,closed=!!f.r||s.layer==='water'&&from==='base';
       if(ArrayBuffer.isView(pts)){
-        for(let i=0;i<pts.length;i+=2){const x=pts[i]/1000,y=pts[i+1]/1000;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+        for(let i=0;i<pts.length;i+=2){const x=pts[i]/div,y=pts[i+1]/div;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
       }else{
         for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
       }
@@ -4123,7 +4140,7 @@ const {CONFIG}=__modules["config.js"];
 const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog}=__modules["model.mjs"];
 const {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
-const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,DETAIL_MAX_RANGE,detailRangeFor}=__modules["mapgen.mjs"];
+const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits}=__modules["mapgen.mjs"];
 const {svg,useSettings,fmt,makeCanvas,paintMap}=__modules["kit.mjs"];
 // What's Up: the page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
@@ -4244,13 +4261,13 @@ function mapsChanged(){
 let detailToken=0,detailBusy=false;
 async function ensureDetail(){
   const place=settings.place;
-  if(!place||maps.detail||detailBusy||mapMiles()>DETAIL_MAX_RANGE)return;
-  const reach=detailRangeFor(mapMiles()),saved=savedDetail(place,reach);
+  if(!place||maps.detail||detailBusy)return;
+  const spec=detailSpec(mapMiles()),saved=savedDetail(place,spec);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
-  setText('layout-note','Drawing the street map…');
+  setText('layout-note',mapMiles()<=15?'Drawing the street map…':'Filling in map detail…');
   try{
-    const built=await buildDetail(place,{range:reach});
+    const built=await buildDetail(place,spec);
     if(token!==detailToken||settings.place!==place)return;
     saveDetail(built);
     if(active?.mod.map==='detail'){maps.detail=decodeDetail(built);mapsChanged();}
@@ -4394,7 +4411,7 @@ function stepMap(dir){
   settings.mapMiles=next;saveSettings(settings);useSettings(settings);
   if(layer?.id==='settings')showSettings();
   toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
-  if(next>DETAIL_MAX_RANGE||maps.detail&&maps.detail.range<detailRangeFor(next))maps.detail=null;
+  if(maps.detail&&!detailFits(maps.detail,detailSpec(next)))maps.detail=null;
   mapsChanged();refreshLayout();
   clearTimeout(mapTimer);
   mapTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},700);

@@ -159,7 +159,7 @@ export function paintMap(canvas,maps,view,spec){
   for(const s of spec){
     const from=s.from||(['landuse','parks','aero','buildings','waterways'].includes(s.layer)?'detail':'base');
     const m=maps?.[from];if(!m||!m[s.layer]?.length)continue;
-    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view);
+    const [sx,sy]=mapShift(m,view.center),ppm=ppmOf(view),div=m.per||1000; // detail maps: points per mile
     const X=(x,y)=>{x+=sx;y+=sy;return view.cx+(x*cr-y*sr)*ppm;},Y=(x,y)=>{x+=sx;y+=sy;return view.cy-(x*sr+y*cr)*ppm;};
     g.beginPath();
     for(const f of m[s.layer]){
@@ -167,7 +167,7 @@ export function paintMap(canvas,maps,view,spec){
       if(s.not&&s.not.includes(f.c))continue;
       const pts=f.p||f.r||f,closed=!!f.r||s.layer==='water'&&from==='base';
       if(ArrayBuffer.isView(pts)){
-        for(let i=0;i<pts.length;i+=2){const x=pts[i]/1000,y=pts[i+1]/1000;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+        for(let i=0;i<pts.length;i+=2){const x=pts[i]/div,y=pts[i+1]/div;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
       }else{
         for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
       }
