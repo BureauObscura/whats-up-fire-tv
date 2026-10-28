@@ -3987,7 +3987,9 @@ function derive(a){
   return {x,y,ground,bearing,elevation,cpa};
 }
 
-// Logbook: per local day, saved. Rarest = today's type seen fewest times overall.
+// Logbook: per local day, saved. Seen/Highest/Fastest/Cargo count the local area (15 NM).
+// Rarest and Farthest count planes in the alert zone (circle, or the window wedge):
+// Rarest = the type seen in the zone today that is fewest seen overall (local area, all time).
 // Cargo "tonight" runs 18:00-06:00 local, counted per brand.
 const LOG_KEY='whatsup.logbook.v1';
 const localDay=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:TZ});
@@ -3996,10 +3998,25 @@ const tonightKey=t=>{const h=localHour(t);return h>=18?localDay(t):h<6?localDay(
 const resetLog=()=>store.remove(LOG_KEY);
 function updateLog(log,planes,now){
   const day=localDay(now);
-  if(!log||log.day!==day)log={day,seen:[],highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
+  if(!log||log.day!==day)log={day,seen:[],zoneSeen:[],highest:null,fastest:null,typesToday:[],typesZone:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
+  log.typesZone=log.typesZone||[];log.zoneSeen=log.zoneSeen||[];
   const night=tonightKey(now);
   if(log.cargo.night!==night||Array.isArray(log.cargo.seen))log.cargo={night,seen:{}};
   for(const a of planes){
+    if(a.inside&&a.aircraft_type&&!log.typesZone.includes(a.aircraft_type))log.typesZone.push(a.aircraft_type);
+    // Zone planes beyond the local area still count toward the all-time type totals, once.
+    if(a.inside&&a.distance_mi>LOG_MILES&&!log.zoneSeen.includes(a.hex)){
+      log.zoneSeen.push(a.hex);if(log.zoneSeen.length>1000)log.zoneSeen.shift();
+      if(a.aircraft_type)log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
+    }
+    // Farthest: of the planes that came into the alert zone, the longest trip from their
+    // route's origin airport to here.
+    const from=a.route?.from;
+    if(a.inside&&from&&number(from.lat)&&number(from.lon)){
+      const value=haversine(from.lat,from.lon,HOME.latitude,HOME.longitude);
+      if(!log.farthest||value>log.farthest.value)log.farthest={name:a.flight,value,from:from.city||a.route.origin,code:a.route.origin};
+    }
+    if(a.distance_mi>LOG_MILES)continue; // the rest counts the local area only
     if(!log.seen.includes(a.hex)){
       log.seen.push(a.hex);if(log.seen.length>3000)log.seen.shift();
       if(a.aircraft_type){log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
@@ -4009,13 +4026,6 @@ function updateLog(log,planes,now){
     if(number(a.altitude_ft)&&(!log.highest||a.altitude_ft>log.highest.value))log.highest={name,value:a.altitude_ft};
     if(number(a.speed_kt)&&(!log.fastest||a.speed_kt>log.fastest.value))log.fastest={name,value:a.speed_kt};
     if(night&&a.cargo&&!log.cargo.seen[a.hex])log.cargo.seen[a.hex]=a.cargo;
-    // Farthest: of the planes that came overhead (inside the alert ring), the longest trip
-    // from their route's origin airport to here.
-    const from=a.route?.from;
-    if(a.inside&&from&&number(from.lat)&&number(from.lon)){
-      const value=haversine(from.lat,from.lon,HOME.latitude,HOME.longitude);
-      if(!log.farthest||value>log.farthest.value)log.farthest={name,value,from:from.city||a.route.origin,code:a.route.origin};
-    }
   }
   return log;
 }
@@ -4025,7 +4035,7 @@ function cargoCounts(seen){
 }
 function logSummary(log){
   if(!log)return {today:0,highest:null,fastest:null,farthest:null,rarest:null,cargoTonight:0,cargoBy:[],night:false};
-  const rarest=log.typesToday.slice().sort((a,b)=>(log.typesAll[a]||0)-(log.typesAll[b]||0))[0];
+  const rarest=(log.typesZone||[]).slice().sort((a,b)=>(log.typesAll[a]||0)-(log.typesAll[b]||0))[0];
   const cargoBy=cargoCounts(log.cargo.seen);
   return {today:log.seen.length,highest:log.highest,fastest:log.fastest,farthest:log.farthest||null,night:!!log.cargo.night,
     rarest:rarest?{code:rarest,name:typeName(rarest),count:log.typesAll[rarest]}:null,
@@ -4099,7 +4109,7 @@ function liveSource(config,onModel){
     pruneSamples(now);
     // Today's logbook and cargo tonight count the same local area at every map radius
     // (the original 15 NM feed), so zooming out doesn't inflate them.
-    if(fresh){log=updateLog(log,planes.filter(a=>a.distance_mi<=LOG_MILES),now);store.set(LOG_KEY,log);}
+    if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
     onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log)});
@@ -4174,7 +4184,7 @@ function start(place,config,onModel,airports){
   return demo?demoSource(cfg,onModel,airports):liveSource(cfg,onModel);
 }
 
-return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,cargoCounts,start};
+return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,updateLog,cargoCounts,logSummary,start};
 })();
 // ---- kit.mjs
 __modules["kit.mjs"]=(()=>{

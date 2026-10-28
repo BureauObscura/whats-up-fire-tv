@@ -95,3 +95,16 @@ test('model photos: bundled per ICAO type with author and license, files present
   assert.equal(modelPhoto({aircraft_type:'b763'}).src,'models/B763.jpg');
   assert.equal(modelPhoto({aircraft_type:'ZZZZ'}),null);
 });
+test('logbook: Rarest and Farthest count planes in the alert zone, Seen counts the local area',async()=>{
+  const {updateLog,logSummary}=await import('../web/model.mjs');
+  const p=(hex,type,mi,inside,from)=>({hex,aircraft_type:type,distance_mi:mi,inside,flight:hex.toUpperCase(),altitude_ft:30000,speed_kt:400,
+    route:from?{origin:from.code,from:{city:from.city,lat:from.lat,lon:from.lon}}:null});
+  const now=Date.UTC(2026,9,28,12);
+  let log=updateLog({day:new Date(now).toLocaleDateString('en-CA',{timeZone:'UTC'}),seen:[],highest:null,fastest:null,typesToday:[],typesZone:[],
+    typesAll:{A124:5,C172:1,B738:0},cargo:{night:null,seen:{}}},[p('aaa001','B738',5,false),p('aaa002','A124',22,true,{code:'FRA',city:'Frankfurt',lat:50.03,lon:8.57}),
+    p('aaa003','C172',3,true,{code:'LUK',city:'Near home',lat:0.1,lon:0.1})],now);
+  const s=logSummary(log);
+  assert.equal(s.today,2,'Seen: the 22 mi plane is outside the local area');
+  assert.equal(s.rarest.code,'C172','Rarest: fewest seen of the zone types; B738 (fewest overall) was not in the zone');
+  assert.equal(s.farthest.name,'AAA002','Farthest counts the zone plane beyond the local area');
+});
