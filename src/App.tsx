@@ -1,8 +1,10 @@
 import {WebView} from '@amazon-devices/webview';
 import * as React from 'react';
-import {useCallback, useEffect, useRef} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {AppState, BackHandler, View, StyleSheet} from 'react-native';
 import {KeepAwake} from '@whatsup/keep-awake';
+import {KeplerVideoSurfaceView} from '@amazon-devices/react-native-w3cmedia';
+import {setSurface, startLoop, stopLoop} from './silentLoop';
 import {
   useHideSplashScreenCallback,
   usePreventHideSplashScreen,
@@ -31,7 +33,8 @@ const MAX_BYTES = 2 * 1024 * 1024;
 const USER_AGENT = 'WhatsUp/0.1 (Fire TV aircraft radar app, Vega OS)';
 
 type Request = {
-  type: 'get' | 'ui';
+  type: 'get' | 'ui' | 'awake';
+  on?: boolean;
   id: number;
   url: string;
   timeoutMs?: number;
@@ -106,6 +109,9 @@ export const App = () => {
   const webRef = useRef<any>(null);
   // True while the page shows Settings or the location screen: Back closes it.
   const overlayRef = useRef(false);
+  // Settings > Keep screen awake (the page reports it on load and when it changes).
+  const [awake, setAwake] = useState(true);
+  const [active, setActive] = useState(AppState.currentState !== 'background');
   // Keep the splash screen up until the page has loaded.
   usePreventHideSplashScreen();
   const hideSplashScreenCallback = useHideSplashScreenCallback();
@@ -124,6 +130,7 @@ export const App = () => {
     const sub = AppState.addEventListener('change', state => {
       active = state === 'active';
       engage(active);
+      setActive(active);
     });
     return () => {
       clearInterval(timer);
@@ -131,6 +138,16 @@ export const App = () => {
       engage(false);
     };
   }, []);
+
+  // The silent loop plays only while the app is shown and the switch is on.
+  useEffect(() => {
+    if (awake && active) {
+      startLoop();
+    } else {
+      stopLoop();
+    }
+  }, [awake, active]);
+  useEffect(() => () => stopLoop(), []);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -150,6 +167,10 @@ export const App = () => {
     try {
       request = JSON.parse(event.nativeEvent.data);
     } catch {
+      return;
+    }
+    if (request?.type === 'awake') {
+      setAwake(request.on !== false);
       return;
     }
     if (request?.type === 'ui') {
@@ -188,6 +209,15 @@ export const App = () => {
 
   return (
     <View style={styles.container}>
+      {awake && active ? (
+        <View style={styles.loop}>
+          <KeplerVideoSurfaceView
+            style={styles.loop}
+            onSurfaceViewCreated={(handle: string) => setSurface(handle)}
+            onSurfaceViewDestroyed={() => setSurface(null)}
+          />
+        </View>
+      ) : null}
       <WebView
         ref={webRef}
         style={styles.webview}
@@ -212,4 +242,6 @@ export const App = () => {
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#000'},
   webview: {backgroundColor: '#000'},
+  // 2 px in the bottom-left corner, under the page: the silent loop's video surface.
+  loop: {position: 'absolute', left: 0, bottom: 0, width: 2, height: 2},
 });

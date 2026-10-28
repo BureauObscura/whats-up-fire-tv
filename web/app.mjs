@@ -18,6 +18,8 @@ addEventListener('resize',fit);fit();
 // --- Bridge to the Vega app: it handles the remote's Back button and asks us first.
 const native=window.ReactNativeWebView;
 const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* desktop */}};
+// Keep screen awake: the app plays a silent, invisible loop so the screensaver stays away.
+const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake!==false});
 
 let settings=loadSettings(),feed=null,lastModel=null,placeToken=0;
 useSettings(settings);
@@ -241,6 +243,7 @@ function showSettings(){
   setText('set-map-v',fmt.dist(mapMiles(),0));
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
+  setText('set-awake-v',settings.keepAwake?'On':'Off');
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
@@ -248,6 +251,7 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
+  else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
   if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
@@ -501,6 +505,7 @@ function showWelcome(place){
 // --- Boot
 async function boot(){
   buildKeys();
+  tellAwake();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
   // Screenshot hook: ?map=50 sets the map radius for this launch.

@@ -20,6 +20,18 @@ id = "/com.amazon.kepler.keplerscript_4@IKeplerScript_0"
 [[needs.module]]
 id = "/com.amazon.kepler.webview_4@IWebview_4"
 
+[[needs.module]]
+id = "/com.amazon.kepler.kepler_media_controls_1@IKeplerMediaControls_0"
+
+[[needs.module]]
+id = "/com.amazon.kepler.keplermediadescriptor_1@IKeplermediadescriptor_1"
+
+[[needs.module]]
+id = "/com.amazon.kepler.w3cmedia_2@IW3cmedia_3"
+
+
+
+
 
 
 [components]
@@ -37,6 +49,31 @@ id = "com.amazon.webview.renderer_service"
 # Accessibility support
 [[wants.service]]
 id = "com.amazon.kepler.ucc.publisher"
+
+# Vega's media player, for the Keep screen awake silent loop (as in Amazon's vega-video-sample)
+[[wants.service]]
+id = "com.amazon.media.server"
+
+[[wants.service]]
+id = "com.amazon.mediametrics.service"
+
+[[wants.service]]
+id = "com.amazon.media.playersession.service"
+
+[[wants.service]]
+id = "com.amazon.mediabuffer.service"
+
+[[wants.service]]
+id = "com.amazon.mediatransform.service"
+
+[[wants.service]]
+id = "com.amazon.audio.stream"
+
+[[wants.service]]
+id = "com.amazon.audio.control"
+
+[[wants.service]]
+id = "com.amazon.audio.system"
 
 # Group-IPC, as in the Vega WebView template
 [[wants.service]]

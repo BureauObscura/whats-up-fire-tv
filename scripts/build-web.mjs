@@ -63,7 +63,8 @@ const html=readFileSync(join(web,'index.html'),'utf8')
   .replace('<script type="module" src="app.mjs"></script>','<script src="whatsup.js" defer></script>');
 if(!html.includes('whatsup.js'))throw new Error('index.html: script tag not found');
 writeFileSync(join(out,'index.html'),html);
-for(const item of ['whatsup.css','mvt.js','fonts'])cpSync(join(web,item),join(out,item),{recursive:true});
+// media/keep-awake.mp4: the silent loop the app plays to hold off the screensaver (Settings > Keep screen awake).
+for(const item of ['whatsup.css','mvt.js','fonts','media'])cpSync(join(web,item),join(out,item),{recursive:true});
 // App icon for manifest.toml (@image/whatsup_icon.png): 512x512 PNG.
 mkdirSync(join(out,'image'),{recursive:true});cpSync(join(root,'icon','whatsup_icon.png'),join(out,'image','whatsup_icon.png'));
 console.log(`assets/ written (${MODULES.length} modules, ${layouts.length} layout scripts, ${Math.round(layoutBytes/1024)} KB layout code)`);

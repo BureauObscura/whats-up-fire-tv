@@ -128,3 +128,10 @@ test('map radius: one saved map per radius, the 3 most recent kept',()=>{
   assert.equal(savedMap({latitude:40,longitude:-84.65},2),null,'another place');
   delete globalThis.localStorage;
 });
+test('keep screen awake: on unless turned off',()=>{
+  for(const [saved,want] of [[undefined,true],[true,true],[false,false],['no',true]]){
+    globalThis.localStorage={getItem:()=>JSON.stringify({keepAwake:saved}),setItem(){},removeItem(){}};
+    assert.equal(loadSettings().keepAwake,want);
+  }
+  delete globalThis.localStorage;
+});

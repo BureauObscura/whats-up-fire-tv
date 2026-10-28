@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {render} from '@testing-library/react-native';
+import {act, render} from '@testing-library/react-native';
 import {App} from '../src/App';
 
 jest.mock('@amazon-devices/webview', () => ({
@@ -22,6 +22,16 @@ jest.mock('@amazon-devices/react-native-kepler', () => ({
 }));
 const mockAppState: {listener: (state: string) => void} = {listener: () => {}};
 
+jest.mock('@amazon-devices/react-native-w3cmedia', () => ({
+  KeplerVideoSurfaceView: 'KeplerVideoSurfaceView',
+  VideoPlayer: jest.fn(),
+}));
+jest.mock('../src/silentLoop', () => ({
+  setSurface: jest.fn(),
+  startLoop: jest.fn(() => Promise.resolve()),
+  stopLoop: jest.fn(),
+}));
+const mockLoop = jest.requireMock('../src/silentLoop');
 jest.mock('@whatsup/keep-awake', () => ({
   KeepAwake: {start: jest.fn(() => ''), stop: jest.fn(() => '')},
 }));
@@ -44,6 +54,19 @@ describe('App', () => {
     expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
     unmount();
     expect(mockKeepAwake.stop).toHaveBeenCalledTimes(2);
+  });
+
+  it('plays the silent loop only while shown and Keep screen awake is on', () => {
+    mockLoop.startLoop.mockClear();
+    mockLoop.stopLoop.mockClear();
+    const {unmount} = render(<App />);
+    expect(mockLoop.startLoop).toHaveBeenCalled();
+    act(() => mockAppState.listener('background'));
+    expect(mockLoop.stopLoop).toHaveBeenCalled();
+    mockLoop.startLoop.mockClear();
+    act(() => mockAppState.listener('active'));
+    expect(mockLoop.startLoop).toHaveBeenCalled();
+    unmount();
   });
 
   it('re-reports engagement every 4 minutes only while active', () => {
