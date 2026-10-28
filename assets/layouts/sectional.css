@@ -48,14 +48,14 @@
   font:700 13px var(--bc);letter-spacing:.12em;text-transform:uppercase}
 .L-sectional .box header .tr{color:var(--mag)}
 .L-sectional .title{padding:6px 10px 6px;border-width:2.5px;text-align:center}
-.L-sectional .city{font:700 28px/1.05 var(--bc);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-sectional .city{font:700 28px/1.05 var(--bc);letter-spacing:.06em;overflow-wrap:anywhere}
 .L-sectional .sub{display:flex;justify-content:center;gap:10px;font:600 15px var(--bc);letter-spacing:.06em;margin-top:2px}
 .L-sectional .clock{color:var(--blue)}.L-sectional .status{color:var(--mag)}.L-sectional .status.off{color:var(--red)}
 .L-sectional .tbody{padding:4px 10px 8px}
-.L-sectional .fl-row{display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
+.L-sectional .fl-row{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px}
 .L-sectional .fl{font:700 30px/1.1 var(--bc);color:var(--mag);letter-spacing:.02em}
-.L-sectional .op{font:500 17px var(--bc);overflow:hidden;text-overflow:ellipsis}
-.L-sectional .rt{font:600 17px var(--bc);color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-sectional .op{font:500 17px var(--bc)}
+.L-sectional .rt{font:600 17px/1.2 var(--bc);color:var(--blue)}
 .L-sectional .grid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:1px 8px;margin:6px 0 0;font-size:17px}
 .L-sectional .grid dt{font:600 12px var(--bc);letter-spacing:.1em;color:rgba(42,38,34,.65);align-self:center}
 .L-sectional .grid dd{margin:0;font:700 17px var(--bc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -66,7 +66,7 @@
 .L-sectional .tn div{display:flex;flex-direction:column}
 .L-sectional .tn b{font:700 30px/1 var(--bc);color:var(--mag)}
 .L-sectional .tn span{font:500 14px var(--bc)}
-.L-sectional .cargo-by{padding:2px 10px 6px;font:600 14px var(--bc);color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-sectional .cargo-by{padding:2px 10px 6px;font:600 14px/1.25 var(--bc);color:var(--blue)}
 
 /* Emergency: a red NOTAM */
 .L-sectional .notam{background:var(--red);color:#fff;font:700 18px var(--bc);letter-spacing:.06em;padding:4px 10px;animation:sec-notam 1.4s steps(2) infinite}
@@ -79,4 +79,4 @@
 .L-sectional .keys div{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .L-sectional .keys svg{width:30px;height:18px;flex:none}
 .L-sectional .emergency .key{display:none}
-.L-sectional .notam{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-sectional .notam{line-height:1.25}

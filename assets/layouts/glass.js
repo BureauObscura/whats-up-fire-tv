@@ -122,6 +122,9 @@ function render(m){
     const arrow=el('i','gl-arrow','▲');arrow.style.transform=`rotate(${Math.round(a.heading||0)}deg)`;
     r.append(arrow,el('b','',a.flight),el('span','',fmt.alt(a.altitude_ft)),el('em','',fmt.dist(a.ground)));return r;
   }):[el('div','gl-row none',hero?'No other aircraft in range':`Nothing within ${fmt.dist(range(),0)}`)]));
+  // Long names wrap instead of being cut, so drop In range rows until the column fits.
+  const col=$.list.closest('.gl-col');
+  while(col.scrollHeight>col.clientHeight+1&&$.list.children.length>1)$.list.lastElementChild.remove();
   const L=m.log;
   setText($.seen,fmt.int(L.today));setText($.cargo,L.cargoTonight);
   setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,2).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'none yet':'from 6 pm');

@@ -87,12 +87,12 @@ function ui(){
   const north=el('div','at-north');north.innerHTML='<b>N</b><i></i>';
   map.append($.canvas,$.labels,$.over,north,$.scale,$.note);
   side.innerHTML=`
-    <header><div class="at-city"></div><div class="at-time"><b class="at-clock"></b><span class="at-status"></span></div></header>
-    <div class="at-date"></div>
+    <div class="at-top"><header><div class="at-city"></div><div class="at-time"><b class="at-clock"></b><span class="at-status"></span></div></header>
+    <div class="at-date"></div></div>
     <section class="at-hero">
       <div class="at-alert" hidden></div>
       <div class="at-kicker"></div>
-      <div class="at-flight"><b class="at-fl"></b><span class="at-op"></span></div>
+      <div class="at-flight"><b class="at-fl"></b><div class="at-op"></div></div>
       <div class="at-route"></div>
       <div class="at-prog"><span class="at-bar"><i></i></span><span class="at-progt"></span></div>
       <dl class="at-stats">
@@ -100,7 +100,7 @@ function ui(){
         <div><dt>Climb</dt><dd class="at-vs"></dd></div><div><dt>Heading</dt><dd class="at-hdg"></dd></div>
         <div><dt>Look</dt><dd class="at-look"></dd></div><div><dt>Closest</dt><dd class="at-cpa"></dd></div>
       </dl>
-      <div class="at-type"></div>
+      <div class="at-type"></div><div class="at-reg"></div>
     </section>
     <section class="at-quiet" hidden></section>
     <section class="at-books">
@@ -109,7 +109,7 @@ function ui(){
     </section>
     <section class="at-recent"><h4>Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
-    'type','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+    'type','reg','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
   $.barFill=$.bar.firstChild;
   root.append(map,side);
 }
@@ -187,7 +187,8 @@ function render(m){
     setText($.vs,fmt.vs(hero.vertical));setText($.hdg,number(hero.heading)?`${String(Math.round(hero.heading)).padStart(3,'0')}° ${compass(hero.heading)}`:'—');
     setText($.look,`${compass(hero.bearing)} ${Math.max(0,Math.round(hero.elevation))}°`);
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'passed':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
-    setText($.type,[hero.type||hero.aircraft_type||'Unknown type',hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean).join(' · '));
+    setText($.type,hero.type||hero.aircraft_type||'Unknown type');
+    setText($.reg,[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean).join(' · '));
   }
   const L=m.log;
   setText($['cargo-n'],L.cargoTonight);
@@ -199,10 +200,15 @@ function render(m){
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','at-rr none','Nothing inside the alert ring yet.')]));
-  // Recent takes whatever height is left; with a busy hero there may be none, so drop it
-  // rather than show a clipped heading.
-  const sec=$.rec.parentNode;sec.style.visibility='';
-  if(sec.clientHeight<sec.firstElementChild.offsetHeight+$.rec.firstElementChild.offsetHeight+10)sec.style.visibility='hidden';
+  // Nothing is cut short: long names wrap, and the sections spread down the full
+  // column. If a busy hero leaves no room, Recent goes (its space is shared out by
+  // the column), then the type tightens.
+  const side=$.rec.closest('.at-side'),sec=$.rec.parentNode;
+  side.classList.remove('tight','tighter');sec.hidden=false;
+  const over=()=>side.scrollHeight>side.clientHeight+1;
+  if(over())sec.hidden=true;
+  if(over())side.classList.add('tight');
+  if(over())side.classList.add('tighter');
 }
 
 export default {

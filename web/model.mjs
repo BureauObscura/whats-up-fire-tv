@@ -1,7 +1,7 @@
 // The display model: live aircraft (live.mjs: adsb.fi + ADSB.lol routes) enriched
 // with operator, cargo brand, look-up angles, closest approach, trend and a daily
 // logbook. ?demo=1 makes a synthetic sky around whatever home is set (&scene=emergency:
-// a 7700 squawk; &scene=quiet: nothing in range).
+// a 7700 squawk; &scene=quiet: nothing in range; &scene=long: long names everywhere, to check nothing is cut off).
 import {IDS,airspace,recentSightings,number} from './core.mjs';
 import {RouteLookup} from './routes.mjs';
 import {startLive,haversine,store} from './live.mjs';
@@ -151,7 +151,7 @@ function pickHero(planes,radius,range){
 }
 
 // --- Live
-const MAX_PLANES=300;
+const MAX_PLANES=300,LOG_MILES=17.3; // 15 NM
 function liveSource(config,onModel){
   const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0;
   return startLive((states,ok)=>{
@@ -164,7 +164,9 @@ function liveSource(config,onModel){
     // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
     const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
     pruneSamples(now);
-    if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
+    // Today's logbook and cargo tonight count the same local area at every map radius
+    // (the original 15 NM feed), so zooming out doesn't inflate them.
+    if(fresh){log=updateLog(log,planes.filter(a=>a.distance_mi<=LOG_MILES),now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
     onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
@@ -176,7 +178,8 @@ function liveSource(config,onModel){
 const HUBS={ATL:['Atlanta',33.637,-84.428],ORD:['Chicago',41.978,-87.905],DEN:['Denver',39.862,-104.673],
   LHR:['London',51.47,-0.454],SDF:['Louisville',38.174,-85.736],MEM:['Memphis',35.042,-89.977],
   LEJ:['Leipzig',51.432,12.241],JFK:['New York',40.641,-73.778],LAX:['Los Angeles',33.942,-118.408],
-  DXB:['Dubai',25.253,55.365],CDG:['Paris',49.01,2.548],BOS:['Boston',42.364,-71.005]};
+  DXB:['Dubai',25.253,55.365],CDG:['Paris',49.01,2.548],BOS:['Boston',42.364,-71.005],
+  FRA:['Frankfurt am Main',50.033,8.57],DFW:['Dallas/Fort Worth',32.897,-97.038]};
 function demoSource(config,onModel,airports){
   const local=(airports||[]).find(a=>a.iata)||null;
   const localPlace=local?{code:local.iata,city:local.name.replace(/ (International )?Airport$/,''),
@@ -203,6 +206,11 @@ function demoSource(config,onModel,airports){
     rarest:{code:'C130',name:typeName('C130'),count:1},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
     ['a9f8e7','DAL2370','B712',leg('HOME','ATL'),19],['a8b7c6','N22PG','C25B',null,28]];
+  // scene=long: the hero and a neighbour get the longest names a TV is likely to see.
+  if(scene==='long'){
+    DEMO[0]=['3c4b26','GEC8401','D-ALFH','B77L','LUFTHANSA CARGO AG','2013',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
+    DEMO[5]=['a7c3b9','SWA4499','N8731J','B38M','SOUTHWEST AIRLINES CO','2019',6.9,-5.2,37000,462,198,0,leg('DFW','FRA')];
+  }
   const tick=()=>{
     const now=Date.now(),t=(now-started)/1000;
     const planes=DEMO.map(([hex,callsign,registration,aircraft_type,ownOp,year,e,n,alt,gs,track,fpm,route])=>{
@@ -211,7 +219,7 @@ function demoSource(config,onModel,airports){
       const a={hex,callsign,registration,aircraft_type,latitude,longitude,altitude_ft:Math.round(alt+fpm*t/60),speed_kt:gs,
         heading:track,position_timestamp:now/1000-1};
       a.distance_mi=Math.hypot(east,north);a.inside=a.distance_mi<=config.radiusMiles;
-      const raw={ownOp,year,squawk:scene==='emergency'&&hex==='a2b150'?'7700':'2214',baro_rate:fpm};
+      const raw={ownOp,year,squawk:scene==='emergency'&&hex===DEMO[0][0]?'7700':'2214',baro_rate:fpm};
       return enrich(a,raw,route?{...route,flight:callsign}:null,now);
     }).filter(a=>a.distance_mi<config.rangeMiles+3&&scene!=='quiet')
       .sort((a,b)=>Number(b.inside)-Number(a.inside)||a.distance_mi-b.distance_mi);

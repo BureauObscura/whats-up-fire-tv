@@ -54,7 +54,7 @@ function render(m){
   }else{
     const live=demo||m.fresh;
     setText($.kicker,live?'Above you right now':statusText(m,demo));
-    giant(live?'0':'—');setText($.unit,live?`aircraft within ${fmt.dist(range(),0)}`:'');
+    giant(live?'0':'—');setText($.unit,live?`aircraft within ${fmt.dist(range(),0).replace(' ','\u00a0')}`:'');
     setText($.flight,'');
   }
   const r=hero?.route;

@@ -31,28 +31,31 @@
 .L-atlas .at-note{position:absolute;right:16px;bottom:10px;font:600 13px Inter;color:var(--at-dim)}
 
 .L-atlas .at-side{position:absolute;left:700px;top:0;width:260px;height:540px;background:#fbf8f1;border-left:1px solid #d9d0bf;
-  box-shadow:-6px 0 18px rgba(80,60,30,.12);padding:14px 16px 14px;display:flex;flex-direction:column;gap:10px}
+  box-shadow:-6px 0 18px rgba(80,60,30,.12);padding:14px 16px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;overflow:hidden}
 .L-atlas header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.L-atlas .at-city{font:800 20px/1.15 Inter;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.L-atlas .at-city{font:800 20px/1.15 Inter;letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere}
 .L-atlas .at-time{text-align:right;flex:none}
 .L-atlas .at-clock{display:block;font:800 20px/1.15 Inter;font-variant-numeric:tabular-nums}
 .L-atlas .at-status{font:600 11.5px Inter;color:#2f7d4f;text-transform:uppercase;letter-spacing:.1em}
 .L-atlas .at-status.off{color:var(--at-red)}
-.L-atlas .at-date{font:500 14px Inter;color:var(--at-dim);margin-top:-8px;padding-bottom:9px;border-bottom:2px solid var(--at-ink)}
+.L-atlas .at-date{font:500 14px Inter;color:var(--at-dim);margin-top:2px;padding-bottom:9px;border-bottom:2px solid var(--at-ink)}
 .L-atlas .at-hero{display:flex;flex-direction:column;gap:4px}
 .L-atlas .at-kicker{font:700 12.5px Inter;letter-spacing:.12em;text-transform:uppercase;color:var(--at-red)}
-.L-atlas .at-flight{display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
+.L-atlas .at-flight{display:flex;flex-direction:column;gap:1px}
 .L-atlas .at-fl{font:900 32px/1.05 Inter;letter-spacing:-.02em}
-.L-atlas .at-op{font:600 15px Inter;color:var(--at-dim);overflow:hidden;text-overflow:ellipsis}
-.L-atlas .at-route{font:700 17px/1.25 Inter;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.L-atlas .at-prog{display:flex;align-items:center;gap:8px;font:600 12.5px Inter;color:var(--at-dim);white-space:nowrap}
+.L-atlas .at-op{font:600 15px/1.25 Inter;color:var(--at-dim)}
+.L-atlas .at-op:empty{display:none}
+.L-atlas .at-route{font:700 17px/1.25 Inter}
+.L-atlas .at-prog{display:flex;align-items:center;gap:8px;font:600 12.5px/1.3 Inter;color:var(--at-dim)}
 .L-atlas .at-bar{flex:none;width:64px;height:6px;border-radius:3px;background:#e4dccd;overflow:hidden}
 .L-atlas .at-bar i{display:block;height:100%;background:var(--at-ink)}
 .L-atlas .at-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:4px 0 0}
 .L-atlas .at-stats div{min-width:0;border-top:1px solid #e3dac9;padding-top:3px}
 .L-atlas dt{font:600 11px Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--at-dim)}
-.L-atlas .at-stats dd{margin:0;font:800 17px/1.2 Inter;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.L-atlas .at-type{font:600 13.5px/1.3 Inter;color:var(--at-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-atlas .at-stats dd{margin:0;font:800 17px/1.2 Inter;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.L-atlas .at-type{font:700 15px/1.3 Inter;margin-top:4px}
+.L-atlas .at-reg{font:600 13.5px/1.3 Inter;color:var(--at-dim)}
+.L-atlas .at-reg:empty{display:none}
 .L-atlas .at-quiet{font:600 20px/1.45 Inter;color:var(--at-dim)}
 .L-atlas h4{margin:0 0 4px;font:800 11.5px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--at-ink)}
 .L-atlas .at-books{padding-top:10px;border-top:2px solid var(--at-ink)}
@@ -61,18 +64,25 @@
 .L-atlas .at-cargo-by{font:600 13.5px/1.35 Inter;color:var(--at-dim)}
 .L-atlas .at-log{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 8px;margin:0}
 .L-atlas .at-log div{min-width:0}.L-atlas .at-log .wide{grid-column:1/-1;display:flex;gap:8px;align-items:baseline}
-.L-atlas .at-log dd{margin:0;font:800 16.5px/1.25 Inter;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.L-atlas .at-recent{flex:1 1 0;min-height:0;overflow:hidden;padding-top:8px;border-top:1px solid #d9d0bf}
+.L-atlas .at-log dd{margin:0;font:800 16.5px/1.25 Inter}
+.L-atlas .at-recent{flex:none;padding-top:8px;border-top:1px solid #d9d0bf}
 .L-atlas .at-rr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;font:500 14px/1.65 Inter;align-items:baseline}
-.L-atlas .at-rr b{font-weight:800}.L-atlas .at-rr span{color:var(--at-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-atlas .at-rr b{font-weight:800}.L-atlas .at-rr span{color:var(--at-dim)}
 .L-atlas .at-rr i{font-style:normal;color:var(--at-dim)}
 .L-atlas .at-rr.none{display:block;color:var(--at-dim);line-height:1.4}
 
 /* Emergency: a red notice heads the column and the target turns red */
-.L-atlas .at-alert{background:var(--at-red);color:#fff;font:900 13px Inter;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;padding:5px 8px;margin-bottom:6px;border-radius:3px;
+.L-atlas .at-alert{background:var(--at-red);color:#fff;font:900 13px Inter;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px;margin-bottom:6px;border-radius:3px;
   animation:at-flash 1.2s steps(2) infinite}
 @keyframes at-flash{50%{background:#7d1610}}
 .L-atlas .emergency .at-side{box-shadow:inset 0 0 0 4px var(--at-red)}
 .L-atlas .emergency .at-fl{color:var(--at-red)}
 .L-atlas .emergency .at-map{box-shadow:inset 0 0 0 4px var(--at-red)}
 .L-atlas .emergency .at-recent{display:none}
+/* Tight: a busy hero with long names; smaller type rather than anything cut off. */
+.L-atlas .at-side.tight{gap:4px;padding-top:10px;padding-bottom:10px}
+.L-atlas .tight .at-fl{font-size:28px}.L-atlas .tight .at-stats{gap:3px 12px}.L-atlas .tight .at-stats dd{font-size:15.5px}
+.L-atlas .tight .at-cargo-n{font-size:32px}.L-atlas .tight .at-cargo{margin-bottom:4px}
+.L-atlas .tight .at-route{font-size:15.5px}.L-atlas .tight .at-type{font-size:14px;margin-top:2px}.L-atlas .tight .at-books{padding-top:6px}
+/* Tighter: the least useful lines go before any text would be cut. */
+.L-atlas .tighter .at-prog,.L-atlas .tighter .at-log .wide{display:none}
