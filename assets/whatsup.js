@@ -4679,7 +4679,18 @@ function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);
 // --- Focus and remote navigation
 let layer=null,focused=null;
 const layers=[];
-function setFocus(el){focused?.classList.remove('focus');focused=el||null;focused?.classList.add('focus');}
+function setFocus(el){focused?.classList.remove('focus');const was=focused;focused=el||null;focused?.classList.add('focus');
+  if(layer?.id==='settings'){fitValue(was);fitValue(focused);}}
+// Settings values never end in "...": try each wording (b._alts, longest first), shrinking
+// to 13 px; if the focused row's hint is what doesn't fit, drop the hint on that row.
+function fitValue(row){
+  const b=row?.querySelector?.('b');if(!b||!row.closest('#settings')||!b.clientWidth)return;
+  const alts=b._alts||[b.textContent],fits=()=>b.scrollWidth<=b.clientWidth+1;
+  const attempt=()=>{for(const t of alts){b.textContent=t;b.style.fontSize='';let size=parseFloat(getComputedStyle(b).fontSize);
+    while(!fits()&&size>13){size-=.5;b.style.fontSize=`${size}px`;}if(fits())return true;}return false;};
+  row.classList.remove('nohint');
+  if(!attempt()&&row.classList.contains('focus')){row.classList.add('nohint');attempt();}
+}
 // Focus must always be on something visible in the top screen.
 function keepFocus(fallback){
   if(!layer||(focused&&layer.contains(focused)&&focused.offsetParent))return;
@@ -4689,6 +4700,7 @@ const focusables=()=>layer?[...layer.querySelectorAll('[data-focus]')].filter(el
 function open(id,first){
   if(layer){layer._last=focused;layers.push(layer);}
   layer=$(id);layer.hidden=false;
+  if(id==='settings')for(const r of layer.querySelectorAll('.row'))fitValue(r);
   // Stack order follows opening order, not page order: a later screen must cover an earlier one.
   layer.style.zIndex=String(10+layers.length);setFocus(first?$(first):focusables()[0]);syncApp();
 }
@@ -4730,7 +4742,9 @@ const RADII=[1,2,3,4,5,6,7,8,9,10];
 function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
   setText('set-layout-v',`${i+1}. ${layoutName(settings.layout)}`);
-  setText('set-location-v',settings.place?[settings.place.street,placeLabel(settings.place)].filter(Boolean).join(', '):'Not set');
+  const pl=settings.place,locV=$('set-location-v');
+  locV._alts=pl?[[pl.street,placeLabel(pl)].filter(Boolean).join(', '),pl.street||placeLabel(pl),placeLabel(pl)].filter(Boolean):['Not set'];
+  setText('set-location-v',locV._alts[0]);
   const alert=alertFor(settings.radiusMiles,mapMiles());
   setText('set-radius-v',alert<settings.radiusMiles?`${fmt.dist(alert,0)} (the map radius)`:fmt.dist(settings.radiusMiles,0));
   setText('set-map-v',fmt.dist(mapMiles(),0));
@@ -4744,6 +4758,7 @@ function showSettings(){
   setText('set-view-v',fmt.dist(settings.viewMiles,0));
   for(const r of document.querySelectorAll('#settings .row.win'))r.hidden=!win;
   $('set-radius').hidden=win;
+  for(const r of document.querySelectorAll('#settings .row'))fitValue(r);
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);

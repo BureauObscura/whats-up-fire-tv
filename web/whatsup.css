@@ -39,7 +39,7 @@ button{font:inherit;color:inherit;background:none;border:1.5px solid var(--ui-fa
 button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-on);text-shadow:none}
 .overlay .row{display:grid;grid-template-columns:190px 1fr auto;align-items:baseline;width:100%;text-align:left;padding:6px 16px;margin-top:4px;font-size:17px}
 .overlay .row.editing{outline:3px solid var(--ui-ink);outline-offset:2px}
-.overlay .row span{color:var(--ui-dim)}.overlay .row b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.overlay .row i{font-style:normal;color:var(--ui-faint);font-size:15px}
+.overlay .row span{color:var(--ui-dim)}.overlay .row b{font-weight:700;white-space:nowrap;overflow:hidden}.overlay .row i{font-style:normal;color:var(--ui-faint);font-size:15px}
 .overlay .row.focus span,.overlay .row.focus i{color:var(--ui-on)}
 .overlay .row.done{grid-template-columns:1fr;text-align:center;margin-top:12px}.overlay .row.done span{color:inherit;font-weight:700}
 .entry{font-size:28px;font-weight:700;border-bottom:1.5px solid var(--ui-ink);padding:2px 4px;min-height:44px}
@@ -103,6 +103,7 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .row i{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;display:none}
 #settings .row.focus i{display:block}
 #settings .row.focus b{padding-right:96px}
+#settings .row.nohint i{display:none!important}#settings .row.nohint b{padding-right:0!important}
 #settings .row.editing i{display:block}
 #settings .row.editing i::before{content:'‹ › change  ·  OK done';}
 #settings .row.editing[data-big] i::before{content:'‹ › 1°  ▲▼ 10°  ·  OK done';}
