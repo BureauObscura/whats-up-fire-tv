@@ -9,7 +9,7 @@ const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,ma
 // layout: hero flight, route and progress, six stats, cargo tonight, today, recent.
 // Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css.
 
-const DETAIL_MAX=10; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
+const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
 const road=(classes,casing,fill,cw,fw)=>[{layer:'roads',from:'detail',classes,stroke:casing,width:cw},{layer:'roads',from:'detail',classes,stroke:fill,width:fw}];
 const DETAIL=[

@@ -20,8 +20,8 @@ const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
 // features at low zooms by itself.
 const ZOOM=10;
 export const zoomFor=range=>range<=10?10:range<=25?9:range<=50?8:range<=100?7:6;
-// The street-detail map only makes sense close in; wider views draw the base map.
-export const DETAIL_MAX_RANGE=10;
+// The street-detail map is drawn up to a 15-mile map radius; wider views draw the base map.
+export const DETAIL_MAX_RANGE=15;
 const STREETS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service']),MAJOR=new Set(['motorway','trunk','primary','secondary']);
 const DETAIL_ROADS=new Set(['motorway','trunk','primary','secondary','tertiary','minor','service','rail']);
 const LANDUSE=new Set(['residential','commercial','industrial','retail','cemetery','hospital','school','university','college',
@@ -189,6 +189,9 @@ export function saveMap(m){
 // so ~150k points cost ~0.8 MB saved and ~0.6 MB in memory instead of nested arrays.
 // Buildings are capped (nearest first) to stay well under the localStorage quota.
 export const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
+// How far the detail map must reach for a map radius: 6.5 mi covers every layout up to
+// 10 mi; at 15 mi Atlas shows ~10 mi sideways, so it is built that far (~2.5x the tiles).
+export const detailRangeFor=mapMiles=>mapMiles<=10?DETAIL_RANGE:10.5;
 const MAX_BUILDING_POINTS=40000;
 // Clamped to Int16 (±32 mi): the extra point clipLine keeps past the edge can be far out.
 const int16=v=>Math.max(-32000,Math.min(32000,Math.round(v*1000)));
@@ -271,10 +274,10 @@ export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.wi
 
 // The detail map is saved straight to localStorage (not kept in memory by `store`),
 // so a layout that doesn't draw it costs nothing. Too big for the quota: not saved.
-export function savedDetail(home){
+export function savedDetail(home,range=DETAIL_RANGE){
   try{
     const m=JSON.parse(localStorage.getItem(DETAIL_KEY)||'null');
-    return m&&m.v===DETAIL_VERSION&&Math.abs(m.latitude-home.latitude)<.01&&Math.abs(m.longitude-home.longitude)<.01&&
+    return m&&m.v===DETAIL_VERSION&&m.range>=range&&Math.abs(m.latitude-home.latitude)<.01&&Math.abs(m.longitude-home.longitude)<.01&&
       Date.now()-m.built<MAX_AGE?m:null;
   }catch{return null;}
 }
