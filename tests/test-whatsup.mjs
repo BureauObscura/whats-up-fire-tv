@@ -95,16 +95,19 @@ test('model photos: bundled per ICAO type with author and license, files present
   assert.equal(modelPhoto({aircraft_type:'b763'}).src,'models/B763.jpg');
   assert.equal(modelPhoto({aircraft_type:'ZZZZ'}),null);
 });
-test('logbook: Rarest and Farthest count planes in the alert zone, Seen counts the local area',async()=>{
-  const {updateLog,logSummary}=await import('../web/model.mjs');
-  const p=(hex,type,mi,inside,from)=>({hex,aircraft_type:type,distance_mi:mi,inside,flight:hex.toUpperCase(),altitude_ft:30000,speed_kt:400,
+test('logbook: Rarest and Farthest follow the map radius; Seen stays local',async()=>{
+  const {updateLog,logSummary,setLogRadius,pickRarest,pickFarthest}=await import('../web/model.mjs');
+  const p=(hex,type,mi,from)=>({hex,aircraft_type:type,distance_mi:mi,flight:hex.toUpperCase(),altitude_ft:30000,speed_kt:400,
     route:from?{origin:from.code,from:{city:from.city,lat:from.lat,lon:from.lon}}:null});
-  const now=Date.UTC(2026,9,28,12);
-  let log=updateLog({day:new Date(now).toLocaleDateString('en-CA',{timeZone:'UTC'}),seen:[],highest:null,fastest:null,typesToday:[],typesZone:[],
-    typesAll:{A124:5,C172:1,B738:0},cargo:{night:null,seen:{}}},[p('aaa001','B738',5,false),p('aaa002','A124',22,true,{code:'FRA',city:'Frankfurt',lat:50.03,lon:8.57}),
-    p('aaa003','C172',3,true,{code:'LUK',city:'Near home',lat:0.1,lon:0.1})],now);
-  const s=logSummary(log);
-  assert.equal(s.today,2,'Seen: the 22 mi plane is outside the local area');
-  assert.equal(s.rarest.code,'C172','Rarest: fewest seen of the zone types; B738 (fewest overall) was not in the zone');
-  assert.equal(s.farthest.name,'AAA002','Farthest counts the zone plane beyond the local area');
+  const now=Date.UTC(2026,9,28,12),day=new Date(now).toLocaleDateString('en-CA',{timeZone:'UTC'});
+  let log=updateLog({day,seen:[],highest:null,fastest:null,typesToday:[],typesAll:{A124:5,C172:9,B77W:0},cargo:{night:null,seen:{}}},
+    [p('aaa001','C172',5,{code:'LUK',city:'Near',lat:.1,lon:.1}),p('aaa002','B77W',40,{code:'NGO',city:'Tokoname',lat:34.86,lon:136.8})],now);
+  log=updateLog(log,[p('aaa002','B77W',30)],now); // closer later: closest approach kept, origin kept
+  assert.equal(log.planes.aaa002.d,30);assert.equal(log.planes.aaa002.o.code,'NGO');
+  assert.equal(pickRarest(log,15).code,'C172');assert.equal(pickRarest(log,50).code,'B77W');
+  assert.equal(pickFarthest(log,15).name,'AAA001');assert.equal(pickFarthest(log,30).from,'Tokoname');
+  let r=15;setLogRadius(()=>r);const s=logSummary(log);
+  assert.equal(s.today,1,'Seen: only the local plane');
+  assert.equal(s.rarest.code,'C172');r=50;assert.equal(s.rarest.code,'B77W','the summary follows a zoom at once');
+  assert.equal(updateLog({day,seen:[],typesToday:['A388'],typesAll:{A388:1},cargo:{night:null,seen:{}}},[],now).planes['old-A388'].t,'A388','old logs keep today\'s types');
 });

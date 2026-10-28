@@ -4,7 +4,7 @@
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
-import {start,demo,query,compass,resetLog} from './model.mjs';
+import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
@@ -21,6 +21,8 @@ const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* deskt
 // Keep screen awake: the app plays a silent, invisible loop so the screensaver stays away.
 const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake!==false});
 
+// Rarest/Farthest follow the map radius (Settings > Map radius, Up/Down).
+setLogRadius(()=>settings.mapMiles||CONFIG.rangeMiles);
 let settings=loadSettings(),feed=null,lastModel=null,placeToken=0;
 useSettings(settings);
 const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
