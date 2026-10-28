@@ -128,3 +128,9 @@ test('route: far from both airports, a leg pointing well away from the track is 
   assert.ok(commercialRoute(lol,onLine),'a modest difference still passes');
   assert.equal(commercialRoute(lol,{...onLine,heading:110}),null,'55 deg off the leg, 400 mi out: rejected');
 });
+test('route: a multi-leg flight counts only the leg it is flying (MUC-LHR-DFW over Cincinnati = LHR->DFW)',()=>{
+  const lol={callsign:'BAW1',_airports:[{iata:'MUC',lat:48.354,lon:11.786},{iata:'LHR',lat:51.47,lon:-0.454},{iata:'DFW',lat:32.897,lon:-97.038}]};
+  const a={callsign:'BAW1',latitude:39.05,longitude:-84.65,heading:245,speed_kt:480,vertical_rate:0,altitude_ft:36000,observed:1700000000};
+  const r=commercialRoute(lol,a);
+  assert.equal(r.origin,'LHR');assert.equal(r.destination,'DFW');assert.equal(r.from.lat,51.47);
+});
