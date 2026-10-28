@@ -47,7 +47,7 @@
 .L-sectional .box header{display:flex;justify-content:space-between;background:#cfe0ef;border-bottom:1.2px solid var(--ink);padding:1px 8px;
   font:700 13px var(--bc);letter-spacing:.12em;text-transform:uppercase}
 .L-sectional .box header .tr{color:var(--mag)}
-.L-sectional .title{padding:6px 10px 6px;border-width:2.5px;text-align:center}
+.L-sectional .layout .title{padding:6px 10px 6px;border-width:2.5px;text-align:center}
 .L-sectional .city{font:700 28px/1.05 var(--bc);letter-spacing:.06em;overflow-wrap:anywhere}
 .L-sectional .sub{display:flex;justify-content:center;gap:10px;font:600 15px var(--bc);letter-spacing:.06em;margin-top:2px}
 .L-sectional .clock{color:var(--blue)}.L-sectional .status{color:var(--mag)}.L-sectional .status.off{color:var(--red)}
@@ -75,8 +75,8 @@
 .L-sectional .emergency .fl,.L-sectional .emergency .tag.hero,.L-sectional .emergency .tag2.hero{color:var(--red);fill:var(--red)}
 .L-sectional .emergency .ac.hero path{fill:var(--red)}
 .L-sectional .emergency .hero-ring{stroke:var(--red);stroke-width:3.5}
-.L-sectional .keys{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;padding:5px 10px 6px;font:600 14px var(--bc)}
-.L-sectional .keys div{display:flex;align-items:center;gap:6px;white-space:nowrap}
-.L-sectional .keys svg{width:30px;height:18px;flex:none}
+.L-sectional .layout .keys{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;padding:5px 10px 6px;font:600 14px var(--bc)}
+.L-sectional .layout .keys div{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.L-sectional .layout .keys svg{width:30px;height:18px;flex:none}
 .L-sectional .emergency .key{display:none}
 .L-sectional .notam{line-height:1.25}

@@ -1,7 +1,8 @@
 // node --test tests/  — What's Up: place labels, cargo brands, map building from a real tile.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync as __rd} from 'node:fs';
+globalThis.__fs={readdirSync:__rd};
 import {placeLabel} from '../web/place.mjs';
 import {cargoBrand,cargoCounts} from '../web/model.mjs';
 
@@ -141,3 +142,15 @@ test('every screen sits inside the themed stage (so layouts can style it)',()=>{
   for(const id of ['settings','about','locate','confirm','picker','welcome','adjust-panel','toast','credit-flash'])
     assert.ok(!outside.includes(`id="${id}"`),`#${id} is outside the stage`);
 });
+test('layout stylesheets never style the shared screens by accident (generic class names scoped to .layout)',()=>{
+  const dir=new URL('../web/layouts/',import.meta.url),{readdirSync}=require_fs();
+  const shared=['keys','title','row','card','results','entry','note','label','buttons','btn','cols','col','msg','caret'];
+  for(const f of readdirSync(dir).filter(f=>f.endsWith('.css'))){
+    const css=readFileSync(new URL(f,dir),'utf8');
+    for(const c of shared){
+      const bad=new RegExp(`\\.L-[a-z-]+ \\.${c}(?![\\w-])`).exec(css.replace(/\\.L-[a-z-]+ \\.layout [^,{]*/g,''));
+      assert.ok(!bad,`${f}: ".${c}" must be scoped as .L-x .layout .${c}`);
+    }
+  }
+});
+function require_fs(){return {readdirSync:(u)=>globalThis.__fs.readdirSync(u)};}

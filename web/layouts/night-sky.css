@@ -23,7 +23,7 @@
 .L-night-sky .star .dot{fill:#fff}
 .L-night-sky .star.hero .halo{animation:ns-breathe 4s ease-in-out infinite}
 @keyframes ns-breathe{50%{opacity:.55}}
-.L-night-sky .label{fill:var(--dim);font:italic 400 14px 'EB Garamond';letter-spacing:.03em}
+.L-night-sky .layout .label{fill:var(--dim);font:italic 400 14px 'EB Garamond';letter-spacing:.03em}
 .L-night-sky .hero-label .l1{fill:var(--star);font:500 20px 'EB Garamond';letter-spacing:.08em;font-variant-caps:all-small-caps}
 .L-night-sky .hero-label .l2{fill:var(--dim);font:italic 400 16px 'EB Garamond'}
 .L-night-sky .tick{stroke:rgba(214,226,255,.35);stroke-width:.7}
