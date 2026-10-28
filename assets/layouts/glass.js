@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  compass,placeBox,alertRadius,ppmOf,range,zonePath}=__modules["kit.mjs"];
+  compass,placeBox,alertRadius,ppmOf,range,zonePath,photoSlot,showPhotoIn}=__modules["kit.mjs"];
 // Layout 5, Glass: a near-black street map (roads by class, water, parks, faint
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
@@ -57,7 +57,9 @@ function ui(){
   const tally=el('div','gl-tally');
   tally.append(card('gl-mini','<span>Today</span><b class="gl-seen"></b><i>aircraft</i>'),card('gl-mini cargo','<span>Cargo tonight</span><b class="gl-cargo"></b><i class="gl-cargo-by"></i>'));
   col.append($.alert,hero,quiet,near,tally);
-  root.append($.canvas,el('div','gl-vignette'),$.labels,$.over,top,col);
+  // Aircraft photo: its own glass card, bottom left, only while there is a picture.
+  $.photo=card('gl-photo','');$.photo.hidden=true;$.photo.append($.pic=photoSlot());
+  root.append($.canvas,el('div','gl-vignette'),$.labels,$.over,top,col,$.photo);
   Object.assign($,{hero,quiet,near});
   for(const c of ['clock','city','status','date','kicker','flight','sub','o','oc','d','dc','line','alt','spd','look','cpa','quiet-t','list','seen','cargo','cargo-by'])
     $[c]=root.querySelector('.gl-'+c);
@@ -81,12 +83,14 @@ function render(m){
   const {now,hero}=m;
   setText($.clock,fmt.clock(now));setText($.city,placeName());setText($.date,fmt.date(now));
   setText($.status,statusText(m,demo));$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
+  showPhotoIn($.pic,hero,()=>{$.photo.hidden=$.pic.hidden;});
   root.classList.toggle('emergency',!!hero?.emergency);
 
   const h=toView(VIEW,0,0);
   $.ring.replaceChildren(svg('path',{class:'gl-alertring',d:zonePath((x,y)=>toView(VIEW,x,y))}),
     svg('circle',{class:'gl-pulse',cx:h.x,cy:h.y,r:10}),svg('circle',{class:'gl-home',cx:h.x,cy:h.y,r:4.5}));
   const planes=[],tags=[],boxes=[{x:h.x-8,y:h.y-8,w:16,h:16}],bounds={x:8,y:118,w:610,h:392};
+  if(!$.photo.hidden)boxes.push({x:$.photo.offsetLeft-6,y:$.photo.offsetTop-6,w:$.photo.offsetWidth+12,h:$.photo.offsetHeight+12});
   for(const a of byInterest(m)){
     const p=toView(VIEW,a.x,a.y);
     if(p.x<-20||p.x>W+20||p.y<-20||p.y>H+20)continue;

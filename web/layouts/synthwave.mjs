@@ -3,7 +3,7 @@
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
 import {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,BASE_RANGE,range,zoom,zonePath} from '../kit.mjs';
+  number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn} from '../kit.mjs';
 
 // Floor: a W x H canvas (1 px per CSS px: a soft neon floor needs no more), home at its
 // centre, rotated about its centre by TILT under a perspective of PERSP px seen from VP.
@@ -63,6 +63,7 @@ function ui(){
   root.querySelector('.world').after($.svg);
   for(const c of ['city','clock','date','hcard','h-label','h-fl','h-rt','h-alt','h-spd','h-cpa','h-type','mayday','m2','quiet','q2',
     's-cargo','s-seen','s-high','s-last','s-status'])$[c]=root.querySelector('.'+c);
+  $.hcard.append($.pic=photoSlot());
 }
 
 function drawMap(){
@@ -135,6 +136,7 @@ function render(m){
   $.stalks.replaceChildren(...stalks);$.jets.replaceChildren(...jets);$.tags.replaceChildren(...tags);
 
   $.hcard.hidden=!hero;$.quiet.hidden=!!hero;$.mayday.hidden=!hero?.emergency;
+  showPhotoIn($.pic,hero);
   if(!hero)setText($.q2,quietText(m,demo));
   else{
     setText($['h-label'],`${hero.status} · ${fmt.dist(hero.ground)}`);

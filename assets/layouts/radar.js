@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone}=__modules["kit.mjs"];
+  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone,fitLine,photoSlot,showPhotoIn}=__modules["kit.mjs"];
 // Layout 4, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
 // a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 
@@ -30,7 +30,7 @@ function ui(){
   for(const id of ['rings','labels','trails','blips','blocks'])$.scope.append($[id]=svg('g'));
   $.note=el('div','scope-note');
   $.ringNote=el('div','corner br');
-  wrap.append(el('div','sweep'),$.canvas,$.scope,$.note,$.ringNote,el('div','corner tr','Select ▸ Settings'));
+  wrap.append(el('div','sweep'),$.canvas,$.scope,$.note,$.ringNote,el('div','corner tr','Select ▸ Settings'),$.pic=photoSlot('corner tl'));
   panel.innerHTML=`
     <header class="head"><div class="city"></div><div class="clock"></div></header>
     <div class="where"><span class="today"></span><span class="status"></span></div>
@@ -119,6 +119,7 @@ function render(m){
   setText($.city,placeName());setText($.clock,fmt.clock(now));setText($.today,fmt.date(now,{weekday:'long',day:'numeric',month:'short'}));
   setText($.status,statusText(m,demo));$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);
+  showPhotoIn($.pic,hero);
 
   const trails=[],blips=[],blocks=[],boxes=[...labelBoxes,...ringBoxes,{x:CX-6,y:CY-6,w:12,h:12}];
   setScale();
@@ -171,7 +172,8 @@ function render(m){
     setText($.look,`${compass(hero.bearing)} · ${Math.max(0,Math.round(hero.elevation))}° up`);
     const c=hero.cpa;
     setText($.cpa,!c?'—':c.receding?'moving away':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
-    const bits=[hero.registration,hero.year&&`built ${hero.year}`,hero.cargo&&`${hero.cargo} cargo`].filter(Boolean).join(' · ');
+    // The cargo brand only when the operator line doesn't already say it.
+    const bits=[hero.registration,hero.year&&`built ${hero.year}`,hero.cargo&&!hero.operator&&`${hero.cargo} cargo`].filter(Boolean).join(' · ');
     $.aircraft.replaceChildren(document.createTextNode((hero.type||hero.aircraft_type||'Unknown type')+'  '),el('small','',bits));
   }
 
@@ -185,11 +187,18 @@ function render(m){
     cell('High'),cell(L.highest?`${L.highest.name} ${fmt.alt(L.highest.value)}`:'—','b'),
     cell('Fast'),cell(L.fastest?`${L.fastest.name} ${fmt.speed(L.fastest.value)}`:'—','b'),
     cell('Rare'),cell(L.rarest?L.rarest.name:'—','b'));
+  const rare=$.log.lastElementChild;rare._alts=L.rarest?[L.rarest.name,L.rarest.code]:null;
   const recent=m.recent.slice(0,3);
   $.recent.replaceChildren(...(recent.length?recent.flatMap(a=>[
     cell(a.flight,'b',a.cargo?'cargo-row-t':''),
     cell([a.route&&`${a.route.origin}→${a.route.destination}`,a.type].filter(Boolean).join(' ')),
     cell(fmt.ago(a.last_seen,now),'span','t')]):[cell(windowView()?'Nothing through your window yet.':'Nothing inside the alert zone yet.')]));
+  // One line each, never cut; Recently rows go (oldest first) until the panel fits.
+  for(const b of $.log.querySelectorAll('b'))fitLine(b);
+  for(const s of $.recent.querySelectorAll('span:not(.t)'))fitLine(s);
+  const panel=$.recent.closest('.panel');
+  while(panel.scrollHeight>panel.clientHeight+1&&$.recent.children.length>3)for(let i=0;i<3;i++)$.recent.lastElementChild.remove();
+  $.recent.parentNode.hidden=panel.scrollHeight>panel.clientHeight+1;
 }
 
 

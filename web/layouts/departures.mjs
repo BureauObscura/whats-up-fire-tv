@@ -1,7 +1,7 @@
 // Layout 6, Departures: an amber split-flap board. Rows are the aircraft in range
 // now (hero first) and then those recently above; only the characters that change
 // flip. A small dark map inset shows where they are.
-import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius,zonePath} from '../kit.mjs';
+import {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius,zonePath,fitLine,photoSlot,showPhotoIn} from '../kit.mjs';
 
 // Columns: [key, label, width in characters, align]
 const COLS=[['flight','Flight',7],['dest','Destination',11],['type','Type',4],['alt','Alt',5,'r'],['dist','Dist',4,'r'],['remark','Remarks',10]];
@@ -46,9 +46,11 @@ function ui(){
     <div class="board"></div>
     <footer class="foot">
       <div class="ticker"><div class="hero-line"></div><div class="sub-line"></div></div>
+      <div class="ph-wrap"></div>
       <div class="inset"><svg class="dots" viewBox="0 0 ${INSET.w} ${INSET.h}"></svg><div class="inset-label"></div></div>
     </footer>`;
   for(const c of ['city','banner','clockbox','status','cols','board','hero-line','sub-line','inset','dots','inset-label'])$[c]=root.querySelector('.'+c);
+  root.querySelector('.ph-wrap').append($.pic=photoSlot());
   $.clock=flapRow(8,'clock flaps');$.clockbox.prepend($.clock);
   for(const [,label,w,align] of COLS){
     const h=el('span',align==='r'?'r':'',label);h.style.width=`${w*20-2}px`;$.cols.append(h);
@@ -79,6 +81,9 @@ const dest=a=>a.route?city(a.route.to?.city)||a.route.destination:a.operator?a.o
 const altText=ft=>!number(ft)?'':fmt.altUnit()==='m'?String(Math.round(ft*.3048)):String(Math.round(ft/10)*10);
 const distText=mi=>!number(mi)?'':(metric()?mi*KM:mi).toFixed(1);
 
+// The two ticker lines stay on one line: the first of `alts` that fits, shrunk if need be.
+const ticker=(e,alts)=>{e._alts=alts;fitLine(e);};
+
 function render(m){
   const {now,hero}=m;
   setText($.city,placeName());
@@ -106,14 +111,17 @@ function render(m){
 
   if(hero){
     const r=hero.route,from=city(r?.from?.city)||r?.origin,to=city(r?.to?.city)||r?.destination;
-    setText($['hero-line'],`${hero.status}: ${hero.flight}${hero.operator?` · ${hero.operator}`:''}${r?` · ${from} → ${to}`:''}`);
-    const c=hero.cpa;
-    setText($['sub-line'],[hero.type||hero.aircraft_type,fmt.alt(hero.altitude_ft),fmt.speed(hero.speed_kt),
-      c&&!c.receding?`closest in ${fmt.mmss(c.seconds)} at ${fmt.dist(c.miles)}`:'',`cargo tonight ${m.log.cargoTonight}`].filter(Boolean).join(' · '));
+    const rt=r?` · ${from} → ${to}`:'',op=hero.operator?` · ${hero.operator}`:'';
+    ticker($['hero-line'],[`${hero.status}: ${hero.flight}${op}${rt}`,`${hero.flight}${op}${rt}`,`${hero.flight}${rt}`]);
+    const c=hero.cpa,parts=[hero.type||hero.aircraft_type,fmt.alt(hero.altitude_ft),fmt.speed(hero.speed_kt),
+      c&&!c.receding?`closest in ${fmt.mmss(c.seconds)} at ${fmt.dist(c.miles)}`:'',`cargo tonight ${m.log.cargoTonight}`].filter(Boolean);
+    ticker($['sub-line'],parts.map((_,i)=>parts.slice(0,parts.length-i).join(' · ')));
   }else{
-    setText($['hero-line'],quietText(m,demo));
-    setText($['sub-line'],`Seen today ${fmt.int(m.log.today)} · cargo tonight ${m.log.cargoTonight}`);
+    const q=quietText(m,demo);
+    ticker($['hero-line'],[q,q.split('. ')[0]]);
+    ticker($['sub-line'],[`Seen today ${fmt.int(m.log.today)} · cargo tonight ${m.log.cargoTonight}`]);
   }
+  showPhotoIn($.pic,hero,()=>{fitLine($['hero-line']);fitLine($['sub-line']);});
   // Inset: home and plane dots.
   const dots=[svg('circle',{class:'home',cx:view.cx,cy:view.cy,r:2.6}),svg('path',{class:'ring',d:zonePath((x,y)=>toView(view,x,y))})];
   for(const a of m.planes){

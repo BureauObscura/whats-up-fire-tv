@@ -104,3 +104,8 @@
 .L-cockpit .rec{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline}
 .L-cockpit .rec b{color:var(--w)}.L-cockpit .rec span{color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.L-cockpit .rec i{font-style:normal;color:var(--g)}
 .L-cockpit .rec.none{color:var(--w);opacity:.6;display:block}
+/* Aircraft photo strip at the foot of the side panel: photo, QR, credit beside them. */
+.L-cockpit .ph{flex-wrap:nowrap;justify-content:flex-start;gap:8px;margin-top:8px}
+.L-cockpit .ph-img{height:54px;max-width:96px;border:1px solid #2b3a42}
+.L-cockpit .ph-qr{width:54px;height:54px}
+.L-cockpit .ph-cap{flex:1 1 0;text-align:left;font:500 11px var(--b6);color:var(--w);opacity:.75}

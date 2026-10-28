@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr}=__modules["kit.mjs"];
 // Layout 2, Atlas Light: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -206,18 +206,6 @@ function drawMap(){
   $.scale.innerHTML=`<i style="width:${bar.px.toFixed(0)}px"></i><span>${bar.label}</span>`;
 }
 
-// One line, never cut: try each wording (e._alts, longest first) shrinking the type down
-// to 11 px; if none fits, the shortest one goes down to 9 px.
-function fitLine(e){
-  const alts=e._alts||[e.textContent];
-  for(let i=0;i<alts.length;i++){
-    const floor=i===alts.length-1?9:11;
-    e.textContent=alts[i];e.style.fontSize='';
-    let size=parseFloat(getComputedStyle(e).fontSize);
-    while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
-    if(e.scrollWidth<=e.clientWidth+1)return;
-  }
-}
 
 // The hero's picture block: a Planespotters photo of this exact aircraft, with the
 // photographer credit and a QR code to the photo's page beside it (their terms). Only the
@@ -230,7 +218,7 @@ function showPhoto(a){
   if(!hex)return;
   photoFor(a).then(p=>{
     if(!root||picHex!==hex)return;
-    const qr=p&&qrFor(p.link);
+    const qr=p&&themedQr(p.link);
     if(p&&qr){
       photo=p;$.img.src=p.src;$.qr.src=qr;
       $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
@@ -280,9 +268,21 @@ function render(m){
     tags.push(svg('rect',{class:`at-tag${isHero?' hero':''}`,x:b.x,y:b.y,width:w,height:hh,rx:3}),
       svg('text',{class:`at-tagt${isHero?' hero':''}`,x:b.x+7,y:b.y+15.5},text));
   }
+  // The hero off the drawn map (the map is wider than tall, so a plane inside the map radius
+  // can sit past the top or bottom edge): an arrow on the edge points to it, with its tag.
+  const hp=hero&&toView(VIEW,hero.x,hero.y);
+  if(hp&&(hp.x<12||hp.x>W-12||hp.y<12||hp.y>H-42)){
+    const dx=hp.x-h.x,dy=hp.y-h.y,lo=26,edge=(d,from,a,b)=>d>0?(b-from)/d:d<0?(a-from)/d:Infinity;
+    const t=Math.min(edge(dx,h.x,lo,W-lo),edge(dy,h.y,lo,H-56)),e={x:h.x+dx*t,y:h.y+dy*t},ang=Math.atan2(dy,dx);
+    const pt=(r,da)=>`${(e.x+Math.cos(ang+da)*r).toFixed(1)} ${(e.y+Math.sin(ang+da)*r).toFixed(1)}`;
+    const arrow=svg('g',{class:'at-plane hero at-edge'});arrow.append(svg('path',{d:`M${pt(13,0)}L${pt(9,2.4)}L${pt(9,-2.4)}Z`}));marks.push(arrow);
+    const text=`${hero.flight}  ${fmt.dist(hero.ground)} ${compass(hero.bearing)}`,w=text.length*7.1+14,hh=22;
+    const b=placeBox(boxes,e,w,hh,[[-w/2,-hh-16],[-w/2,16],[16,-hh/2],[-w-16,-hh/2]],bounds);
+    if(b)tags.push(svg('rect',{class:'at-tag hero',x:b.x,y:b.y,width:w,height:hh,rx:3}),svg('text',{class:'at-tagt hero',x:b.x+7,y:b.y+15.5},text));
+  }
   $.trails.replaceChildren(...lines);$.marks.replaceChildren(...marks);$.tags.replaceChildren(...tags);
   // Map labels give way to flight tags: hidden while a tag covers them.
-  const tagBoxes=boxes.slice(1);
+  const tagBoxes=[...boxes.slice(1),...ranked.slice(0,15).map(a=>{const p=toView(VIEW,a.x,a.y),r=a===hero?20:11;return {x:p.x-r,y:p.y-r,w:2*r,h:2*r};})];
   for(const n of $.labels.children)if(n._box)n.style.visibility=tagBoxes.some(t=>overlap(t,n._box))?'hidden':'';
 
   $.hero.hidden=!hero;$.quiet.hidden=!!hero;

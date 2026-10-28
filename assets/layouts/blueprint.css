@@ -41,7 +41,8 @@
 .L-blueprint .bp-clock{font:700 22px 'Barlow Condensed';color:#fff;letter-spacing:.04em}
 .L-blueprint .bp-status{color:var(--bp-cyan)}.L-blueprint .bp-status.off{color:var(--bp-red)}
 
-.L-blueprint .bp-rev{position:absolute;right:24px;top:22px;width:230px;border:1.4px solid rgba(230,245,255,.75);background:rgba(10,38,80,.82);font:600 14px 'Barlow Condensed';letter-spacing:.06em}
+.L-blueprint .bp-side{position:absolute;right:24px;top:22px;width:230px;display:flex;flex-direction:column;gap:10px}
+.L-blueprint .bp-rev{border:1.4px solid rgba(230,245,255,.75);background:rgba(10,38,80,.82);font:600 14px 'Barlow Condensed';letter-spacing:.06em}
 .L-blueprint .bp-rev-h,.L-blueprint .bp-rev-r{display:grid;grid-template-columns:34px 1fr 50px}
 .L-blueprint .bp-rev-h span,.L-blueprint .bp-rev-r>*{padding:2px 8px;border-right:1px solid rgba(230,245,255,.35)}
 .L-blueprint .bp-rev-h span:last-child,.L-blueprint .bp-rev-r>*:last-child{border-right:none;text-align:right}
@@ -58,7 +59,7 @@
 .L-blueprint .bp-obj{grid-column:1/3;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:baseline}
 .L-blueprint .bp-obj i{grid-column:1/-1}.L-blueprint .bp-obj b{font-size:28px;line-height:1}
 .L-blueprint .bp-obj span{font:600 14px 'Barlow Condensed';color:var(--bp-dim);letter-spacing:.06em}
-.L-blueprint .bp-typ b{font-size:14px;white-space:normal;line-height:1.1;max-height:32px}
+.L-blueprint .bp-typ b{font-size:17px;white-space:nowrap;overflow:hidden}
 .L-blueprint .bp-cell:nth-child(3n){border-right:none}
 .L-blueprint .bp-note{grid-column:1/-1;font:700 17px/1.3 'Barlow Condensed';letter-spacing:.06em;padding:10px;border-right:none}
 .L-blueprint .bp-scale{position:absolute;left:28px;bottom:26px;height:26px;font:600 12px 'Barlow Condensed';color:#fff;letter-spacing:.08em}
@@ -77,3 +78,10 @@
 .L-blueprint .emergency .bp-leader.hero,.L-blueprint .emergency .bp-dim{stroke:var(--bp-red)}
 .L-blueprint .emergency .bp-call.hero .a,.L-blueprint .emergency .bp-arrow,.L-blueprint .emergency .bp-obj b{fill:var(--bp-red);color:var(--bp-red)}
 .L-blueprint .emergency .bp-block{border-color:var(--bp-red)}
+/* Fig. 1: the aircraft photo in a drawing frame under the revisions table. */
+.L-blueprint .bp-fig{border:1.4px solid rgba(230,245,255,.75);background:rgba(10,38,80,.82)}
+.L-blueprint .bp-fig-h{font:600 11px 'Barlow Condensed';letter-spacing:.2em;text-transform:uppercase;color:var(--bp-cyan);padding:2px 8px;border-bottom:1.2px solid rgba(230,245,255,.6)}
+.L-blueprint .bp-fig .ph{padding:6px 8px 4px;gap:4px 8px}
+.L-blueprint .bp-fig .ph-img{height:62px;border:1px solid rgba(230,245,255,.5)}
+.L-blueprint .bp-fig .ph-qr{width:62px;height:62px}
+.L-blueprint .bp-fig .ph-cap{font:600 11px 'Barlow Condensed';letter-spacing:.06em;color:var(--bp-dim);opacity:1}

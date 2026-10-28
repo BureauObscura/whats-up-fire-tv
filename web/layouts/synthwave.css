@@ -79,3 +79,8 @@
 @keyframes sw-may{50%{opacity:.45}}
 .L-synthwave .emergency .jet.hero{stroke:#ff3b30;fill:rgba(255,59,48,.7);filter:drop-shadow(0 0 10px #ff3b30)}
 .L-synthwave .emergency .tag.hero{fill:#ff6a5f}
+/* Aircraft photo under the hero card: right-aligned in a thin neon frame on night purple. */
+.L-synthwave .ph{justify-content:flex-end;margin-top:8px}
+.L-synthwave .ph-img,.L-synthwave .ph-qr{border:1px solid var(--cyan);box-shadow:0 0 8px rgba(33,240,255,.55);background:#12032b}
+.L-synthwave .ph-img{height:62px}.L-synthwave .ph-qr{width:62px;height:62px}
+.L-synthwave .ph-cap{text-align:right;font:500 10px var(--orb);color:rgba(255,220,250,.85);opacity:1;text-shadow:0 0 3px #0b0221,0 0 6px #0b0221}

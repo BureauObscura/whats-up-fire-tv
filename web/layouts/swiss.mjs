@@ -1,6 +1,6 @@
 // Layout 8, Swiss: an off-white poster. One giant number (how far away the nearest
 // aircraft is) dominates; the map is only the river/coastline and a red home dot.
-import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,BASE_RANGE,range} from '../kit.mjs';
+import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,BASE_RANGE,range,photoSlot,showPhotoIn} from '../kit.mjs';
 
 const MAPSIZE=284,MAP=[
   {layer:'water',fill:'#d3cdc0'},
@@ -23,6 +23,7 @@ function ui(){
       <div class="status"></div>
     </div>`;
   for(const c of ['city','clock','kicker','giant','num','unit','flight','route','mapbox','marks','facts','status'])$[c]=root.querySelector('.'+c);
+  $.side=root.querySelector('.side');$.side.append($.pic=photoSlot());
   $.canvas=makeCanvas(MAPSIZE,MAPSIZE,'map');$.mapbox.prepend($.canvas);
   view={cx:MAPSIZE/2,cy:MAPSIZE/2,ppm:MAPSIZE/2/BASE_RANGE,clip:{x:0,y:0,w:MAPSIZE,h:MAPSIZE}};
 }
@@ -68,6 +69,7 @@ function render(m){
     marks.push(planeIcon(a,p,a===hero?16:9,a===hero?'plane hero':'plane'));
   }
   $.marks.replaceChildren(...marks);
+  showPhotoIn($.pic,hero);
 }
 
 export default {

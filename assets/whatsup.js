@@ -3459,13 +3459,38 @@ function photoFor(a){
   return promise;
 }
 
-// QR code (data: GIF) for a photo's link, drawn by the bundled encoder (qr.js).
-function qrFor(link){
+// QR code (PNG data URL) for a photo's link, drawn by the bundled encoder (qr.js) in the
+// theme's colours: the darker of {ink, panel} for the modules, the lighter for the
+// background (scanners want dark-on-light), with a 2-module light quiet zone (enough for phone scanners against a plain panel; more
+// would only shrink the modules); see qrColours.
+const rgb=c=>{const m=/^#([0-9a-f]{6})$/i.exec(c.trim())||null,r=/rgba?\(([^)]+)\)/.exec(c);
+  if(m)return [0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16));
+  if(r){const [a,b,d,al=1]=r[1].split(',').map(Number);return [a*al,b*al,d*al];}return null;};
+const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};return .2126*f(r)+.7152*f(g)+.0722*f(b);};
+function qrColours(ink,bg){
+  const a=rgb(ink||''),b=rgb(bg||'');
+  if(!a||!b)return {dark:'#000',light:'#fff'};
+  let [dk,lt]=lum(a)<lum(b)?[a,b]:[b,a];
+  // Keep the hues but push them apart (dark toward black, light toward white) until the
+  // contrast is near print-like (14:1; black on white is 21:1), which phone cameras need at
+  // a distance and through blur.
+  for(let t=0;t<=1&&(lum(lt)+.05)/(lum(dk)+.05)<14;t+=.05){
+    dk=(lum(a)<lum(b)?a:b).map(v=>v*(1-t));lt=(lum(a)<lum(b)?b:a).map(v=>v+(255-v)*t);
+  }
+  return {dark:`rgb(${dk.map(Math.round)})`,light:`rgb(${lt.map(Math.round)})`};
+}
+function qrFor(link,{dark='#000',light='#fff'}={}){
   const QR=globalThis.window?.WhatsUpQR;if(!QR)return '';
-  try{const q=QR(0,'M');q.addData(link);q.make();return q.createDataURL(4,2);}catch{return '';}
+  try{
+    const q=QR(0,'L');q.addData(link);q.make(); // L: fewest modules, so each is biggest on screen (a TV shows no damage to correct)
+    const n=q.getModuleCount(),k=4,pad=2,c=document.createElement('canvas');c.width=c.height=(n+2*pad)*k;
+    const g=c.getContext('2d');g.fillStyle=light;g.fillRect(0,0,c.width,c.height);g.fillStyle=dark;
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(q.isDark(y,x))g.fillRect((x+pad)*k,(y+pad)*k,k,k);
+    return c.toDataURL('image/png');
+  }catch{return '';}
 }
 
-return {PHOTO_URL,parsePhoto,photoFor,qrFor,modelPhoto};
+return {PHOTO_URL,parsePhoto,photoFor,qrColours,qrFor,modelPhoto};
 })();
 // ---- place.mjs
 __modules["place.mjs"]=(()=>{
@@ -3525,7 +3550,8 @@ const VIEW_MILES=[5,10,15,20,25,30,40,50,60,75,100];
 const deg=(v,d)=>Number.isFinite(Number(v))?((Math.round(Number(v))%360)+360)%360:d;
 // Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
 const MAP_RADII=[2,5,10,15,25,50,100,150,250];
-// The alert ring sits inside the map: never wider than the map radius.
+// The alert zone sits inside the map: the ring (and the Window view's reach) never wider
+// than the map radius.
 const alertFor=(radius,mapMiles)=>Math.max(1,Math.min(radius,mapMiles));
 function loadSettings(){
   const s=store.get(KEY)||{};
@@ -3559,7 +3585,9 @@ async function searchPlaces(query){
   const {status,payload}=await getJson(SEARCH_URL(q),6000);
   if(status!==200||!Array.isArray(payload?.results))return status===200?[]:null;
   return payload.results.map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
-    latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean);
+    latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean)
+    // Same name in the same region (a city and its prefecture): keep the first, biggest.
+    .filter((p,i,all)=>all.findIndex(q=>placeLabel(q)===placeLabel(p)&&q.admin===p.admin)===i);
 }
 
 // "123 Main St ..." or "10 Downing Street": a house number, then words.
@@ -4135,7 +4163,8 @@ function pickHero(planes,config){
   const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&(win?inZone(z,a.cpa.x,a.cpa.y):
     a.cpa.miles<config.radiusMiles+1&&a.ground<=config.rangeMiles);
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
-    planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||planes[0]||null;
+    planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
+    planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
   if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>OVERHEAD_MI?'In your window':'Above you now'):
     approaching(hero)?'Approaching':'Nearest';
   return hero;
@@ -4242,7 +4271,7 @@ return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,upda
 __modules["kit.mjs"]=(()=>{
 const {number,zoneOutline}=__modules["core.mjs"];
 const {SILHOUETTES,silhouetteFamily}=__modules["silhouettes.mjs"];
-const {photoFor,qrFor,modelPhoto}=__modules["photos.mjs"];
+const {photoFor,qrFor,qrColours,modelPhoto}=__modules["photos.mjs"];
 const {MAP_ATTRIBUTION}=__modules["mapgen.mjs"];
 const {placeLabel}=__modules["place.mjs"];
 const {tz,compass,offset}=__modules["model.mjs"];
@@ -4266,6 +4295,44 @@ const {tz,compass,offset}=__modules["model.mjs"];
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 
+
+
+
+// QR in the active layout's colours (--ui-ink / --ui-bg on the stage).
+function themedQr(link){
+  const st=document.getElementById('stage'),cs=st&&getComputedStyle(st);
+  return qrFor(link,qrColours(cs?.getPropertyValue('--ui-ink'),cs?.getPropertyValue('--ui-bg')));
+}
+// The aircraft picture block shared by the non-Atlas layouts: photo of this aircraft
+// (Planespotters, credit + QR, per their terms) -> bundled model photo -> nothing (the
+// layout keeps its own text). Styled per layout via .ph / .ph-img / .ph-qr / .ph-cap.
+function photoSlot(cls=''){
+  const s=el('div',`ph ${cls}`);s.hidden=true;
+  s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
+  s._img.alt='';s._qr.alt='';return s;
+}
+// Show the picture for aircraft `a` in slot `s`; `relayout()` runs when it appears or goes.
+function showPhotoIn(s,a,relayout=()=>{}){
+  const hex=a?.hex||'';
+  if(s._hex===hex)return;
+  s._hex=hex;s.hidden=true;s.classList.remove('model');s._img.removeAttribute('src');s._qr.removeAttribute('src');relayout();
+  if(!hex)return;
+  photoFor(a).then(p=>{
+    if(s._hex!==hex||!s.isConnected)return;
+    const qr=p&&themedQr(p.link);
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
+    else{
+      const m=modelPhoto(a);if(!m)return;
+      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      s.classList.add('model');s._img.src=m.src;
+      s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${short} · ${m.license}`];
+    }
+    s._cap.textContent=s._cap._alts[0];s.hidden=false;
+    const fit=()=>{if(s._hex===hex){fitLine(s._cap);relayout();}};
+    s._img.onload=fit; // the photo's width decides the room left for the credit
+    requestAnimationFrame(fit);
+  });
+}
 
 
 
@@ -4325,8 +4392,9 @@ const fmt={
 const placeName=()=>placeLabel(S.place)||'';
 const cityName=()=>S.place?.name||'';
 const alertRadius=()=>Math.min(S.radiusMiles||3,range());
-// Settings > Alert zone: the circle (Alert radius) or the Window view wedge.
-const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:S.viewMiles}:{kind:'circle',radius:alertRadius()};
+// Settings > Alert zone: the circle (Alert radius) or the Window view wedge. Like the circle,
+// the wedge stops at the map's edge, so a plane in the zone is always one you can see.
+const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:Math.min(S.viewMiles||25,range())}:{kind:'circle',radius:alertRadius()};
 const windowView=()=>S.alertZone==='window';
 // SVG path of the alert zone; at(x,y) maps miles east/north of home to screen {x,y}.
 const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(x,y);return `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;}).join('L')+'Z';
@@ -4353,6 +4421,18 @@ function planeIcon(a,p,size,cls,shape=shapeFor(a)){
 function silhouette(a,cls='sil'){
   const family=silhouetteFamily(a),e=svg('svg',{class:`${cls} ${family}`,viewBox:'0 0 120 40','aria-hidden':'true'});
   e.append(svg('path',{d:SILHOUETTES[family],'fill-rule':'nonzero'}));e.dataset.family=family;return e;
+}
+// One line, never cut: try each wording (e._alts, longest first) shrinking the type down
+// to 11 px; if none fits, the shortest one goes down to 9 px.
+function fitLine(e){
+  const alts=e._alts||[e.textContent];
+  for(let i=0;i<alts.length;i++){
+    const floor=i===alts.length-1?9:11;
+    e.textContent=alts[i];e.style.fontSize='';
+    let size=parseFloat(getComputedStyle(e).fontSize);
+    while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
+    if(e.scrollWidth<=e.clientWidth+1)return;
+  }
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
@@ -4482,7 +4562,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {themedQr,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
@@ -4525,9 +4605,9 @@ const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
 // show that far sideways), at most its 250 NM, and polled less often over big areas.
 const feedConfig=()=>{
   const r=mapMiles();
-  const win=settings.alertZone==='window',reach=Math.max(r*1.5,win?settings.viewMiles+3:0);
+  const win=settings.alertZone==='window',view=alertFor(settings.viewMiles,r),reach=Math.max(r*1.5,win?view+3:0);
   return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
-    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:settings.viewMiles}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
+    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:view}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
     searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(reach/1.15078))),
     pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
 };
@@ -4538,6 +4618,7 @@ const maps={base:null,detail:null};
 let creditTimer=0;
 const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 function flashCredits(){
+  if(pick)return; // the picker bar sits where the line would
   const c=$('credit-flash'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
   c.textContent=CREDITS+(sat?(us?' · Imagery USGS':' · Imagery Sentinel-2 cloudless 2016 by EOX (Copernicus Sentinel data 2016)'):'');
   c.classList.add('on');
@@ -4785,15 +4866,16 @@ function showSettings(){
   const alert=alertFor(settings.radiusMiles,mapMiles());
   setText('set-radius-v',alert<settings.radiusMiles?`${fmt.dist(alert,0)} (the map radius)`:fmt.dist(settings.radiusMiles,0));
   setText('set-map-v',fmt.dist(mapMiles(),0));
-  setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
-  setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
+  setText('set-distance-v',settings.distance==='km'?'Kilometers':'Miles');
+  setText('set-altitude-v',settings.altitude==='m'?'Meters':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
   setText('set-places-v',{off:'Off',cities:'Cities',hoods:'Neighborhoods',both:'Cities & neighborhoods'}[settings.placeNames]);
   setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
   setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
-  setText('set-view-v',fmt.dist(settings.viewMiles,0));
+  const view=alertFor(settings.viewMiles,mapMiles());
+  setText('set-view-v',view<settings.viewMiles?`${fmt.dist(view,0)} (the map radius)`:fmt.dist(settings.viewMiles,0));
   for(const r of document.querySelectorAll('#settings .win'))r.hidden=!win;
   $('set-radius').hidden=win;
   for(const r of document.querySelectorAll('#settings .row'))fitValue(r);
@@ -4805,7 +4887,12 @@ function adjustSetting(el,dir){
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
-  else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
+  else if(el.id==='set-from'||el.id==='set-to'){
+    const k=el.id==='set-from'?'viewFrom':'viewTo',other=settings[k==='viewFrom'?'viewTo':'viewFrom'];
+    let v=((settings[k]+dir)%360+360)%360;
+    if(v===other)v=((v+Math.sign(dir))%360+360)%360; // from = to would be a zero-width window
+    settings[k]=v;return zoneChanged();
+  }
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
   else if(el.id==='set-places'){
     const steps=['off','cities','hoods','both'],i=steps.indexOf(settings.placeNames);
@@ -4852,9 +4939,22 @@ function editKey(e){
   e.preventDefault();
   // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
   if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
-  if(k==='Enter'||k===' '||['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return stopEdit();
+  if(k==='Enter'||k===' ')return stopEdit();
+  if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
-function stopEdit(){editing?.classList.remove('editing');editing=null;}
+function stopEdit(){editing?.classList.remove('editing');editing=null;editSnap=null;}
+// Back while editing puts the value back as it was when OK was pressed.
+let editSnap=null;
+function cancelEdit(){
+  const before=editSnap;stopEdit();
+  if(!before)return;
+  const {place,...now}=settings,changed=Object.keys(before).filter(k=>before[k]!==now[k]);
+  if(!changed.length)return;
+  const mapMoved=before.mapMiles!==settings.mapMiles;
+  Object.assign(settings,before);saveSettings(settings);useSettings(settings);showSettings();tellAwake();
+  busy(()=>{mapsChanged();refreshLayout();});
+  clearTimeout(zoneTimer);zoneTimer=setTimeout(mapMoved?()=>applyPlace(settings.place):restartFeed,700);
+}
 
 // Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
 // once (the current map, rescaled); the map for the new radius and the wider or
@@ -4865,7 +4965,7 @@ function stepMap(dir){
   if(next===mapMiles())return toast(`Map radius ${fmt.dist(next,0)} (${dir<0?'closest':'widest'})`);
   settings.mapMiles=next;saveSettings(settings);useSettings(settings);
   if(layer?.id==='settings')showSettings();
-  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
+  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert zone ${fmt.dist(next,0)}`:''}`);
   if(maps.detail&&!detailFits(maps.detail,detailSpec(next)))maps.detail=null;
   busy(()=>{mapsChanged();refreshLayout();});
   clearTimeout(mapTimer);
@@ -4970,7 +5070,7 @@ function openLocate(help){
 
 function select(el){
   if(!el)return;
-  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');return;}
+  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');const {place,...rest}=settings;editSnap=rest;return;}
   if(el._place)return confirmPlace(el._place);
   if(el.dataset.key)return typeKey(el.dataset.key);
   switch(el.id){
@@ -4994,7 +5094,7 @@ function select(el){
 
 let lastBack=0;
 function back(){
-  if(editing)return stopEdit();
+  if(editing)return cancelEdit();
   const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();

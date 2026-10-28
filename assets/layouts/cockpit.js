@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
-  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom,zonePath}=__modules["kit.mjs"];
+  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn}=__modules["kit.mjs"];
 // Layout 11, Cockpit: a Boeing-style navigation display in centred map mode, north up.
 // Home is own-ship; traffic uses TCAS symbols with relative-altitude tags; a magenta
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
@@ -64,6 +64,7 @@ function ui(){
   nd.prepend($.canvas,$.svg);
   for(const c of ['gs','nd-alt','trk','wpt','wpt-d','wpt-t','warn','warn-b','tfc','status','range-v','city','clock','spd-tape','alt-tape',
     'fl','op','rt','vs','type','nodata','quiet','pfd-mid','f-gs','f-trk','f-alt','f-dist','f-brg','f-cpa','l-seen','l-cargo','l-high','recent'])$[c]=root.querySelector('.'+c);
+  root.querySelector('.side').append($.pic=photoSlot());
 }
 
 function drawRose(){
@@ -201,6 +202,7 @@ function render(m){
     setText($['f-brg'],`${deg(hero.bearing)}° ${compass(hero.bearing)}`);
     setText($['f-cpa'],!c?'---':c.receding?'OUTBND':`${fmt.mmss(c.seconds)} ${fmt.dist(c.miles).toUpperCase()}`);
   }
+  showPhotoIn($.pic,hero);
   const rec=m.recent.slice(0,2);
   $.recent.replaceChildren(el('div','k','RECENT ABOVE'),...(rec.length?rec.map(a=>{
     const d=el('div','rec');d.append(el('b','',a.flight),el('span','',a.route?`${a.route.origin}▸${a.route.destination}`:a.aircraft_type||''),el('i','',fmt.ago(a.last_seen,now)));return d;

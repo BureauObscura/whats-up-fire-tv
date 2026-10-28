@@ -52,7 +52,8 @@ export const VIEW_MILES=[5,10,15,20,25,30,40,50,60,75,100];
 const deg=(v,d)=>Number.isFinite(Number(v))?((Math.round(Number(v))%360)+360)%360:d;
 // Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
 export const MAP_RADII=[2,5,10,15,25,50,100,150,250];
-// The alert ring sits inside the map: never wider than the map radius.
+// The alert zone sits inside the map: the ring (and the Window view's reach) never wider
+// than the map radius.
 export const alertFor=(radius,mapMiles)=>Math.max(1,Math.min(radius,mapMiles));
 export function loadSettings(){
   const s=store.get(KEY)||{};
@@ -86,7 +87,9 @@ export async function searchPlaces(query){
   const {status,payload}=await getJson(SEARCH_URL(q),6000);
   if(status!==200||!Array.isArray(payload?.results))return status===200?[]:null;
   return payload.results.map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
-    latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean);
+    latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean)
+    // Same name in the same region (a city and its prefecture): keep the first, biggest.
+    .filter((p,i,all)=>all.findIndex(q=>placeLabel(q)===placeLabel(p)&&q.admin===p.admin)===i);
 }
 
 // "123 Main St ..." or "10 Downing Street": a house number, then words.

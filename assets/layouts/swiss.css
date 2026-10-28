@@ -41,3 +41,9 @@
 .L-swiss .emergency .status{color:rgba(255,255,255,.8)}
 @keyframes swiss-blink{50%{opacity:.55}}
 .L-swiss .emergency .unit{border-color:#fff}
+/* Aircraft photo under the facts: flush left, hairline above, like a caption plate. */
+.L-swiss .ph{justify-content:flex-start;margin-top:12px;border-top:1px solid var(--ink);padding-top:8px;width:284px}
+.L-swiss .ph-img{height:62px}
+.L-swiss .ph-qr{width:60px;height:60px}
+.L-swiss .ph-cap{text-align:left;font:400 11px 'Inter';color:var(--grey);opacity:1}
+.L-swiss .emergency .ph{border-color:#fff}.L-swiss .emergency .ph-cap{color:rgba(255,255,255,.8)}

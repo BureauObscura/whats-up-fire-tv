@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath}=__modules["kit.mjs"];
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn}=__modules["kit.mjs"];
 // Layout 7, Blueprint: a technical drawing on navy drafting paper. The map is
 // linework only (roads by weight, water outlines, runways); aircraft are outline
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
@@ -44,7 +44,10 @@ function ui(){
   root.append(el('div','bp-grid'),$.canvas,$.svg);
   root.insertAdjacentHTML('beforeend',`
     <header class="bp-head"><div class="bp-k">Plan view · airspace over</div><div class="bp-city"></div><div class="bp-time"><b class="bp-clock"></b><span class="bp-date"></span><span class="bp-status"></span></div></header>
-    <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Above</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
+    <div class="bp-side">
+      <div class="bp-rev"><div class="bp-rev-h"><span>Rev</span><span>Above</span><span>Ago</span></div><div class="bp-rev-b"></div></div>
+      <div class="bp-fig" hidden><div class="bp-fig-h">Fig. 1 · Aircraft</div></div>
+    </div>
     <div class="bp-stamp" hidden><b class="bp-stamp-a"></b><span class="bp-stamp-b"></span></div>
     <div class="bp-block">
       <div class="bp-cell bp-obj"><i>Object</i><b class="bp-fl"></b><span class="bp-op"></span></div>
@@ -61,6 +64,7 @@ function ui(){
   for(const c of ['city','clock','date','status','rev-b','stamp','stamp-a','stamp-b','fl','op','type','route','alt','spd','hdg','cpa','vs','note','scale'])
     $[c]=root.querySelector('.bp-'+c);
   $.cells=[...root.querySelectorAll('.bp-block .bp-cell:not(.bp-note):not(.bp-foot)')];
+  $.side=root.querySelector('.bp-side');$.fig=root.querySelector('.bp-fig');$.fig.append($.pic=photoSlot());
 }
 
 function construction(){
@@ -69,7 +73,10 @@ function construction(){
     svg('text',{class:'bp-limitt',x:c.x+c.w-8,y:c.y+16,'text-anchor':'end'},`LIMIT OF DETAIL ±${fmt.dist(LIMIT/zoom(),LIMIT/zoom()<20?1:0).toUpperCase()}`));
   ringBoxes.push({x:c.x+c.w-190,y:c.y+2,w:190,h:20});
   // Three rings at a round step (2 mi / 3 km at the 10-mile view), rescaled with the map radius.
-  const ring=niceDistance(VIEW,80),step=ring.value,unit=metric()?1/KM:1,ppm=ppmOf(VIEW);
+  // The outer ring (and its N and ticks) must stay inside the drawing frame.
+  const unit=metric()?1/KM:1,ppm=ppmOf(VIEW),maxR=Math.min(c.w,c.h)/2-34;
+  let step=niceStep(maxR/3/(ppm*unit));
+  while(3*step*unit*ppm>maxR){const p=10**Math.floor(Math.log10(step)),m=step/p;step=(m>5?5:m>2?2:m>1?1:.5)*p;}
   n.push(svg('line',{class:'bp-center',x1:h.x,y1:0,x2:h.x,y2:H}),svg('line',{class:'bp-center',x1:0,y1:h.y,x2:W,y2:h.y}));
   for(let i=1;i<=3;i++){
     const r=i*step*unit*ppm;
@@ -77,7 +84,9 @@ function construction(){
     const a=-Math.PI/4,tx=h.x+Math.cos(a)*r,ty=h.y+Math.sin(a)*r;
     n.push(svg('text',{class:'bp-ringt',x:tx+4,y:ty-4},`R ${+(i*step).toPrecision(3)} ${metric()?'KM':'MI'}`));ringBoxes.push({x:tx,y:ty-18,w:50,h:18});
   }
-  n.push(svg('path',{class:'bp-alert',d:zonePath((x,y)=>toView(VIEW,x,y))}));
+  // The alert zone (a wedge can be long) is clipped to the drawing frame.
+  const clip=svg('clipPath',{id:'bp-frame'});clip.append(svg('rect',{x:c.x,y:c.y,width:c.w,height:c.h}));
+  n.push(clip,svg('path',{class:'bp-alert',d:zonePath((x,y)=>toView(VIEW,x,y)),'clip-path':'url(#bp-frame)'}));
   n.push(svg('circle',{class:'bp-datum',cx:h.x,cy:h.y,r:7}),svg('line',{class:'bp-datumx',x1:h.x-11,y1:h.y,x2:h.x+11,y2:h.y}),
     svg('line',{class:'bp-datumx',x1:h.x,y1:h.y-11,x2:h.x,y2:h.y+11}),svg('text',{class:'bp-datumt',x:h.x+10,y:h.y+20},'DATUM · HOME'));
   // Compass rose ticks on the outer ring.
@@ -116,6 +125,8 @@ function render(m){
 
   const planes=[],callouts=[],boxes=[...KEEP,...ringBoxes,...(hero?.emergency?[{x:420,y:14,w:230,h:100}]:[])],bounds={x:6,y:6,w:W-12,h:H-12};
   const home=toView(VIEW,0,0);boxes.push({x:home.x-60,y:home.y-14,w:120,h:40});
+  showPhotoIn($.pic,hero,()=>{$.fig.hidden=$.pic.hidden;});
+  if(!$.fig.hidden)boxes.push({x:$.side.offsetLeft-6,y:$.side.offsetTop-6,w:$.side.offsetWidth+12,h:$.side.offsetHeight+12});
   const shown=byInterest(m).filter(a=>{const p=toView(VIEW,a.x,a.y);return p.x>-10&&p.x<W+10&&p.y>-10&&p.y<H+10;});
   for(const a of shown){
     const p=toView(VIEW,a.x,a.y),isHero=a===hero;
@@ -148,7 +159,7 @@ function render(m){
   if(!hero)setText($.note,`NOTE 1: ${quietText(m,demo).toUpperCase()}`);
   if(hero){
     setText($.fl,hero.flight);setText($.op,(hero.operator||'').toUpperCase());
-    setText($.type,(hero.type||hero.aircraft_type||'UNKNOWN').toUpperCase());
+    $.type._alts=[...new Set([hero.type,hero.aircraft_type,'UNKNOWN'].filter(Boolean).map(s=>s.toUpperCase()))];fitLine($.type);
     setText($.route,hero.route?`${hero.route.origin} → ${hero.route.destination}`:'NOT FILED');
     setText($.alt,fmt.alt(hero.altitude_ft).toUpperCase());setText($.spd,fmt.speed(hero.speed_kt).toUpperCase());
     setText($.hdg,number(hero.heading)?`${String(Math.round(hero.heading)).padStart(3,'0')}° ${compass(hero.heading)}`:'—');

@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {zoneOutline}=__modules["core.mjs"];
 const {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone}=__modules["kit.mjs"];
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn}=__modules["kit.mjs"];
 // Layout 10, Sectional: a cream VFR sectional chart around home. Towns in chart
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
@@ -60,14 +60,17 @@ function ui(){
         <header><span class="tl">Legend</span></header>
         <div class="keys">
           <div><svg viewBox="0 0 30 18"><path d="M15 2C16 2 16.4 5 16.4 7L16.4 8 27 12 27 14 16.4 11 16 15 19 17 11 17 14 15 13.6 11 3 14 3 12 13.6 8 13.6 7C13.6 5 14 2 15 2Z" fill="#1d2f5e"/></svg>Aircraft</div>
-          <div><svg class="key-zone" viewBox="0 0 30 18"></svg>Zone</div>
+          <div><svg class="key-zone" viewBox="0 0 30 18"></svg>Alert zone</div>
           <div><svg viewBox="0 0 30 18"><path d="M2 9a13 13 0 0 1 26 0" fill="none" stroke="#2a63ad" stroke-width="3"/></svg>Major airport</div>
           <div><svg viewBox="0 0 30 18"><path d="M2 9a13 13 0 0 1 26 0" fill="none" stroke="#2a63ad" stroke-width="2.4" stroke-dasharray="5 3"/></svg>Airport</div>
           <div><svg viewBox="0 0 30 18"><path d="M11 3.8L19 3.8 23 9 19 14.2 11 14.2 7 9Z" fill="#fff" stroke="#2a63ad" stroke-width="2"/></svg>Home</div>
           <div><svg viewBox="0 0 30 18"><rect x="3" y="4" width="24" height="10" fill="rgba(246,214,72,.8)"/></svg>Built-up area</div>
         </div>
       </section>
+      <section class="box photo" hidden><header><span class="tl">Aircraft</span></header></section>
     </aside>`;
+  // The aircraft photo takes the legend's place while it shows (the column has room for one).
+  $.key=root.querySelector('.box.key');$.photo=root.querySelector('.box.photo');$.photo.append($.pic=photoSlot());
   const chart=root.querySelector('.chart');
   $.canvas=makeCanvas(W,H,'chart-map');
   $.svg=svg('svg',{class:'chart-svg',viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});
@@ -112,7 +115,11 @@ function drawMap(){
     else a.push(svg('circle',{class:towered?'cls-d':'cls-e',cx:p.x,cy:p.y,r:(towered?4:3)*NM*PPM}));
     a.push(svg('circle',{class:'apt',cx:p.x,cy:p.y,r:big?17:12,stroke:col}));
     const name=(ap.name||ap.code).toUpperCase().replace(/\bINTERNATIONAL\b/,'INTL').replace(/\bAIRPORT\b/,'').replace(/\s+/g,' ').trim();
-    const t1=name.length>26?name.slice(0,25)+'…':name,code=`(${ap.iata||ap.icao||ap.code})`;
+    // Long names shorten by words (Cincinnati/Northern Kentucky -> Cincinnati/N. Kentucky), never "…".
+    let t1=name;
+    for(const [a,b] of [[/\bNORTHERN\b/,'N.'],[/\bSOUTHERN\b/,'S.'],[/\bREGIONAL\b/,'RGNL'],[/\bMUNICIPAL\b/,'MUNI'],[/\bCOUNTY\b/,'CO.']])if(t1.length>26)t1=t1.replace(a,b);
+    if(t1.length>26)t1=t1.split(/[\/ ]/)[0];
+    const code=`(${ap.iata||ap.icao||ap.code})`;
     const w=Math.max(t1.length*6.6,code.length*8)+4,box={x:p.x+18,y:p.y-4,w,h:30};
     if(p.x>-20&&p.x<W+20&&p.y>-20&&p.y<H+20&&!boxes.some(b=>overlap(b,box))&&box.x+w<W-4){
       boxes.push(box);
@@ -146,7 +153,7 @@ function drawRose(){
   // VOR-style hexagon on home.
   const hex=[...Array(6)].map((_,i)=>{const a=(i*60+30)*Math.PI/180;return `${(CX+Math.cos(a)*9).toFixed(1)} ${(CY+Math.sin(a)*9).toFixed(1)}`;}).join('L');
   n.push(svg('path',{class:'hex',d:`M${hex}Z`}),svg('circle',{class:'hex-dot',cx:CX,cy:CY,r:2.2}));
-  if(!windowView())n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
+  if(!windowView()&&CY+alertRadius()*PPM-5<H-40)n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
   $.rose.replaceChildren(...n);
   // Legend: the zone as it is drawn, a ring (All around) or the window's wedge.
   // Legend: the zone's own outline (ring or wedge), scaled to fit the 30x18 key.
@@ -206,6 +213,7 @@ function render(m){
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'moving away':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
     setText($.type,hero.aircraft_type||'—');
   }
+  showPhotoIn($.pic,hero,()=>{$.photo.hidden=$.pic.hidden;$.key.hidden=!$.pic.hidden;});
   const L=m.log;
   setText($.cargo,String(L.cargoTonight));setText($.seen,fmt.int(L.today));
   setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'No cargo yet tonight':'Cargo counts 6 pm – 6 am');

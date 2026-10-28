@@ -73,3 +73,9 @@
 .L-glass .emergency .gl-plane.hero path{fill:var(--gl-red);filter:drop-shadow(0 0 7px rgba(255,77,94,1))}
 .L-glass .emergency .gl-tag.hero{fill:rgba(255,77,94,.5);stroke:#ff8a96}
 .L-glass .emergency .gl-tally{display:none}
+/* Aircraft photo card, bottom left. */
+.L-glass .gl-photo{position:absolute;left:22px;bottom:18px;padding:10px 12px 8px;max-width:330px}
+.L-glass .gl-photo .ph{justify-content:flex-start;gap:5px 8px}
+.L-glass .gl-photo .ph-img{height:60px;border-radius:8px}
+.L-glass .gl-photo .ph-qr{width:60px;height:60px;border-radius:6px}
+.L-glass .gl-photo .ph-cap{text-align:left;font:500 10.5px Inter;color:var(--gl-dim);opacity:1}

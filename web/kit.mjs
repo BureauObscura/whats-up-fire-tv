@@ -19,8 +19,43 @@
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 import {number,zoneOutline} from './core.mjs';
 import {SILHOUETTES,silhouetteFamily} from './silhouettes.mjs';
-import {photoFor,qrFor,modelPhoto} from './photos.mjs';
+import {photoFor,qrFor,qrColours,modelPhoto} from './photos.mjs';
 export {photoFor,qrFor,modelPhoto};
+// QR in the active layout's colours (--ui-ink / --ui-bg on the stage).
+export function themedQr(link){
+  const st=document.getElementById('stage'),cs=st&&getComputedStyle(st);
+  return qrFor(link,qrColours(cs?.getPropertyValue('--ui-ink'),cs?.getPropertyValue('--ui-bg')));
+}
+// The aircraft picture block shared by the non-Atlas layouts: photo of this aircraft
+// (Planespotters, credit + QR, per their terms) -> bundled model photo -> nothing (the
+// layout keeps its own text). Styled per layout via .ph / .ph-img / .ph-qr / .ph-cap.
+export function photoSlot(cls=''){
+  const s=el('div',`ph ${cls}`);s.hidden=true;
+  s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
+  s._img.alt='';s._qr.alt='';return s;
+}
+// Show the picture for aircraft `a` in slot `s`; `relayout()` runs when it appears or goes.
+export function showPhotoIn(s,a,relayout=()=>{}){
+  const hex=a?.hex||'';
+  if(s._hex===hex)return;
+  s._hex=hex;s.hidden=true;s.classList.remove('model');s._img.removeAttribute('src');s._qr.removeAttribute('src');relayout();
+  if(!hex)return;
+  photoFor(a).then(p=>{
+    if(s._hex!==hex||!s.isConnected)return;
+    const qr=p&&themedQr(p.link);
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
+    else{
+      const m=modelPhoto(a);if(!m)return;
+      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      s.classList.add('model');s._img.src=m.src;
+      s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${short} · ${m.license}`];
+    }
+    s._cap.textContent=s._cap._alts[0];s.hidden=false;
+    const fit=()=>{if(s._hex===hex){fitLine(s._cap);relayout();}};
+    s._img.onload=fit; // the photo's width decides the room left for the credit
+    requestAnimationFrame(fit);
+  });
+}
 import {MAP_ATTRIBUTION} from './mapgen.mjs';
 import {placeLabel} from './place.mjs';
 import {tz,compass,offset} from './model.mjs';
@@ -81,8 +116,9 @@ export const fmt={
 export const placeName=()=>placeLabel(S.place)||'';
 export const cityName=()=>S.place?.name||'';
 export const alertRadius=()=>Math.min(S.radiusMiles||3,range());
-// Settings > Alert zone: the circle (Alert radius) or the Window view wedge.
-export const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:S.viewMiles}:{kind:'circle',radius:alertRadius()};
+// Settings > Alert zone: the circle (Alert radius) or the Window view wedge. Like the circle,
+// the wedge stops at the map's edge, so a plane in the zone is always one you can see.
+export const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:Math.min(S.viewMiles||25,range())}:{kind:'circle',radius:alertRadius()};
 export const windowView=()=>S.alertZone==='window';
 // SVG path of the alert zone; at(x,y) maps miles east/north of home to screen {x,y}.
 export const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(x,y);return `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;}).join('L')+'Z';
@@ -109,6 +145,18 @@ export function planeIcon(a,p,size,cls,shape=shapeFor(a)){
 export function silhouette(a,cls='sil'){
   const family=silhouetteFamily(a),e=svg('svg',{class:`${cls} ${family}`,viewBox:'0 0 120 40','aria-hidden':'true'});
   e.append(svg('path',{d:SILHOUETTES[family],'fill-rule':'nonzero'}));e.dataset.family=family;return e;
+}
+// One line, never cut: try each wording (e._alts, longest first) shrinking the type down
+// to 11 px; if none fits, the shortest one goes down to 9 px.
+export function fitLine(e){
+  const alts=e._alts||[e.textContent];
+  for(let i=0;i<alts.length;i++){
+    const floor=i===alts.length-1?9:11;
+    e.textContent=alts[i];e.style.fontSize='';
+    let size=parseFloat(getComputedStyle(e).fontSize);
+    while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
+    if(e.scrollWidth<=e.clientWidth+1)return;
+  }
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];

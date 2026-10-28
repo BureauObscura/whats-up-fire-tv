@@ -31,9 +31,9 @@ const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
 // show that far sideways), at most its 250 NM, and polled less often over big areas.
 const feedConfig=()=>{
   const r=mapMiles();
-  const win=settings.alertZone==='window',reach=Math.max(r*1.5,win?settings.viewMiles+3:0);
+  const win=settings.alertZone==='window',view=alertFor(settings.viewMiles,r),reach=Math.max(r*1.5,win?view+3:0);
   return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
-    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:settings.viewMiles}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
+    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:view}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
     searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(reach/1.15078))),
     pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
 };
@@ -44,6 +44,7 @@ const maps={base:null,detail:null};
 let creditTimer=0;
 const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 function flashCredits(){
+  if(pick)return; // the picker bar sits where the line would
   const c=$('credit-flash'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
   c.textContent=CREDITS+(sat?(us?' · Imagery USGS':' · Imagery Sentinel-2 cloudless 2016 by EOX (Copernicus Sentinel data 2016)'):'');
   c.classList.add('on');
@@ -291,15 +292,16 @@ function showSettings(){
   const alert=alertFor(settings.radiusMiles,mapMiles());
   setText('set-radius-v',alert<settings.radiusMiles?`${fmt.dist(alert,0)} (the map radius)`:fmt.dist(settings.radiusMiles,0));
   setText('set-map-v',fmt.dist(mapMiles(),0));
-  setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
-  setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
+  setText('set-distance-v',settings.distance==='km'?'Kilometers':'Miles');
+  setText('set-altitude-v',settings.altitude==='m'?'Meters':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
   setText('set-places-v',{off:'Off',cities:'Cities',hoods:'Neighborhoods',both:'Cities & neighborhoods'}[settings.placeNames]);
   setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
   setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
-  setText('set-view-v',fmt.dist(settings.viewMiles,0));
+  const view=alertFor(settings.viewMiles,mapMiles());
+  setText('set-view-v',view<settings.viewMiles?`${fmt.dist(view,0)} (the map radius)`:fmt.dist(settings.viewMiles,0));
   for(const r of document.querySelectorAll('#settings .win'))r.hidden=!win;
   $('set-radius').hidden=win;
   for(const r of document.querySelectorAll('#settings .row'))fitValue(r);
@@ -311,7 +313,12 @@ function adjustSetting(el,dir){
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
-  else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
+  else if(el.id==='set-from'||el.id==='set-to'){
+    const k=el.id==='set-from'?'viewFrom':'viewTo',other=settings[k==='viewFrom'?'viewTo':'viewFrom'];
+    let v=((settings[k]+dir)%360+360)%360;
+    if(v===other)v=((v+Math.sign(dir))%360+360)%360; // from = to would be a zero-width window
+    settings[k]=v;return zoneChanged();
+  }
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
   else if(el.id==='set-places'){
     const steps=['off','cities','hoods','both'],i=steps.indexOf(settings.placeNames);
@@ -358,9 +365,22 @@ function editKey(e){
   e.preventDefault();
   // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
   if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
-  if(k==='Enter'||k===' '||['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return stopEdit();
+  if(k==='Enter'||k===' ')return stopEdit();
+  if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
-function stopEdit(){editing?.classList.remove('editing');editing=null;}
+function stopEdit(){editing?.classList.remove('editing');editing=null;editSnap=null;}
+// Back while editing puts the value back as it was when OK was pressed.
+let editSnap=null;
+function cancelEdit(){
+  const before=editSnap;stopEdit();
+  if(!before)return;
+  const {place,...now}=settings,changed=Object.keys(before).filter(k=>before[k]!==now[k]);
+  if(!changed.length)return;
+  const mapMoved=before.mapMiles!==settings.mapMiles;
+  Object.assign(settings,before);saveSettings(settings);useSettings(settings);showSettings();tellAwake();
+  busy(()=>{mapsChanged();refreshLayout();});
+  clearTimeout(zoneTimer);zoneTimer=setTimeout(mapMoved?()=>applyPlace(settings.place):restartFeed,700);
+}
 
 // Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
 // once (the current map, rescaled); the map for the new radius and the wider or
@@ -371,7 +391,7 @@ function stepMap(dir){
   if(next===mapMiles())return toast(`Map radius ${fmt.dist(next,0)} (${dir<0?'closest':'widest'})`);
   settings.mapMiles=next;saveSettings(settings);useSettings(settings);
   if(layer?.id==='settings')showSettings();
-  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
+  toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert zone ${fmt.dist(next,0)}`:''}`);
   if(maps.detail&&!detailFits(maps.detail,detailSpec(next)))maps.detail=null;
   busy(()=>{mapsChanged();refreshLayout();});
   clearTimeout(mapTimer);
@@ -476,7 +496,7 @@ function openLocate(help){
 
 function select(el){
   if(!el)return;
-  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');return;}
+  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');const {place,...rest}=settings;editSnap=rest;return;}
   if(el._place)return confirmPlace(el._place);
   if(el.dataset.key)return typeKey(el.dataset.key);
   switch(el.id){
@@ -500,7 +520,7 @@ function select(el){
 
 let lastBack=0;
 function back(){
-  if(editing)return stopEdit();
+  if(editing)return cancelEdit();
   const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();

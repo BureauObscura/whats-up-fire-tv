@@ -80,3 +80,9 @@
 .L-sectional .layout .keys svg{width:30px;height:18px;flex:none}
 .L-sectional .emergency .key{display:none}
 .L-sectional .notam{line-height:1.25}
+/* Aircraft photo box (in the legend's place while a photo shows). */
+.L-sectional .layout .photo .ph{padding:6px 8px 5px;gap:3px 8px}
+.L-sectional .layout .photo .ph-img{height:56px;border:1px solid var(--ink)}
+.L-sectional .layout .photo .ph-qr{width:56px;height:56px}
+.L-sectional .layout .photo .ph-cap{font:600 11px var(--bc);color:var(--ink);opacity:.8}
+.L-sectional .emergency .photo{display:none}
