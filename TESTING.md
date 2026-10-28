@@ -86,6 +86,19 @@ Automated: `npm run test:web` (node, 23 tests) and `npx jest` (3 tests). All pas
 | Location search with the remote (CHICAGO by D-pad, Search, first match focused, confirm box on top) | S | PASS (screenshots in Vibe Coding/whatsup/tests/). |
 | Atlas / Atlas Dark long names | D, S | FIXED: no ellipsis anywhere; operator, type, registration on their own lines; column spread over the full height. |
 
+## Wider-radius map detail (TV, Atlas Dark, 2026-10-28)
+
+| Radius | Detail | Lowest RAM free while building | RAM free after | Result |
+| --- | --- | --- | --- | --- |
+| 15 mi | full streets (z12, buildings) | 251 MB | 353 MB | PASS |
+| 25 mi | mid (z11) | 336 MB | 368 MB | PASS |
+| 50 mi | mid (z10) | — | 298 MB | PASS |
+| 100 mi | mid (z9) | 261 MB | 355 MB | PASS |
+| 150 mi | mid (z8) | 292 MB | 360 MB | PASS |
+| 250 mi | mid (z8) | 316 MB | 359 MB | PASS |
+
+Desktop: 16–36 detail tiles per radius, cached 1.1–1.6 MB per wide map; detail drawn within ~5–7 s on desktop, under the 60 s window on the TV at every step. App responsive throughout (Up/Down steps, plane updates). Limit: none needed.
+
 ## Could not test / notes
 
 * The stick went into standby after its screensaver at 05:59 UTC and stayed asleep until at least
