@@ -12,7 +12,7 @@ import {fileURLToPath} from 'node:url';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const web=join(root,'web'),out=process.env.WHATSUP_OUT||join(root,'assets'); // WHATSUP_OUT: build elsewhere (checks)
 // Dependency order.
-const MODULES=['config.js','core.mjs','silhouettes.mjs','routes.mjs','aircraft-types.mjs','live.mjs','place.mjs','mapgen.mjs','model.mjs','kit.mjs','app.mjs'];
+const MODULES=['config.js','core.mjs','silhouettes.mjs','routes.mjs','aircraft-types.mjs','live.mjs','photos.mjs','place.mjs','mapgen.mjs','model.mjs','kit.mjs','app.mjs'];
 
 // Rewrites `import {a,b} from './x.mjs'` (paths relative to `dir` inside web/) and
 // `export const|function ...`. Returns the body plus the import lines and exported names.
@@ -64,7 +64,7 @@ const html=readFileSync(join(web,'index.html'),'utf8')
 if(!html.includes('whatsup.js'))throw new Error('index.html: script tag not found');
 writeFileSync(join(out,'index.html'),html);
 // media/keep-awake.mp4: the silent loop the app plays to hold off the screensaver (Settings > Keep screen awake).
-for(const item of ['whatsup.css','mvt.js','fonts','media'])cpSync(join(web,item),join(out,item),{recursive:true});
+for(const item of ['whatsup.css','mvt.js','qr.js','fonts','media'])cpSync(join(web,item),join(out,item),{recursive:true});
 // App icon for manifest.toml (@image/whatsup_icon.png): 512x512 PNG.
 mkdirSync(join(out,'image'),{recursive:true});cpSync(join(root,'icon','whatsup_icon.png'),join(out,'image','whatsup_icon.png'));
 console.log(`assets/ written (${MODULES.length} modules, ${layouts.length} layout scripts, ${Math.round(layoutBytes/1024)} KB layout code)`);

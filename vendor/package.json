@@ -4,7 +4,8 @@
   "description": "Bundles @mapbox/vector-tile + pbf for the page",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild entry.js --bundle --minify --format=iife --legal-comments=eof --outfile=../web/mvt.js"
+    "build": "esbuild entry.js --bundle --minify --format=iife --legal-comments=eof --outfile=../web/mvt.js",
+    "build:qr": "esbuild qr-entry.js --bundle --minify --format=iife --legal-comments=eof --outfile=../web/qr.js"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +14,8 @@
   "dependencies": {
     "@mapbox/vector-tile": "^2.0.5",
     "esbuild": "^0.28.2",
-    "pbf": "^4.0.2"
+    "pbf": "^4.0.2",
+    "qrcode-generator": "^2.0.4"
   },
   "private": true
 }

@@ -3278,6 +3278,59 @@ function startLive(onUpdate,config){
 
 return {HISTORY_KEY,MAX_NM,FEED_URL,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
 })();
+// ---- photos.mjs
+__modules["photos.mjs"]=(()=>{
+const {getJson}=__modules["live.mjs"];
+// Aircraft pictures for the hero card, best first:
+// 1. a photo of that exact aircraft from Planespotters.net (by hex, else registration),
+// 2. a bundled photo of the model (assets/models/, from Wikimedia Commons, models.mjs),
+// 3. the drawn silhouette (silhouettes.mjs).
+// Planespotters' API terms: credit the photographer next to the photo; link back with an
+// on-screen QR code carrying the photo's link URL (no clickable surface on a TV); fetch the
+// image straight from their URL on this device, keep it only while shown, never store it;
+// URLs used unchanged; JSON may be cached up to 24 h; identify with a User-Agent (the app
+// bridge sends one). Lookups are cached per aircraft for this session, misses too.
+
+const PHOTO_URL=(kind,id)=>`https://api.planespotters.net/pub/photos/${kind}/${id}`;
+const IMG=/^https:\/\/(cdn\.planespotters\.net|[a-z0-9-]+\.plnspttrs\.net)\/[^\s"'<>]+\.(jpe?g|png|webp)$/i;
+const LINK=/^https:\/\/www\.planespotters\.net\/photo\/[^\s"'<>]+$/;
+const cache=new Map(),DAY=86400000;
+
+// A photo record {src,width,height,link,photographer} from an API reply, or null.
+function parsePhoto(payload){
+  const p=Array.isArray(payload?.photos)?payload.photos[0]:null;
+  const t=p?.thumbnail_large?.src?p.thumbnail_large:p?.thumbnail;
+  if(!t||!IMG.test(String(t.src))||!LINK.test(String(p.link)))return null;
+  const photographer=String(p.photographer||'').trim().slice(0,60);
+  return {src:t.src,width:Number(t.size?.width)||0,height:Number(t.size?.height)||0,link:p.link,photographer};
+}
+
+// Resolves the photo for an aircraft, or null (none, failure, or slower than 3 s).
+function photoFor(a){
+  const hex=String(a?.hex||'').toLowerCase();
+  if(!/^[0-9a-f]{6}$/.test(hex))return Promise.resolve(null);
+  const hit=cache.get(hex);
+  if(hit&&Date.now()-hit.at<DAY)return hit.promise;
+  const reg=String(a.registration||'').toUpperCase().replace(/[^A-Z0-9-]/g,'');
+  const promise=(async()=>{
+    let {status,payload}=await getJson(PHOTO_URL('hex',hex),3000);
+    let photo=status===200?parsePhoto(payload):null;
+    if(!photo&&status===200&&reg.length>=2){({status,payload}=await getJson(PHOTO_URL('reg',reg),3000));photo=status===200?parsePhoto(payload):null;}
+    return photo;
+  })().catch(()=>null);
+  cache.set(hex,{at:Date.now(),promise});
+  if(cache.size>300)cache.delete(cache.keys().next().value);
+  return promise;
+}
+
+// QR code (data: GIF) for a photo's link, drawn by the bundled encoder (qr.js).
+function qrFor(link){
+  const QR=globalThis.window?.WhatsUpQR;if(!QR)return '';
+  try{const q=QR(0,'M');q.addData(link);q.make();return q.createDataURL(4,2);}catch{return '';}
+}
+
+return {PHOTO_URL,parsePhoto,photoFor,qrFor};
+})();
 // ---- place.mjs
 __modules["place.mjs"]=(()=>{
 const {getJson,store}=__modules["live.mjs"];
@@ -4016,6 +4069,7 @@ return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,carg
 __modules["kit.mjs"]=(()=>{
 const {number,zoneOutline}=__modules["core.mjs"];
 const {SILHOUETTES,silhouetteFamily}=__modules["silhouettes.mjs"];
+const {photoFor,qrFor}=__modules["photos.mjs"];
 const {MAP_ATTRIBUTION}=__modules["mapgen.mjs"];
 const {placeLabel}=__modules["place.mjs"];
 const {tz,compass,offset}=__modules["model.mjs"];
@@ -4037,7 +4091,6 @@ const {tz,compass,offset}=__modules["model.mjs"];
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
-
 
 
 
@@ -4247,7 +4300,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,shortField,airfieldsNear,airportsNear,credits,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{

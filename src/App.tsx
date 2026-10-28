@@ -28,9 +28,11 @@ const ALLOWED = [
   /^https:\/\/nominatim\.openstreetmap\.org\/search\?q=[^&#]{1,300}&format=jsonv2&limit=5&addressdetails=1$/,
   /^https:\/\/api\.open-meteo\.com\/v1\/forecast\?latitude=-?\d{1,2}\.\d{2}&longitude=-?\d{1,3}\.\d{2}&timezone=auto&forecast_days=1$/,
   /^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\d{1,2}\/\d{1,6}\/\d{1,6}\.pbf$/,
+  /^https:\/\/api\.planespotters\.net\/pub\/photos\/(hex\/[0-9a-f]{6}|reg\/[A-Z0-9-]{2,10})$/,
 ];
 const MAX_BYTES = 2 * 1024 * 1024;
-const USER_AGENT = 'WhatsUp/0.1 (Fire TV aircraft radar app, Vega OS)';
+// Names the app and a contact, as Nominatim's and Planespotters' API terms ask.
+const USER_AGENT = 'WhatsUp-FireTV/0.1 (Vega OS aircraft display; +https://github.com/BureauObscura)';
 
 type Request = {
   type: 'get' | 'ui' | 'awake';

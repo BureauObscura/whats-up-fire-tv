@@ -18,8 +18,9 @@ const ALLOWED=[
   /^https:\/\/nominatim\.openstreetmap\.org\/search\?q=[^&#]{1,300}&format=jsonv2&limit=5&addressdetails=1$/,
   /^https:\/\/api\.open-meteo\.com\/v1\/forecast\?latitude=-?\d{1,2}\.\d{2}&longitude=-?\d{1,3}\.\d{2}&timezone=auto&forecast_days=1$/,
   /^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\d{1,2}\/\d{1,6}\/\d{1,6}\.pbf$/,
+  /^https:\/\/api\.planespotters\.net\/pub\/photos\/(hex\/[0-9a-f]{6}|reg\/[A-Z0-9-]{2,10})$/,
 ];
-const TYPES={'.woff2':'font/woff2','.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.ttf':'font/ttf','.json':'application/json'};
+const TYPES={'.woff2':'font/woff2','.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.ttf':'font/ttf','.json':'application/json','.jpg':'image/jpeg','.gif':'image/gif','.mp4':'video/mp4'};
 const SHIM=`window.ReactNativeWebView={postMessage(data){const r=JSON.parse(data);
 fetch('/proxy?url='+encodeURIComponent(r.url)+(r.binary?'&binary=1':'')).then(x=>x.json()).then(x=>window.__whatsupReply(r.id,x.status,x.text),()=>window.__whatsupReply(r.id,'connection_error',''));}};`;
 
@@ -29,7 +30,7 @@ createServer(async(req,res)=>{
     const target=url.searchParams.get('url')||'';
     let status='blocked',text='';
     if(ALLOWED.some(p=>p.test(target)))try{
-      const r=await fetch(target,{headers:{'User-Agent':'WhatsUp/0.1 (Fire TV aircraft radar app, dev server)'},signal:AbortSignal.timeout(8000)});
+      const r=await fetch(target,{headers:{'User-Agent':'WhatsUp-FireTV/0.1 (dev server; +https://github.com/BureauObscura)'},signal:AbortSignal.timeout(8000)});
       status=r.status;text=r.status!==200?'':url.searchParams.get('binary')?Buffer.from(await r.arrayBuffer()).toString('base64'):await r.text();
     }catch{status='connection_error';}
     res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({status,text}));return;

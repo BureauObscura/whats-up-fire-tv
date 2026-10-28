@@ -70,3 +70,17 @@ test('aircraft silhouettes: family from the type designator, else the category',
   assert.equal(f({category:'A7'}),'heli');assert.equal(f({}),'narrow');
   for(const fam of new Set(Object.values(want)))assert.ok(SILHOUETTES[fam]);
 });
+test('photos: Planespotters reply parsed, URLs kept unchanged, anything off-host rejected',async()=>{
+  const {parsePhoto,PHOTO_URL}=await import('../web/photos.mjs');
+  const ok={photos:[{thumbnail:{src:'https://t.plnspttrs.net/06912/1987982_fe0fcc4132_t.jpg',size:{width:200,height:133}},
+    thumbnail_large:{src:'https://t.plnspttrs.net/06912/1987982_fe0fcc4132_280.jpg',size:{width:420,height:280}},
+    link:'https://www.planespotters.net/photo/1987982/n27270?utm_source=api',photographer:'John Robert Murdoch'}]};
+  const p=parsePhoto(ok);
+  assert.equal(p.src,'https://t.plnspttrs.net/06912/1987982_fe0fcc4132_280.jpg');
+  assert.equal(p.link,'https://www.planespotters.net/photo/1987982/n27270?utm_source=api');
+  assert.equal(p.photographer,'John Robert Murdoch');
+  assert.equal(parsePhoto({photos:[]}),null);
+  assert.equal(parsePhoto({photos:[{...ok.photos[0],thumbnail_large:{src:'https://evil.example/x.jpg'},thumbnail:{src:'https://evil.example/y.jpg'}}]}),null);
+  assert.equal(parsePhoto({photos:[{...ok.photos[0],link:'javascript:alert(1)'}]}),null);
+  assert.equal(PHOTO_URL('hex','a2b150'),'https://api.planespotters.net/pub/photos/hex/a2b150');
+});

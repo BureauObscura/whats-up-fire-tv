@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor}=__modules["kit.mjs"];
 // Layout 5, Atlas: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -120,6 +120,7 @@ function ui(){
         <div><dt>Look</dt><dd class="at-look"></dd></div><div><dt>Closest</dt><dd class="at-cpa"></dd></div>
       </dl>
       <div class="at-type"><span class="at-typet"></span></div><div class="at-reg"></div>
+      <div class="at-pic" hidden><img class="at-img" alt=""><img class="at-qr" alt=""><div class="at-credit"></div></div>
     </section>
     <section class="at-quiet" hidden></section>
     <section class="at-books">
@@ -128,7 +129,7 @@ function ui(){
     </section>
     <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
-    'type','typet','reg','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+    'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
   $.barFill=$.bar.firstChild;
   root.append(map,side);
 }
@@ -218,6 +219,24 @@ function fitLine(e){
   }
 }
 
+// The hero's picture block: a Planespotters photo of this exact aircraft, with the
+// photographer credit and a QR code to the photo's page beside it (their terms). Only the
+// shown image is held; switching aircraft drops it.
+let picHex='',photo=null;
+function showPhoto(a){
+  const hex=a?.hex||'';
+  if(hex===picHex)return;
+  picHex=hex;photo=null;$.pic.hidden=true;$.img.removeAttribute('src');$.qr.removeAttribute('src');
+  if(!hex)return;
+  photoFor(a).then(p=>{
+    if(!root||picHex!==hex||!p)return;
+    const qr=qrFor(p.link);if(!qr)return;
+    photo=p;$.img.src=p.src;$.qr.src=qr;
+    $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
+    $.credit.textContent=$.credit._alts[0];
+  });
+}
+
 function render(m){
   const {now,hero}=m;
   setText($.city,cityName()||placeName());setText($.clock,fmt.clock(now));
@@ -271,10 +290,15 @@ function render(m){
     setText($.vs,fmt.vs(hero.vertical));setText($.hdg,number(hero.heading)?`${String(Math.round(hero.heading)).padStart(3,'0')}° ${compass(hero.heading)}`:'—');
     setText($.look,`${compass(hero.bearing)} ${Math.max(0,Math.round(hero.elevation))}°`);
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'passed':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
-    setText($.typet,hero.type||hero.aircraft_type||'Unknown type');
-    // A small side-profile picture of the aircraft family beside the type.
+    const typeName=hero.type||hero.aircraft_type||'Unknown type',regLine=[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean);
+    // With a photo the registration joins the type line (one line) to make room.
+    $.typet._alts=[[typeName,...regLine].join(' · '),[typeName,regLine[0]].filter(Boolean).join(' · '),typeName];
+    setText($.typet,typeName);
+    // A small side-profile picture of the aircraft family beside the type, until (or
+    // unless) a real photo of this aircraft arrives.
     const sil=silhouette(hero,'at-sil');
     if($.type.lastElementChild?.dataset?.family!==sil.dataset.family){$.type.querySelector('.at-sil')?.remove();$.type.append(sil);}
+    showPhoto(hero);
     setText($.reg,[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean).join(' · '));
   }
   const L=m.log;
@@ -298,10 +322,14 @@ function render(m){
   // the column), then the type tightens.
   const side=$.rec.closest('.at-side'),sec=$.rec.parentNode;
   side.classList.remove('tight','tighter');sec.hidden=false;
+  $.pic.hidden=!(hero&&photo&&picHex===hero.hex);side.classList.toggle('photo',!$.pic.hidden);
   const over=()=>side.scrollHeight>side.clientHeight+1;
   if(over())sec.hidden=true;
   if(over())side.classList.add('tight');
   if(over())side.classList.add('tighter');
+  // Still no room: the photo gives way (the silhouette stays) rather than a stat row.
+  if(over()&&!$.pic.hidden){$.pic.hidden=true;side.classList.remove('photo');}
+  if(!$.pic.hidden){fitLine($.credit);fitLine($.typet);}
   for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
 }
 
@@ -312,6 +340,6 @@ window.__whatsupLayout("atlas",{
   setMap(m){maps=m;drawMap();},
   render,
   refresh(){drawMap();},
-  unmount(){root=null;satToken++;$={};maps={};trails.clear();},
+  unmount(){root=null;satToken++;picHex='';photo=null;$={};maps={};trails.clear();},
 });
 })();
