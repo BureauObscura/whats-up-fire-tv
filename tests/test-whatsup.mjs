@@ -84,3 +84,14 @@ test('photos: Planespotters reply parsed, URLs kept unchanged, anything off-host
   assert.equal(parsePhoto({photos:[{...ok.photos[0],link:'javascript:alert(1)'}]}),null);
   assert.equal(PHOTO_URL('hex','a2b150'),'https://api.planespotters.net/pub/photos/hex/a2b150');
 });
+test('model photos: bundled per ICAO type with author and license, files present',async()=>{
+  const {MODELS,modelPhoto}=await import('../web/models.mjs');
+  const {existsSync}=await import('node:fs');
+  assert.ok(Object.keys(MODELS).length>=90);
+  for(const [t,m] of Object.entries(MODELS)){
+    assert.ok(m.author&&m.license&&!/SA/i.test(m.license),t);
+    assert.ok(existsSync(new URL(`../web/models/${t}.jpg`,import.meta.url)),t);
+  }
+  assert.equal(modelPhoto({aircraft_type:'b763'}).src,'models/B763.jpg');
+  assert.equal(modelPhoto({aircraft_type:'ZZZZ'}),null);
+});
