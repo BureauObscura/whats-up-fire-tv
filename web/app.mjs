@@ -3,6 +3,7 @@
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
+import {chimeGate} from './core.mjs';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
@@ -146,9 +147,16 @@ async function ensureDetail(){
 }
 
 // --- Place, map and feed
-function render(m){lastModel=m;draw(m);}
+// Chime when the alert zone goes from empty to occupied (Settings > Chime); the app plays it.
+const CHIME_VOLUME={low:.25,med:.55,high:1};
+let chime=null;
+function listen(m){
+  const r=chimeGate(chime,m.planes.filter(a=>a.inside).length,m.now,m.live&&m.fresh);chime=r.state;
+  if(r.ring&&settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]});
+}
+function render(m){lastModel=m;listen(m);draw(m);}
 async function applyPlace(place,{fresh=false}={}){
-  const token=++placeToken;
+  const token=++placeToken;chime=null; // a new feed starts quiet
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
   const range=mapMiles();
@@ -253,6 +261,7 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
   setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
@@ -269,6 +278,12 @@ function adjustSetting(el,dir){
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
   else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
+  else if(el.id==='set-chime'){
+    const steps=['off','low','med','high'],i=steps.indexOf(settings.chime);
+    settings.chime=steps[Math.max(0,Math.min(steps.length-1,i+dir))];saveSettings(settings);showSettings();
+    if(settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]}); // a preview
+    return;
+  }
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();

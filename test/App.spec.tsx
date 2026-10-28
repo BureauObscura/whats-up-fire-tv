@@ -26,6 +26,7 @@ jest.mock('@amazon-devices/react-native-w3cmedia', () => ({
   KeplerVideoSurfaceView: 'KeplerVideoSurfaceView',
   VideoPlayer: jest.fn(),
 }));
+jest.mock('../src/chime', () => ({playChime: jest.fn(), releaseChime: jest.fn()}));
 jest.mock('../src/silentLoop', () => ({
   setSurface: jest.fn(),
   startLoop: jest.fn(() => Promise.resolve()),

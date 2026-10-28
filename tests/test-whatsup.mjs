@@ -111,3 +111,16 @@ test('logbook: Rarest and Farthest follow the map radius; Seen stays local',asyn
   assert.equal(s.rarest.code,'C172');r=50;assert.equal(s.rarest.code,'B77W','the summary follows a zoom at once');
   assert.equal(updateLog({day,seen:[],typesToday:['A388'],typesAll:{A388:1},cargo:{night:null,seen:{}}},[],now).planes['old-A388'].t,'A388','old logs keep today\'s types');
 });
+test('alert chime: first entry after a quiet minute only; no ring at launch, while occupied, on flicker or stale data',async()=>{
+  const {chimeGate}=await import('../web/core.mjs');
+  let s=null,r;const step=(n,t,fresh=true)=>{({state:s,ring:r}=chimeGate(s,n,t,fresh));return r;};
+  assert.equal(step(1,0),false,'already occupied at launch');
+  assert.equal(step(2,5000),false,'still occupied');
+  assert.equal(step(0,10000),false);
+  assert.equal(step(1,30000),false,'back after 20 s: flicker, no ring');
+  assert.equal(step(0,40000),false);
+  assert.equal(step(0,90000,false),false,'stale data changes nothing');
+  assert.equal(step(1,101000),true,'first plane after 61 s empty');
+  assert.equal(step(2,106000),false,'a second plane while one is inside');
+  s=null;assert.equal(step(0,0),false);assert.equal(step(1,61000),true,'empty at launch, then a plane a minute later');
+});

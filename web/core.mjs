@@ -182,3 +182,16 @@ export function zoneOutline(zone,steps=64){
   for(let i=0;i<=n;i++){const a=(zone.from+span*i/n)*Math.PI/180;pts.push([zone.miles*Math.sin(a),zone.miles*Math.cos(a)]);}
   pts.push([0,0]);return pts;
 }
+
+// Alert chime: rings when the alert zone goes from empty to occupied, and only after it
+// has been empty for `quiet` ms (a plane flickering at the edge or a data gap doesn't
+// re-ring). The first reading after launch never rings. Stale data changes nothing.
+export function chimeGate(state,count,now,fresh,quiet=60000){
+  const s=state||{ready:false,count:0,emptySince:null};
+  if(!fresh)return {state:s,ring:false};
+  if(!s.ready)return {state:{ready:true,count,emptySince:count?null:now},ring:false};
+  let ring=false,emptySince=s.emptySince;
+  if(count>0&&s.count===0)ring=emptySince!==null&&now-emptySince>=quiet;
+  if(count>0)emptySince=null;else if(s.count>0||emptySince===null)emptySince=now;
+  return {state:{ready:true,count,emptySince},ring};
+}

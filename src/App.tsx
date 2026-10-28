@@ -5,6 +5,7 @@ import {AppState, BackHandler, View, StyleSheet} from 'react-native';
 import {KeepAwake} from '@whatsup/keep-awake';
 import {KeplerVideoSurfaceView} from '@amazon-devices/react-native-w3cmedia';
 import {setSurface, startLoop, stopLoop} from './silentLoop';
+import {playChime, releaseChime} from './chime';
 import {
   useHideSplashScreenCallback,
   usePreventHideSplashScreen,
@@ -35,8 +36,9 @@ const MAX_BYTES = 2 * 1024 * 1024;
 const USER_AGENT = 'WhatsUp-FireTV/0.1 (Spacely Digital; spacelydigital@gmail.com)';
 
 type Request = {
-  type: 'get' | 'ui' | 'awake';
+  type: 'get' | 'ui' | 'awake' | 'chime';
   on?: boolean;
+  volume?: number;
   id: number;
   url: string;
   timeoutMs?: number;
@@ -149,7 +151,13 @@ export const App = () => {
       stopLoop();
     }
   }, [awake, active]);
-  useEffect(() => () => stopLoop(), []);
+  useEffect(
+    () => () => {
+      stopLoop();
+      releaseChime();
+    },
+    [],
+  );
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -169,6 +177,12 @@ export const App = () => {
     try {
       request = JSON.parse(event.nativeEvent.data);
     } catch {
+      return;
+    }
+    if (request?.type === 'chime') {
+      if (AppState.currentState !== 'background') {
+        playChime(Number(request.volume) || 0.55);
+      }
       return;
     }
     if (request?.type === 'awake') {

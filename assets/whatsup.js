@@ -204,7 +204,20 @@ function zoneOutline(zone,steps=64){
   pts.push([0,0]);return pts;
 }
 
-return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline};
+// Alert chime: rings when the alert zone goes from empty to occupied, and only after it
+// has been empty for `quiet` ms (a plane flickering at the edge or a data gap doesn't
+// re-ring). The first reading after launch never rings. Stale data changes nothing.
+function chimeGate(state,count,now,fresh,quiet=60000){
+  const s=state||{ready:false,count:0,emptySince:null};
+  if(!fresh)return {state:s,ring:false};
+  if(!s.ready)return {state:{ready:true,count,emptySince:count?null:now},ring:false};
+  let ring=false,emptySince=s.emptySince;
+  if(count>0&&s.count===0)ring=emptySince!==null&&now-emptySince>=quiet;
+  if(count>0)emptySince=null;else if(s.count>0||emptySince===null)emptySince=now;
+  return {state:{ready:true,count,emptySince},ring};
+}
+
+return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline,chimeGate};
 })();
 // ---- silhouettes.mjs
 __modules["silhouettes.mjs"]=(()=>{
@@ -3510,6 +3523,7 @@ function loadSettings(){
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
+    chime:['off','low','med','high'].includes(s.chime)?s.chime:'med', // Settings > Chime (a plane enters your zone)
     // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
     alertZone:s.alertZone==='window'?'window':'circle',
     viewFrom:deg(s.viewFrom,90),viewTo:deg(s.viewTo,180),
@@ -4452,6 +4466,7 @@ return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,u
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
 const {CONFIG}=__modules["config.js"];
+const {chimeGate}=__modules["core.mjs"];
 const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog,setLogRadius}=__modules["model.mjs"];
 const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
@@ -4461,6 +4476,7 @@ const {svg,useSettings,fmt,makeCanvas,paintMap}=__modules["kit.mjs"];
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
+
 
 
 
@@ -4604,9 +4620,16 @@ async function ensureDetail(){
 }
 
 // --- Place, map and feed
-function render(m){lastModel=m;draw(m);}
+// Chime when the alert zone goes from empty to occupied (Settings > Chime); the app plays it.
+const CHIME_VOLUME={low:.25,med:.55,high:1};
+let chime=null;
+function listen(m){
+  const r=chimeGate(chime,m.planes.filter(a=>a.inside).length,m.now,m.live&&m.fresh);chime=r.state;
+  if(r.ring&&settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]});
+}
+function render(m){lastModel=m;listen(m);draw(m);}
 async function applyPlace(place,{fresh=false}={}){
-  const token=++placeToken;
+  const token=++placeToken;chime=null; // a new feed starts quiet
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
   const range=mapMiles();
@@ -4711,6 +4734,7 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  setText('set-chime-v',{off:'Off',low:'On · quiet',med:'On · medium',high:'On · loud'}[settings.chime]);
   const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
   setText('set-zone-v',win?'Window view':'All around');
   setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
@@ -4727,6 +4751,12 @@ function adjustSetting(el,dir){
   else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
   else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
+  else if(el.id==='set-chime'){
+    const steps=['off','low','med','high'],i=steps.indexOf(settings.chime);
+    settings.chime=steps[Math.max(0,Math.min(steps.length-1,i+dir))];saveSettings(settings);showSettings();
+    if(settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]}); // a preview
+    return;
+  }
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
