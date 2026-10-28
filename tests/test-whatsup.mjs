@@ -124,3 +124,20 @@ test('alert chime: first entry after a quiet minute only; no ring at launch, whi
   assert.equal(step(2,106000),false,'a second plane while one is inside');
   s=null;assert.equal(step(0,0),false);assert.equal(step(1,61000),true,'empty at launch, then a plane a minute later');
 });
+test('every built layout script and module parses (a syntax error silently keeps the old layout)',async()=>{
+  const {execFileSync}=await import('node:child_process');
+  const {readdirSync,readFileSync}=await import('node:fs');
+  const vm=await import('node:vm');
+  execFileSync(process.execPath,[new URL('../scripts/build-web.mjs',import.meta.url).pathname],{env:{...process.env,WHATSUP_OUT:'/tmp/whatsup-check'}});
+  for(const f of readdirSync('/tmp/whatsup-check/layouts').filter(f=>f.endsWith('.js')))
+    assert.doesNotThrow(()=>new vm.Script(readFileSync(`/tmp/whatsup-check/layouts/${f}`,'utf8'),{filename:f}),f);
+  assert.doesNotThrow(()=>new vm.Script(readFileSync('/tmp/whatsup-check/whatsup.js','utf8')));
+});
+test('every screen sits inside the themed stage (so layouts can style it)',()=>{
+  const s=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+  const i=s.indexOf('<div class="stage" id="stage">');let depth=0,end=-1;
+  for(const m of s.slice(i).matchAll(/<div\b|<\/div>/g)){depth+=m[0]==='<div'?1:-1;if(!depth){end=i+m.index+m[0].length;break;}}
+  const outside=s.slice(end);
+  for(const id of ['settings','about','locate','confirm','picker','welcome','adjust-panel','toast','credit-flash'])
+    assert.ok(!outside.includes(`id="${id}"`),`#${id} is outside the stage`);
+});

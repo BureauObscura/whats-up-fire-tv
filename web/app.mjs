@@ -227,7 +227,10 @@ const focusables=()=>layer?[...layer.querySelectorAll('[data-focus]')].filter(el
 function open(id,first){
   if(layer){layer._last=focused;layers.push(layer);}
   layer=$(id);layer.hidden=false;
-  if(id==='settings')for(const r of layer.querySelectorAll('.row'))fitValue(r);
+  if(id==='settings'){
+    const refit=()=>{if(layer?.id==='settings')for(const r of layer.querySelectorAll('.row'))fitValue(r);};
+    refit();document.fonts?.ready.then(refit);setTimeout(refit,700); // the layout's font may still be loading
+  }
   // Stack order follows opening order, not page order: a later screen must cover an earlier one.
   layer.style.zIndex=String(10+layers.length);setFocus(first?$(first):focusables()[0]);syncApp();
 }
@@ -481,15 +484,17 @@ window.__whatsupBack=back;
 
 // --- Adjust position: a close-up street map (OpenFreeMap z13, about 1 mi around) and
 // a fixed centre dot; the remote's arrows move the map under it, ~50 m a press,
-// faster while held. OK saves, Back cancels. Always drawn in the green scope style.
+// faster while held. OK saves, Back cancels. Drawn in the layout's own colours.
 const ADJ_RANGE=1,STEP_M=50,ACX=270,ACY=270,AR=250;
-const ADJ_MAP=[
-  {layer:'water',fill:'rgba(61,255,116,.15)'},
-  {layer:'rivers',stroke:'rgba(61,255,116,.3)',width:1.4},
-  {layer:'roads',not:['motorway','trunk','primary','secondary'],stroke:'rgba(61,255,116,.32)',width:1},
-  {layer:'roads',classes:['motorway','trunk','primary','secondary'],stroke:'rgba(61,255,116,.55)',width:2},
-  {layer:'runways',stroke:'rgba(61,255,116,.85)',width:2.4},
-];
+// Drawn in the layout's ink colour (--ui-ink) at different strengths.
+function adjMap(){
+  const ink=getComputedStyle(stage).getPropertyValue('--ui-ink').trim(),m=/^#([0-9a-f]{6})$/i.exec(ink);
+  const [r,g,b]=m?[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16)):[61,255,116],c=a=>`rgba(${r},${g},${b},${a})`;
+  return [{layer:'water',fill:c(.15)},{layer:'rivers',stroke:c(.3),width:1.4},
+    {layer:'roads',not:['motorway','trunk','primary','secondary'],stroke:c(.32),width:1},
+    {layer:'roads',classes:['motorway','trunk','primary','secondary'],stroke:c(.55),width:2},
+    {layer:'runways',stroke:c(.85),width:2.4}];
+}
 let adj=null;
 async function startAdjust(place){
   if(!place)return;
@@ -506,7 +511,7 @@ async function startAdjust(place){
 }
 function drawAdjust(){
   const c={latitude:adj.latitude,longitude:adj.longitude},ppm=AR/ADJ_RANGE;
-  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c,fixed:true},ADJ_MAP);
+  paintMap(adj.canvas,{base:adj.map||maps.base},{cx:ACX,cy:ACY,ppm,clip:{r:AR},center:c,fixed:true},adjMap());
   const nodes=[svg('circle',{class:'ring edge',cx:ACX,cy:ACY,r:AR})];
   for(const f of [.25,.5,.75])nodes.push(svg('circle',{class:'ring',cx:ACX,cy:ACY,r:AR*f}));
   nodes.push(svg('line',{class:'cross',x1:ACX-26,y1:ACY,x2:ACX+26,y2:ACY}),svg('line',{class:'cross',x1:ACX,y1:ACY-26,x2:ACX,y2:ACY+26}),

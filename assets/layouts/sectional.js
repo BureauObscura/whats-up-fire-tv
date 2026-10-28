@@ -151,8 +151,8 @@ function drawRose(){
   // Legend: the zone as it is drawn, a ring (All around) or the window's wedge.
   // Legend: the zone's own outline (ring or wedge), scaled to fit the 30x18 key.
   const k=root.querySelector('.key-zone'),pts=zoneOutline(alertZone());
-  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-  const f=Math.min(24/(x1-x0||1),14/(y1-y0||1)),ox=15-(x0+x1)/2*f,oy=9+(y0+y1)/2*f;
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),kx0=Math.min(...xs),kx1=Math.max(...xs),ky0=Math.min(...ys),ky1=Math.max(...ys);
+  const f=Math.min(24/(kx1-kx0||1),14/(ky1-ky0||1)),ox=15-(kx0+kx1)/2*f,oy=9+(ky0+ky1)/2*f;
   if(k)k.replaceChildren(svg('path',{d:'M'+pts.map(([x,y])=>`${(ox+x*f).toFixed(1)} ${(oy-y*f).toFixed(1)}`).join('L')+'Z',
     fill:'rgba(163,35,127,.12)',stroke:'#a3237f','stroke-width':1.6,'stroke-dasharray':'2 2.4'}));
   // Scale bar: 0-5 miles (or 0-8 km).

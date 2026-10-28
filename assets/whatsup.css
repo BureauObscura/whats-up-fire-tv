@@ -15,10 +15,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000}
 .layout-note{position:absolute;left:0;right:0;bottom:44%;text-align:center;font:600 16px var(--ui-font);color:var(--ui-dim);pointer-events:none;z-index:4}
 .layout-note:empty{display:none}
 .credit-flash{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:4;pointer-events:none;white-space:nowrap;
-  font:500 10.5px/1 var(--ui-font);color:rgba(255,255,255,.88);background:rgba(10,12,16,.62);padding:5px 10px;border-radius:10px;
+  font:500 10.5px/1 var(--ui-font);color:var(--ui-ink);background:var(--ui-bg);border:1px solid var(--ui-faint);padding:5px 10px;border-radius:10px;
   opacity:0;transition:opacity 1.2s ease}
 .toast{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:6;pointer-events:none;white-space:nowrap;
-  font:700 15px/1 var(--ui-font);color:#fff;background:rgba(10,12,16,.82);padding:9px 16px;border-radius:12px;opacity:0;transition:opacity .6s ease}
+  font:700 15px/1 var(--ui-font);color:var(--ui-ink);background:var(--ui-bg);border:1.5px solid var(--ui-ink);box-shadow:0 0 14px var(--ui-glow);padding:9px 16px;border-radius:12px;opacity:0;transition:opacity .6s ease}
 .toast.on{opacity:1;transition:opacity .15s ease}
 .credit-flash.on{opacity:1;transition:opacity .3s ease}
 kbd{font:inherit;border:1px solid var(--ui-faint);padding:0 4px;border-radius:3px}
@@ -45,9 +45,12 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .entry{font-size:28px;font-weight:700;border-bottom:1.5px solid var(--ui-ink);padding:2px 4px;min-height:44px}
 .caret{display:inline-block;width:3px;height:28px;background:var(--ui-ink);vertical-align:-4px;margin-left:2px;animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:.35}}
-.locate-body{display:grid;grid-template-columns:auto 1fr;gap:24px;margin-top:16px}
-.keys{display:grid;grid-template-columns:repeat(7,40px);gap:6px}
-.keys button{height:38px;font-size:17px;font-weight:700;padding:0}
+.locate-body{display:grid;grid-template-columns:auto 1fr;gap:22px;margin-top:14px}
+#locate .card{max-width:900px;width:900px}
+/* Remote keyboard: big keys, readable from the couch; the focused key fills with the theme accent. */
+.keys{display:grid;grid-template-columns:repeat(7,50px);gap:6px}
+.keys button{height:46px;font-size:21px;font-weight:700;padding:0;color:var(--ui-ink);border-color:var(--ui-faint)}
+.keys button.focus{color:var(--ui-on);border-color:var(--ui-ink)}
 .keys button.w2{grid-column:span 2}.keys button.w3{grid-column:span 3}.keys button.w4{grid-column:span 4}
 .results{display:flex;flex-direction:column;gap:6px;min-width:0}
 .results button{text-align:left;padding:8px 12px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -71,24 +74,24 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .pick-help{font-size:12px;color:var(--ui-dim);margin-top:4px}
 .stage.picking #settings{display:none!important}
 
-/* Adjust position: close-up map, the instructions on the right (always the green scope style) */
+/* Adjust position: close-up map, the instructions on the right, in the layout's colours */
 .adjust-view,.adjust-panel{display:none}
 .stage.adjusting .adjust-view,.stage.adjusting .adjust-panel{display:block}
 .stage.adjusting .layout,.stage.adjusting .layout-note{display:none}
-.stage.adjusting{background:#000}
-.adjust-view{position:absolute;left:0;top:0;width:540px;height:540px;background:#000;font-family:var(--mono);color:#3dff74}
+.stage.adjusting{background:var(--ui-bg)}
+.adjust-view{position:absolute;left:0;top:0;width:540px;height:540px;background:var(--ui-bg);font-family:var(--ui-font);color:var(--ui-ink)}
 .adjust-map,.adjust-svg{position:absolute;inset:0;width:540px;height:540px}
-.adjust-note{position:absolute;left:0;right:0;top:300px;text-align:center;color:rgba(61,255,116,.66);font-size:13px}
-.adjust-credit{position:absolute;left:12px;bottom:10px;font-size:9.5px;line-height:1.35;color:rgba(61,255,116,.5)}
-.adjust-svg .ring{fill:none;stroke:rgba(61,255,116,.18);stroke-width:.8}.adjust-svg .ring.edge{stroke:rgba(61,255,116,.6);stroke-width:1.4}
-.adjust-svg .label{fill:rgba(61,255,116,.7);font:11px var(--mono)}
-.cross{stroke:#3dff74;stroke-width:1.2;opacity:.8}
-.home-dot{fill:#3dff74;filter:drop-shadow(0 0 5px rgba(61,255,116,.9))}
-.scale{stroke:#3dff74;stroke-width:2}
-.adjust-panel{position:absolute;left:570px;top:40px;right:34px;font-size:16px;line-height:1.55;color:#3dff74;font-family:var(--mono)}
+.adjust-note{position:absolute;left:0;right:0;top:300px;text-align:center;color:var(--ui-dim);font-size:13px}
+.adjust-credit{position:absolute;left:12px;bottom:10px;font-size:9.5px;line-height:1.35;color:var(--ui-dim)}
+.adjust-svg .ring{fill:none;stroke:var(--ui-faint);stroke-width:.8}.adjust-svg .ring.edge{stroke:var(--ui-dim);stroke-width:1.4}
+.adjust-svg .label{fill:var(--ui-dim);font:11px var(--ui-font)}
+.cross{stroke:var(--ui-ink);stroke-width:1.2;opacity:.8}
+.home-dot{fill:var(--ui-alert);stroke:var(--ui-bg);stroke-width:1.5}
+.scale{stroke:var(--ui-ink);stroke-width:2}
+.adjust-panel{position:absolute;left:570px;top:40px;right:34px;font-size:16px;line-height:1.55;color:var(--ui-ink);font-family:var(--ui-font)}
 .adjust-panel .title{font-size:24px;font-weight:800}
-.adjust-panel p{margin:12px 0;color:rgba(61,255,116,.66)}
-.adjust-panel .note.small{color:rgba(61,255,116,.4)}
+.adjust-panel p{margin:12px 0;color:var(--ui-dim)}
+.adjust-panel .note.small{color:var(--ui-faint)}
 .adjust-where{font-size:20px;font-weight:700;margin-top:4px}
 .adjust-moved{font-size:22px;font-weight:700;margin-top:14px}
 .keys-help{font-size:17px}
@@ -98,12 +101,13 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .title{margin-bottom:6px}
 #settings .cols{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;align-items:start}
 #settings h3{margin:0 0 2px;font:700 12px var(--ui-font);letter-spacing:.14em;text-transform:uppercase;color:var(--ui-dim)}
-#settings .row{grid-template-columns:150px 1fr;padding:7px 12px;margin-top:5px;font-size:16px;position:relative}
+/* label | value | hint (the hint column exists only on the focused row) */
+#settings .row{grid-template-columns:minmax(150px,max-content) minmax(0,1fr) auto;column-gap:12px;padding:7px 12px;margin-top:5px;font-size:16px;position:relative}
+#settings .row span{white-space:nowrap}
 #settings .row b{min-width:0}
-#settings .row i{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;display:none}
+#settings .row i{font-size:12px;display:none;white-space:nowrap;align-self:center}
 #settings .row.focus i{display:block}
-#settings .row.focus b{padding-right:96px}
-#settings .row.nohint i{display:none!important}#settings .row.nohint b{padding-right:0!important}
+#settings .row.nohint i{display:none!important}
 #settings .row.editing i{display:block}
 #settings .row.editing i::before{content:'‹ › change  ·  OK done';}
 #settings .row.editing[data-big] i::before{content:'‹ › 1°  ▲▼ 10°  ·  OK done';}

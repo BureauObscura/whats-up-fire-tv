@@ -23,8 +23,8 @@
 @keyframes dep-flip-b{0%{transform:scaleY(1)}45%{transform:scaleY(.08);filter:brightness(1.8)}100%{transform:scaleY(1)}}
 .L-departures .clock .c{width:24px;height:40px;font-size:30px;line-height:40px}
 
-.L-departures .cols{position:absolute;left:34px;top:90px;display:flex;gap:14px;font:600 13px 'Barlow Condensed';letter-spacing:.22em;text-transform:uppercase;color:var(--amber-dim)}
-.L-departures .cols span{display:block}.L-departures .cols .r{text-align:right}
+.L-departures .layout .cols{position:absolute;left:34px;top:90px;display:flex;gap:14px;font:600 13px 'Barlow Condensed';letter-spacing:.22em;text-transform:uppercase;color:var(--amber-dim)}
+.L-departures .layout .cols span{display:block}.L-departures .layout .cols .r{text-align:right}
 .L-departures .board{position:absolute;left:34px;top:112px;display:flex;flex-direction:column;gap:5px}
 .L-departures .brow{display:flex;gap:14px;padding:0;position:relative}
 .L-departures .brow.past .c{color:rgba(255,178,30,.55);text-shadow:none}
