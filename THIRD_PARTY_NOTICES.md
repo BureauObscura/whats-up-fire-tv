@@ -19,6 +19,9 @@ trademarks or imagery.
   (Blueprint, Sectional), B612 Mono (Cockpit), Orbitron (Synthwave), EB Garamond (Night Sky).
 - **@mapbox/vector-tile 2.0.5 and pbf 4.0.2** (`web/mvt.js`, bundled by `vendor/`):
   BSD-3-Clause, © Mapbox.
+- **qrcode-generator 2.0.4** (`web/qr.js`, bundled by `vendor/`): MIT, © Kazuhiko Arase. Draws the
+  QR codes that link each Planespotters photo to its page.
+- **Aircraft silhouettes** (`web/silhouettes.mjs`): drawn for this app.
 - **Aircraft types** (`web/aircraft-types.mjs`): factual manufacturer/model data from
   [ICAO Doc 8643](https://doc8643.icao.int/), via the MIT-licensed project above.
 - **Map tile fixture** (`tests/fixtures/*.pbf`): one OpenFreeMap tile, used only by tests.
@@ -35,6 +38,7 @@ trademarks or imagery.
 | [US Census Geocoder](https://geocoding.geo.census.gov/) | US street addresses (one request per Search) | free, no key, public-domain US government service. |
 | [Nominatim](https://nominatim.org/) (OpenStreetMap) | non-US street addresses and postcodes Open-Meteo misses | [usage policy](https://operations.osmfoundation.org/policies/nominatim/): at most 1 request/s, one request per explicit Search (never autocomplete), identifying User-Agent (set by the app bridge); ODbL, © OpenStreetMap contributors. Heavy or commercial use should move to a self-hosted or paid geocoder. |
 | [Open-Meteo forecast API](https://open-meteo.com/) | time zone and elevation for a geocoded address, queried with coordinates rounded to 2 decimals | same non-commercial terms as Open-Meteo geocoding. |
+| [Planespotters.net photo API](https://www.planespotters.net/photo/api) | a photo of the aircraft on screen (Atlas layouts), looked up by hex/registration | free, no key; [API terms](https://www.planespotters.net/photo/api): photographer credit next to the photo, link back to the photo page (on a TV: an on-screen QR code, which the app shows), images fetched directly and not stored, URLs unchanged, identifying User-Agent with contact, no AI training. Free public API with no stated commercial grant: **ask Planespotters before a paid release.** |
 | [GeoJS](https://www.geojs.io/) | first-launch approximate location from the IP address | free, no key, "no rate limits (yet)"; data from MaxMind GeoLite2 (attribution: "includes GeoLite2 data created by MaxMind"). |
 
 Airline names identify flights and belong to their owners; no logos are bundled.
