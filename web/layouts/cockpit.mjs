@@ -143,7 +143,7 @@ function render(m){
   for(const a of visible){
     const p=P(a.x,a.y),isHero=a===hero;
     const kind=a.emergency?'ra':a.inside?'ta':'other';
-    const g=svg('g',{class:`tcas ${kind}${isHero?' hero':''}`,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
+    const g=svg('g',{class:`tcas ${kind}${isHero?' hero':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
     if(kind==='ra')g.append(svg('rect',{x:-8,y:-8,width:16,height:16}));
     else if(kind==='ta')g.append(svg('circle',{r:8}));
     else g.append(svg('path',{d:'M0 -10L8 0L0 10L-8 0Z'}));

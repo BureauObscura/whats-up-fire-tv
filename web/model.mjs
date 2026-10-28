@@ -188,8 +188,8 @@ function inAlert(a,config){
 }
 function pickHero(planes,config){
   const z=config.zone,win=z?.kind==='window';
-  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&(win?inZone(z,a.cpa.x,a.cpa.y):
-    a.cpa.miles<config.radiusMiles+1&&a.ground<=config.rangeMiles);
+  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.ground<=config.rangeMiles&&(win?inZone(z,a.cpa.x,a.cpa.y):
+    a.cpa.miles<config.radiusMiles+1);
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map

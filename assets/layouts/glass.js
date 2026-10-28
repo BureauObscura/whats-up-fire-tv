@@ -7,7 +7,7 @@ const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,ma
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
 
-const W=960,H=540,VIEW={cx:318,cy:284,ppm:44};
+const W=960,H=540,VIEW={cx:318,cy:284,ppm:25}; // the whole map radius fits below home (256 px)
 const DETAIL=[
   {layer:'landuse',classes:['residential'],fill:'#090d13'},
   {layer:'landuse',not:['residential'],fill:'#0b1018'},

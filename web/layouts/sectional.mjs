@@ -5,7 +5,7 @@ import {zoneOutline} from '../core.mjs';
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
   makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn,fit,placeAlts} from '../kit.mjs';
 
-const W=680,H=540,CX=345,CY=282,PPM0=30,ROSE=118;
+const W=680,H=540,CX=345,CY=282,PPM0=25.5,ROSE=118; // the whole map radius fits below home (258 px)
 let PPM=PPM0; // at the current map radius (set before each draw)
 const setScale=()=>{PPM=PPM0*zoom();};
 const NM=1.15078;
@@ -66,7 +66,6 @@ function ui(){
       <section class="box photo" hidden><header><span class="tl">Aircraft</span></header></section>
     </aside>`;
   // The aircraft photo takes the legend's place while it shows (the column has room for one).
-  fit([...root.querySelectorAll('.grid dd')],$.city);
   $.key=root.querySelector('.box.key');$.photo=root.querySelector('.box.photo');$.photo.append($.pic=photoSlot());
   const chart=root.querySelector('.chart');
   $.canvas=makeCanvas(W,H,'chart-map');
@@ -75,6 +74,7 @@ function ui(){
   chart.append($.canvas,$.svg);
   for(const c of ['city','clock','date','status','hero-st','notam','tbody','fl','op','rt','alt','gs','dist','look','cpa','type','none','quiet','cargo','seen','cargo-by'])
     $[c]=root.querySelector('.'+c);
+  fit([...root.querySelectorAll('.grid dd')],$.city);
 }
 
 let boxes=[];

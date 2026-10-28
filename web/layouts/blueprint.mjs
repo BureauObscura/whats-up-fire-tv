@@ -5,7 +5,7 @@
 import {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
   compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn,fit,placeAlts} from '../kit.mjs';
 
-const W=960,H=540,LIMIT=6.5,VIEW={cx:372,cy:292,ppm:40};
+const W=960,H=540,LIMIT=10.4,VIEW={cx:372,cy:292,ppm:24.5}; // the whole map radius fits below home (248 px); the frame keeps its size
 // The survey limit: linework stops at a drafted border where the detail map ends.
 const CLIPPED={...VIEW,clip:{x:VIEW.cx-LIMIT*VIEW.ppm,y:VIEW.cy-LIMIT*VIEW.ppm,w:2*LIMIT*VIEW.ppm,h:2*LIMIT*VIEW.ppm}};
 const PAPER='#0c2d5a';
@@ -128,7 +128,7 @@ function render(m){
   const shown=byInterest(m).filter(a=>{const p=toView(VIEW,a.x,a.y);return p.x>-10&&p.x<W+10&&p.y>-10&&p.y<H+10;});
   for(const a of shown){
     const p=toView(VIEW,a.x,a.y),isHero=a===hero;
-    const g=svg('g',{class:`bp-plane${isHero?' hero':''}`,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${(isHero?32:22)/64})`});
+    const g=svg('g',{class:`bp-plane${isHero?' hero':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${(isHero?32:22)/64})`});
     g.append(svg('path',{d:shapeFor(a)}));planes.push(g);
     // Heading vector: a short construction line ahead of the nose.
     if(number(a.heading)){const r=a.heading*Math.PI/180,l=isHero?34:22;

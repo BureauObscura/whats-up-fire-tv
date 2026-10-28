@@ -125,7 +125,7 @@ function render(m){
       rot=Math.atan2(q.x-g.x,-(q.y-g.y))*180/Math.PI;
     }
     const size=off?.8:Math.max(.75,Math.min(1.35,.6+g.s*.45))*(isHero?1.35:1);
-    jets.push(svg('path',{class:`jet ${cls}`,d:CHEV,transform:`translate(${px.toFixed(1)} ${py.toFixed(1)}) rotate(${rot.toFixed(0)}) scale(${size.toFixed(2)})`}));
+    jets.push(svg('path',{class:`jet ${cls}`,'data-hex':a.hex,d:CHEV,transform:`translate(${px.toFixed(1)} ${py.toFixed(1)}) rotate(${rot.toFixed(0)}) scale(${size.toFixed(2)})`}));
     if(tagged.has(a)){
       const alt=fmt.altUnit()==='m'?fmt.alt(a.altitude_ft):`${String(Math.round((a.altitude_ft||0)/100)).padStart(3,'0')}`;
       const l2=off?`↓ ${fmt.dist(a.ground,0)} S`:alt,w=Math.max(a.flight.length*11,l2.length*9)+4,h=32;

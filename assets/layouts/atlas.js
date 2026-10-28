@@ -11,7 +11,9 @@ const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,ma
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
-const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
+// ppm 25.5: the map radius fits between home and the bottom edge (264 px), so every plane
+// within the radius is on screen (at 54 it showed about half the radius north-south).
+const W=700,H=540,VIEW={cx:350,cy:276,ppm:25.5,clip:{x:0,y:0,w:W,h:H}};
 const road=(classes,casing,fill,cw,fw)=>[{layer:'roads',from:'detail',classes,stroke:casing,width:cw},{layer:'roads',from:'detail',classes,stroke:fill,width:fw}];
 const DETAIL=[
   {layer:'landuse',classes:['residential'],fill:'#ece6da'},

@@ -93,7 +93,7 @@ function render(m){
     if(p.x<-20||p.y<-20||p.x>W+20||p.y>H+20)continue;
     const low=number(a.altitude_ft)?Math.max(0,Math.min(1,1-a.altitude_ft/40000)):.5,isHero=a===hero;
     const halo=a.emergency?'ns-halo-red':a.cargo?'ns-halo-warm':'ns-halo';
-    const g=svg('g',{class:`star${isHero?' hero':''}${a.emergency?' sos':''}`,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
+    const g=svg('g',{class:`star${isHero?' hero':''}${a.emergency?' sos':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
     g.append(svg('circle',{class:'halo',r:(isHero?26:12+low*8).toFixed(1),fill:`url(#${halo})`}),
       svg('circle',{class:'dot',r:(isHero?3.2:1.6+low*1.2).toFixed(1)}));
     stars.push(g);

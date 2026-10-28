@@ -82,6 +82,7 @@ export const setText=(e,v,alts)=>{
   v=v??'';if(!e)return;
   // Fitted again when the wording changes, or when its room shrank (a neighbour, e.g. the clock, filled in).
   if(e._fit){const all=alts?.length?alts:[String(v)],key=all.join('\u0001');if(e._key!==key||e.scrollWidth>e.clientWidth+1){e._key=key;e._alts=all;fitLine(e);}return;}
+  if(!v&&alts?.length)v=alts[0]; // not a fitted slot: the first wording
   if(e.textContent!==String(v))e.textContent=v;
 };
 // Marks one-line text slots: setText then fits them (fitLine: the first wording in `alts`
@@ -158,7 +159,7 @@ export const isHeli=a=>/^(EC|AS3|AS5|B4|R44|R22|H[0-9]|S76|A1[0-4]9|B06|B407|B42
 export const isLight=a=>/^(C1[5-8]|C2[01]|PA|SR2|BE[23]|P28|DA4|PC12|C206|C210)/.test(a.aircraft_type||'')||a.category==='A1';
 export const shapeFor=a=>isHeli(a)?HELI:isLight(a)?SINGLE:PLANE;
 export function planeIcon(a,p,size,cls,shape=shapeFor(a)){
-  const g=svg('g',{class:cls,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
+  const g=svg('g',{class:cls,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
   g.append(svg('path',{d:shape}));return g;
 }
 // Small side-profile picture of the aircraft family (silhouettes.mjs), coloured by CSS.

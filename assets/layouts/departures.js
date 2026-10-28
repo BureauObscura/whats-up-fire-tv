@@ -133,7 +133,7 @@ function render(m){
   for(const a of m.planes){
     const p=toView(view,a.x,a.y);
     if(p.x<0||p.y<0||p.x>INSET.w||p.y>INSET.h)continue;
-    dots.push(svg('circle',{class:a===hero?'dot hero':'dot',cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:a===hero?3.4:2.2}));
+    dots.push(svg('circle',{class:a===hero?'dot hero':'dot','data-hex':a.hex,cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:a===hero?3.4:2.2}));
   }
   $.dots.replaceChildren(...dots);
 }

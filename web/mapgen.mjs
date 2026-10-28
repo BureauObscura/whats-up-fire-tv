@@ -13,7 +13,7 @@ export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap co
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
 const KEY='whatsup.map.v2',VERSION=4,MAX_AGE=30*86400000; // v3: airfields, v4: shore
-const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=2; // v2: shore
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=3; // v2: shore, v3: whole-radius reach
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
@@ -233,11 +233,12 @@ export const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
 // full street map (z12 + z14 buildings). Wider, it is a mid-detail map from the most
 // detailed zoom that keeps it to ~16-36 tiles: roads by class as far as that zoom
 // carries them, land use, parks and woods, water, streams, rail, towns and villages.
-const DETAIL_SPECS=[[10,DETAIL_RANGE,12,BUILDING_RANGE],[15,10.5,12,BUILDING_RANGE],[25,18,11,0],[50,36,10,0],
-  [100,72,9,0],[150,108,8,0],[250,180,8,0]];
+// Maps show the whole radius top to bottom and ~1.4x it sideways, so each reaches 1.4x.
+const DETAIL_SPECS=[[2,DETAIL_RANGE,12,BUILDING_RANGE],[5,DETAIL_RANGE,12,BUILDING_RANGE],[10,14,11,0],[15,21,11,0],[25,35,10,0],
+  [50,70,9,0],[100,140,8,0],[150,210,7,0],[250,350,7,0]];
 export function detailSpec(mapMiles){
   const [max,range,zoom,buildings]=DETAIL_SPECS.find(([max])=>mapMiles<=max)||DETAIL_SPECS[DETAIL_SPECS.length-1];
-  return {range,zoom,buildings,key:max<=15?'street':`r${max}`};
+  return {range,zoom,buildings,key:buildings?'street':`r${max}`};
 }
 // A built detail map serves a spec when it is the same kind, at least as far, same zoom.
 export const detailFits=(m,spec)=>!!m&&(m.key||'street')===spec.key&&m.range>=spec.range&&(m.zoom||12)===spec.zoom;

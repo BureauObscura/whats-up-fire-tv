@@ -3651,7 +3651,7 @@ const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contribut
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
 const KEY='whatsup.map.v2',VERSION=4,MAX_AGE=30*86400000; // v3: airfields, v4: shore
-const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=2; // v2: shore
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=3; // v2: shore, v3: whole-radius reach
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
@@ -3871,11 +3871,12 @@ const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
 // full street map (z12 + z14 buildings). Wider, it is a mid-detail map from the most
 // detailed zoom that keeps it to ~16-36 tiles: roads by class as far as that zoom
 // carries them, land use, parks and woods, water, streams, rail, towns and villages.
-const DETAIL_SPECS=[[10,DETAIL_RANGE,12,BUILDING_RANGE],[15,10.5,12,BUILDING_RANGE],[25,18,11,0],[50,36,10,0],
-  [100,72,9,0],[150,108,8,0],[250,180,8,0]];
+// Maps show the whole radius top to bottom and ~1.4x it sideways, so each reaches 1.4x.
+const DETAIL_SPECS=[[2,DETAIL_RANGE,12,BUILDING_RANGE],[5,DETAIL_RANGE,12,BUILDING_RANGE],[10,14,11,0],[15,21,11,0],[25,35,10,0],
+  [50,70,9,0],[100,140,8,0],[150,210,7,0],[250,350,7,0]];
 function detailSpec(mapMiles){
   const [max,range,zoom,buildings]=DETAIL_SPECS.find(([max])=>mapMiles<=max)||DETAIL_SPECS[DETAIL_SPECS.length-1];
-  return {range,zoom,buildings,key:max<=15?'street':`r${max}`};
+  return {range,zoom,buildings,key:buildings?'street':`r${max}`};
 }
 // A built detail map serves a spec when it is the same kind, at least as far, same zoom.
 const detailFits=(m,spec)=>!!m&&(m.key||'street')===spec.key&&m.range>=spec.range&&(m.zoom||12)===spec.zoom;
@@ -4181,8 +4182,8 @@ function inAlert(a,config){
 }
 function pickHero(planes,config){
   const z=config.zone,win=z?.kind==='window';
-  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&(win?inZone(z,a.cpa.x,a.cpa.y):
-    a.cpa.miles<config.radiusMiles+1&&a.ground<=config.rangeMiles);
+  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.ground<=config.rangeMiles&&(win?inZone(z,a.cpa.x,a.cpa.y):
+    a.cpa.miles<config.radiusMiles+1);
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
@@ -4386,6 +4387,7 @@ const setText=(e,v,alts)=>{
   v=v??'';if(!e)return;
   // Fitted again when the wording changes, or when its room shrank (a neighbour, e.g. the clock, filled in).
   if(e._fit){const all=alts?.length?alts:[String(v)],key=all.join('\u0001');if(e._key!==key||e.scrollWidth>e.clientWidth+1){e._key=key;e._alts=all;fitLine(e);}return;}
+  if(!v&&alts?.length)v=alts[0]; // not a fitted slot: the first wording
   if(e.textContent!==String(v))e.textContent=v;
 };
 // Marks one-line text slots: setText then fits them (fitLine: the first wording in `alts`
@@ -4462,7 +4464,7 @@ const isHeli=a=>/^(EC|AS3|AS5|B4|R44|R22|H[0-9]|S76|A1[0-4]9|B06|B407|B429|H60)/
 const isLight=a=>/^(C1[5-8]|C2[01]|PA|SR2|BE[23]|P28|DA4|PC12|C206|C210)/.test(a.aircraft_type||'')||a.category==='A1';
 const shapeFor=a=>isHeli(a)?HELI:isLight(a)?SINGLE:PLANE;
 function planeIcon(a,p,size,cls,shape=shapeFor(a)){
-  const g=svg('g',{class:cls,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
+  const g=svg('g',{class:cls,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
   g.append(svg('path',{d:shape}));return g;
 }
 // Small side-profile picture of the aircraft family (silhouettes.mjs), coloured by CSS.
