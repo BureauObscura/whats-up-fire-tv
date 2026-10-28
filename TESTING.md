@@ -79,9 +79,12 @@ Automated: `npm run test:web` (node, 23 tests) and `npx jest` (3 tests). All pas
 
 | Check | Where | Result |
 | --- | --- | --- |
-| App reports user engagement while shown (`IKeplerUserEngagementModuleV2::makeVideoPlaybackUserEngagement().start()`), stops when backgrounded / closed | U | PASS (jest) |
-| Screensaver held off while What's Up is in front | S | PARTIAL: with the app in front the screensaver came after ~13.5 min idle; over Settings it came almost at once. Added a re-report every 4 min; re-test PENDING. |
-| Screensaver returns after leaving the app | S | PENDING |
+| App reports user engagement while shown (`IKeplerUserEngagementModuleV2::makeVideoPlaybackUserEngagement().start()`), re-reports every 4 min, stops when backgrounded / closed | U | PASS (jest) |
+| Screensaver held off while What's Up is in front | S | FAIL. 2026-10-28: Atlas in front from 01:30:35 UTC (last remote press); screensaver at ~01:35, i.e. the stick's ~5 min timeout, engagement report or not. Injected key presses do reset the idle timer. Matches Amazon's forum answer: only real video/audio playback sessions hold it off; there is no public keep-awake API. Only remaining option is a workaround (silent looping native video), not built: it may not work and risks Appstore rejection; waiting on the owner. |
+| Memory while idle | S | PASS: 405–414 MB available over 5 min on Atlas; 350 MB at 250 mi with ~300 aircraft. |
+| 250 mi radius on the stick | S | PASS: ~300 aircraft drawn, stayed responsive. FIXED along the way: the Today/Cargo logbook counted the whole 250 mi area; now always the local 15 NM. |
+| Location search with the remote (CHICAGO by D-pad, Search, first match focused, confirm box on top) | S | PASS (screenshots in Vibe Coding/whatsup/tests/). |
+| Atlas / Atlas Dark long names | D, S | FIXED: no ellipsis anywhere; operator, type, registration on their own lines; column spread over the full height. |
 
 ## Could not test / notes
 
