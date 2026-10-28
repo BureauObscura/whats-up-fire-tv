@@ -1,47 +1,50 @@
 import {AudioPlayer} from '@amazon-devices/react-native-w3cmedia';
 
-// The alert chime (assets/media/chime.mp3: a cabin-style "ding-dong", E5 then C5,
-// synthesized for this app), played by Vega's own audio player when the page asks (a plane entered the alert zone, or a Settings
-// preview). One player, kept ready; a chime that arrives while one plays restarts it.
+// The alert chime (assets/media/chime.mp3: an Airbus-style cabin PA "ding-dong", supplied
+// by the owner, trimmed and mono), played by Vega's own audio player when the page asks (a
+// plane entered the alert zone, or a Settings preview). Chimes are rare, so each gets a
+// fresh player, released once it has finished: on this player a finished clip stays
+// "playing" at its end and won't restart from the top.
 export const CHIME_URL = 'file:///pkg/assets/media/chime.mp3';
+const CHIME_MS = 2400;
 
-let player: AudioPlayer | null = null;
-let ready: Promise<AudioPlayer | null> | null = null;
+let current: AudioPlayer | null = null;
 
-function load(): Promise<AudioPlayer | null> {
-  if (!ready) {
-    ready = (async () => {
-      const p = new AudioPlayer();
-      await p.initialize();
-      p.src = CHIME_URL;
-      player = p;
-      return p;
-    })().catch(e => {
-      console.error(`[chime] load: ${String(e)}`);
-      ready = null;
-      return null;
-    });
+export function releaseChime() {
+  const p = current;
+  current = null;
+  if (p) {
+    try {
+      p.pause();
+    } catch {
+      // already stopped
+    }
+    p.deinitialize().catch(() => {});
   }
-  return ready;
 }
 
 export async function playChime(volume: number) {
-  const p = await load();
-  if (!p) {
-    return;
-  }
+  releaseChime();
+  const p = new AudioPlayer();
+  current = p;
   try {
+    await p.initialize();
+    if (current !== p) {
+      p.deinitialize().catch(() => {});
+      return;
+    }
     p.volume = Math.max(0, Math.min(1, volume));
-    p.currentTime = 0;
+    p.src = CHIME_URL;
     await p.play();
+    setTimeout(() => {
+      if (current === p) {
+        releaseChime();
+      }
+    }, CHIME_MS + 1000);
   } catch (e) {
-    console.error(`[chime] play: ${String(e)}`);
+    console.error(`[chime] ${String(e)}`);
+    if (current === p) {
+      releaseChime();
+    }
   }
-}
-
-export function releaseChime() {
-  const p = player;
-  player = null;
-  ready = null;
-  p?.deinitialize().catch(() => {});
 }
