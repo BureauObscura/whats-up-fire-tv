@@ -8,7 +8,7 @@ import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
-import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine} from './kit.mjs';
+import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
 const setText=(id,v)=>{const el=$(id);v=v??'';if(el&&el.textContent!==String(v))el.textContent=v;};
@@ -242,7 +242,7 @@ function open(id,first){
   if(layer){layer._last=focused;layers.push(layer);}
   layer=$(id);layer.hidden=false;
   if(id==='settings'){
-    const refit=()=>{if(layer?.id==='settings')for(const r of layer.querySelectorAll('.row'))fitValue(r);};
+    const refit=()=>{if(layer?.id!=='settings')return;for(const r of layer.querySelectorAll('.row'))fitValue(r);showTipJar();};
     refit();document.fonts?.ready.then(refit);setTimeout(refit,700); // the layout's font may still be loading
   }
   // Stack order follows opening order, not page order: a later screen must cover an earlier one.
@@ -283,6 +283,15 @@ function move(dir){
 
 // Settings
 const RADII=[1,2,3,4,5,6,7,8,9,10];
+// Settings > the tip jar: a QR for Ko-fi in the active layout's colours (drawn on the device
+// by the bundled encoder, redrawn when the layout changes).
+const KOFI='https://ko-fi.com/spacelydigital';
+let kofiFor='';
+function showTipJar(){
+  const cs=getComputedStyle(stage),key=cs.getPropertyValue('--ui-ink')+cs.getPropertyValue('--ui-bg');
+  if(kofiFor!==key){const qr=themedQr(KOFI);if(qr){kofiFor=key;$('kofi-qr').src=qr;}}
+  for(const id of ['kofi-a','kofi-b'])fitLine($(id));
+}
 function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
   setText('set-layout-v',`${i+1}. ${layoutName(settings.layout)}`);

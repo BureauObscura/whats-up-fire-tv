@@ -135,3 +135,10 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .ph .ph-qr{width:56px;height:56px;image-rendering:pixelated;display:block}
 .ph .ph-cap{flex:0 0 100%;text-align:center;font-size:10.5px;white-space:nowrap;overflow:hidden;min-width:0;opacity:.85}
 .ph.model .ph-qr{display:none}.ph.model .ph-img{max-width:100%}.ph.model .ph-cap{font-style:italic}
+/* Settings: the Ko-fi tip jar, bottom left beside Done (display only, never focused). */
+#settings .card.settings{position:relative}
+#settings .tip-jar{position:absolute;left:26px;bottom:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
+#settings .tip-jar img{width:76px;height:76px;image-rendering:pixelated;display:block}
+#settings .tip-jar div{display:flex;flex-direction:column;gap:2px;width:210px}
+#settings .tip-jar b,#settings .tip-jar span{white-space:nowrap;overflow:hidden;font-size:13px;color:var(--ui-dim)}
+#settings .tip-jar b{font-weight:600;color:var(--ui-ink)}
