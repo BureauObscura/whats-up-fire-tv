@@ -8,8 +8,8 @@
 .L-atlas .at-canvas,.L-atlas .at-svg{position:absolute;left:0;top:0;width:700px;height:540px}
 .L-atlas .at-place{fill:#5d5446;font:italic 500 12.5px Inter;letter-spacing:.02em;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
 .L-atlas .at-place.big{fill:#3c3428;font:700 15px Inter;font-style:normal;letter-spacing:.16em}
-.L-atlas .at-fieldm{fill:#4f4777;font:700 14px Inter;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
-.L-atlas .at-fieldm.major{font-size:18px}
+.L-atlas .at-fieldm{fill:#f6f1e7;stroke:#4f4777;stroke-width:2.2}
+.L-atlas .at-fieldm.major{stroke-width:3}
 .L-atlas .at-field{fill:#4f4777;font:600 12.5px Inter;paint-order:stroke;stroke:#f6f1e7;stroke-width:3.5px;stroke-linejoin:round}
 .L-atlas .at-fieldc{font-weight:800;letter-spacing:.04em}
 .L-atlas .at-apt{fill:#4f4777;font:800 14px Inter;letter-spacing:.06em;paint-order:stroke;stroke:#f6f1e7;stroke-width:4px;stroke-linejoin:round}

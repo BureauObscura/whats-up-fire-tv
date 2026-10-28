@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap}=__modules["kit.mjs"];
 // Layout 5, Atlas: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -120,9 +120,10 @@ function ui(){
 function drawMap(){
   paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
   setText($.note,maps.detail||maps.base&&range()>DETAIL_MAX?'':maps.base?'Drawing streets…':'Drawing the map…');
-  // Labels, set once per map with a halo like print. Up to 15 mi: no place names, every
-  // airfield in view (marker + code and short name). Wider: coded airfields, then cities
-  // and towns, then the small fields that still have room.
+  // Labels, set once per map with a halo like print. Up to 15 mi: no place names, just the
+  // airports with an official code (IATA/ICAO/FAA), each a ring marker (never a plane
+  // shape: planes are the aircraft) with "CODE Name". Wider: those airports, then cities.
+  // Any map label under a flight tag is hidden while the tag is there (see render).
   const home=toView(VIEW,0,0),nodes=[];staticBoxes=[{x:home.x-10,y:home.y-12,w:66,h:24}];
   const bounds={x:6,y:6,w:W-12,h:H-40},wide=range()>DETAIL_MAX;
   const field=a=>{
@@ -133,23 +134,26 @@ function drawMap(){
     const b=placeBox(staticBoxes,p,w,h,[[10,-h/2],[-w-10,-h/2],[-w/2,9],[-w/2,-h-9]],bounds);
     if(!b&&wide)return;
     staticBoxes.push({x:p.x-7,y:p.y-7,w:14,h:14});
-    nodes.push(svg('text',{class:`at-fieldm${major?' major':''}`,x:p.x,y:p.y+5,'text-anchor':'middle'},'✈'));
-    if(!b)return;
-    const t=svg('text',{class:'at-field',x:b.x+2,y:b.y+13});
-    if(a.code)t.append(svg('tspan',{class:'at-fieldc'},`${a.code} `));
-    t.append(svg('tspan',{},name));nodes.push(t);
+    const g=svg('g',{class:'at-fieldg'});
+    g.append(svg('circle',{class:`at-fieldm${major?' major':''}`,cx:p.x,cy:p.y,r:major?5.5:4.5}));
+    if(b){
+      const t=svg('text',{class:'at-field',x:b.x+2,y:b.y+13});
+      t.append(svg('tspan',{class:'at-fieldc'},`${a.code} `),svg('tspan',{},name));g.append(t);
+    }
+    g._box=b?{x:Math.min(b.x,p.x-7),y:Math.min(b.y,p.y-7),w:Math.max(b.x+w,p.x+7)-Math.min(b.x,p.x-7),h:Math.max(b.y+h,p.y+7)-Math.min(b.y,p.y-7)}:{x:p.x-7,y:p.y-7,w:14,h:14};
+    nodes.push(g);
   };
-  // Coded airfields claim their space first, then (wide) the cities, then the small fields.
-  const fields=airfieldsNear(maps,7);
-  fields.filter(a=>a.code).forEach(field);
+  // Coded airports claim their space first, then (wide) the cities. Uncoded fields
+  // (farm strips, ultralight parks) aren't shown.
+  airfieldsNear(maps,7).filter(a=>a.code).forEach(field);
   if(wide)for(const pl of placesNear(maps,7,{kinds:['city','town'],max:40})){
     const p=toView(VIEW,pl.x,pl.y),big=pl.c==='city',name=big?pl.name.toUpperCase():pl.name;
     const size=big?15:12.5,w=name.length*size*(big?.66:.52)+6,h=size+4;
     if(staticBoxes.length>44)break;
     const b=placeBox(staticBoxes,p,w,h,[[-w/2,-h/2]],bounds);if(!b)continue;
-    nodes.push(svg('text',{class:`at-place ${big?'big':''}`,x:b.x+w/2,y:b.y+h-4,'text-anchor':'middle'},name));
+    const t=svg('text',{class:`at-place ${big?'big':''}`,x:b.x+w/2,y:b.y+h-4,'text-anchor':'middle'},name);
+    t._box=b;nodes.push(t);
   }
-  fields.filter(a=>!a.code).forEach(field);
   $.labels.replaceChildren(...nodes);
   // Scale bar: a round distance about 60 px long at the current map radius.
   const bar=niceDistance(VIEW,60);
@@ -190,6 +194,9 @@ function render(m){
       svg('text',{class:`at-tagt${isHero?' hero':''}`,x:b.x+7,y:b.y+15.5},text));
   }
   $.trails.replaceChildren(...lines);$.marks.replaceChildren(...marks);$.tags.replaceChildren(...tags);
+  // Map labels give way to flight tags: hidden while a tag covers them.
+  const tagBoxes=boxes.slice(1);
+  for(const n of $.labels.children)if(n._box)n.style.visibility=tagBoxes.some(t=>overlap(t,n._box))?'hidden':'';
 
   $.hero.hidden=!hero;$.quiet.hidden=!!hero;
   if(!hero)setText($.quiet,quietText(m,demo));
