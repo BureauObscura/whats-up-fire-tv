@@ -95,6 +95,8 @@ async function useLayout(id){
   id=validLayout(id);
   if(active?.id===id)return;
   const token=++layoutToken;
+  $('busy').classList.add('on'); // a layout switch can take a moment on the stick
+  const done=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{if(token===layoutToken&&!busyNow)$('busy').classList.remove('on');}));
   let mod;
   try{mod=await loadLayout(id);}catch(e){console.error(e.message);if(token===layoutToken&&!active&&id!==LAYOUTS[0][0])useLayout(LAYOUTS[0][0]);return;}
   if(token!==layoutToken)return;
@@ -114,7 +116,7 @@ async function useLayout(id){
     if(lastModel&&!adj)mod.render(lastModel);
   }catch(e){console.error(`layout ${id}`,e);}
   if(mod.map==='detail')ensureDetail();
-  flashCredits();
+  flashCredits();done();
 }
 function draw(m){
   if(!active||adj)return;
@@ -155,14 +157,25 @@ function listen(m){
   if(r.ring&&settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]});
 }
 function render(m){lastModel=m;listen(m);draw(m);}
+// Restart only the aircraft feed (alert zone or alert radius changed): the maps stay as
+// they are. Re-reading and re-decoding the saved maps blocked the stick for seconds.
+function restartFeed(){
+  if(!settings.place)return;
+  feed?.stop();feed=null;chime=null;
+  feed=start(settings.place,feedConfig(),render,maps.base?.airports);
+}
 async function applyPlace(place,{fresh=false}={}){
   const token=++placeToken;chime=null; // a new feed starts quiet
   feed?.stop();feed=null;
   if(fresh){store.remove(HISTORY_KEY);resetLog();}
   const range=mapMiles();
-  maps.base=savedMap(place,range);maps.detail=null;detailToken++;detailBusy=false;
-  mapsChanged();
-  if(active?.mod.map==='detail')ensureDetail();
+  // Keep maps already in memory when they still fit this place and radius.
+  const same=m=>m&&Math.abs(m.latitude-place.latitude)<.01&&Math.abs(m.longitude-place.longitude)<.01;
+  const keepBase=same(maps.base)&&maps.base.range===range,keepDetail=same(maps.detail)&&detailFits(maps.detail,detailSpec(range));
+  if(!keepBase)maps.base=savedMap(place,range);
+  if(!keepDetail){maps.detail=null;detailToken++;detailBusy=false;}
+  if(!keepBase||!keepDetail)mapsChanged();
+  if(active?.mod.map==='detail'&&!keepDetail)ensureDetail();
   const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,feedConfig(),render,maps.base?.airports);};
   if(!demo)startFeed();
   if(maps.base){startFeed();return;}
@@ -287,7 +300,7 @@ function showSettings(){
   setText('set-zone-v',win?'Window view':'All around');
   setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
   setText('set-view-v',fmt.dist(settings.viewMiles,0));
-  for(const r of document.querySelectorAll('#settings .row.win'))r.hidden=!win;
+  for(const r of document.querySelectorAll('#settings .win'))r.hidden=!win;
   $('set-radius').hidden=win;
   for(const r of document.querySelectorAll('#settings .row'))fitValue(r);
 }
@@ -303,7 +316,7 @@ function adjustSetting(el,dir){
   else if(el.id==='set-places'){
     const steps=['off','cities','hoods','both'],i=steps.indexOf(settings.placeNames);
     settings.placeNames=steps[(i+dir+steps.length)%steps.length];saveSettings(settings);useSettings(settings);showSettings();
-    return mapsChanged(); // layouts set place labels when the map is (re)drawn
+    return busy(mapsChanged); // layouts set place labels when the map is (re)drawn
   }
   else if(el.id==='set-chime'){
     const steps=['off','low','med','high'],i=steps.indexOf(settings.chime);
@@ -314,17 +327,29 @@ function adjustSetting(el,dir){
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
-  if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
-  else refreshLayout();
+  if(el.id==='set-radius'&&settings.place){busy(refreshLayout);clearTimeout(zoneTimer);zoneTimer=setTimeout(restartFeed,900);} // the feed's alert radius
+  else busy(refreshLayout);
 }
 
 // Alert zone changes redraw at once; the feed (which marks planes inside the zone and may
 // need to reach further for Window distance) restarts after a short pause.
 let zoneTimer=0;
 function zoneChanged(){
-  saveSettings(settings);useSettings(settings);showSettings();refreshLayout();
-  if(lastModel)draw(lastModel);
-  clearTimeout(zoneTimer);zoneTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},900);
+  saveSettings(settings);useSettings(settings);showSettings();
+  // Redraw once the presses stop (the dashboard is behind Settings anyway).
+  clearTimeout(zoneDraw);zoneDraw=setTimeout(()=>busy(()=>{
+    try{active?.mod.refreshZone?active.mod.refreshZone():active?.mod.refresh?.();}catch(e){console.error(e);}
+    if(lastModel)draw(lastModel);
+  }),350);
+  clearTimeout(zoneTimer);zoneTimer=setTimeout(restartFeed,900);
+}
+let zoneDraw=0;
+// Slow work (map repaints, layout switches): a cog in the theme accent shows if it takes
+// more than ~250 ms, and remote presses are dropped until it's done so mashing can't stack it.
+let busyNow=false;
+function busy(fn){
+  busyNow=true;$('busy').classList.add('on');
+  setTimeout(()=>{try{fn();}finally{requestAnimationFrame(()=>requestAnimationFrame(()=>{busyNow=false;$('busy').classList.remove('on');}));}},20);
 }
 // Window bearings: OK on the row to edit, then Left/Right 1°, Up/Down 10°, OK or Back to finish.
 let editing=null;
@@ -348,7 +373,7 @@ function stepMap(dir){
   if(layer?.id==='settings')showSettings();
   toast(`Map radius ${fmt.dist(next,0)}${alertFor(settings.radiusMiles,next)<settings.radiusMiles?` · alert ring ${fmt.dist(next,0)}`:''}`);
   if(maps.detail&&!detailFits(maps.detail,detailSpec(next)))maps.detail=null;
-  mapsChanged();refreshLayout();
+  busy(()=>{mapsChanged();refreshLayout();});
   clearTimeout(mapTimer);
   mapTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},700);
 }
@@ -544,6 +569,7 @@ function endAdjust(save=false){
 
 const DIRS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
 document.addEventListener('keydown',e=>{
+  if(busyNow){e.preventDefault();return;}
   const k=e.key,dir=DIRS[k];
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4){e.preventDefault();return back();}
   if(adj){

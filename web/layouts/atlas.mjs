@@ -346,5 +346,6 @@ export default {
   setMap(m){maps=m;drawMap();},
   render,
   refresh(){drawMap();},
+  refreshZone(){}, // the zone is drawn with the aircraft on every tick
   unmount(){root=null;satToken++;picHex='';photo=null;$={};maps={};trails.clear();},
 };

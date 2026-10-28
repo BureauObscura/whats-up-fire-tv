@@ -7,6 +7,7 @@
 //   setMap(maps)                        {base,detail}; either may be null until built
 //   render(m)                           every model tick (1 s demo, 5 s live)
 //   refresh()                           units or alert radius changed
+//   refreshZone()                       optional: alert zone changed (default: refresh)
 //   unmount()                           stop timers; the app empties root afterwards
 // ctx: {settings(), place(), demo, needs(kind)}. The model m: {now, live, fresh,
 // connecting, planes[], hero, recent[], log}. Planes carry hex, flight, callsign,
@@ -90,6 +91,7 @@ export const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
 export const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
 export const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':'No live data right now. Retrying every few seconds.'):
+  m.noCoverage?'No receiver coverage here. The aircraft feed has no receivers near this location.':
   'Quiet skies. Nothing within range right now.';
 
 // --- Aircraft. Top-down silhouettes, nose up, in a 64-unit box.

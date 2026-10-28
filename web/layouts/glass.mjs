@@ -118,7 +118,7 @@ function render(m){
     const r=el('div','gl-row');
     const arrow=el('i','gl-arrow','▲');arrow.style.transform=`rotate(${Math.round(a.heading||0)}deg)`;
     r.append(arrow,el('b','',a.flight),el('span','',fmt.alt(a.altitude_ft)),el('em','',fmt.dist(a.ground)));return r;
-  }):[el('div','gl-row none',hero?'No other aircraft in range':`Nothing within ${fmt.dist(range(),0)}`)]));
+  }):[el('div','gl-row none',hero?'No other aircraft in range':m.noCoverage?'No receiver coverage here':`Nothing within ${fmt.dist(range(),0)}`)]));
   // Long names wrap instead of being cut, so drop In range rows until the column fits.
   const col=$.list.closest('.gl-col');
   while(col.scrollHeight>col.clientHeight+1&&$.list.children.length>1)$.list.lastElementChild.remove();
@@ -133,5 +133,6 @@ export default {
   setMap(m){maps=m;drawMap();},
   render,
   refresh(){drawMap();},
+  refreshZone(){}, // the zone is drawn with the aircraft on every tick
   unmount(){root=null;$={};maps={};},
 };

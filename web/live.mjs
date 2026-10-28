@@ -300,6 +300,15 @@ export function startLive(onUpdate,config){
     }catch{/* Routes stay as they were; retried next poll. */}
     finally{enriching=false;}
   }
+  // Receiver coverage: when the feed has nothing around home, ask once (per 30 min) for
+  // the widest area adsb.fi serves; nothing there either means no feeders, not quiet skies.
+  let coverage={none:false,checked:0};
+  async function checkCoverage(nowMs){
+    if(nowMs-coverage.checked<1800000)return;
+    coverage.checked=nowMs;
+    const {status,payload}=await getJson(FEED_URL(home.latitude,home.longitude,MAX_NM),8000);
+    if(status===200&&payload&&typeof payload==='object')coverage.none=!(Array.isArray(payload.ac)&&payload.ac.length);
+  }
   async function poll(){
     if(stopped)return;
     const started=Date.now();
@@ -309,7 +318,9 @@ export function startLive(onUpdate,config){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
       const sel=selection(ac,stamp,home,zone,now);
       if(sel.inside.length){history=mergeHistory(history,sel.inside);store.set(HISTORY_KEY,history);}
-      states=build(ac,stamp,sel);
+      if(ac.length)coverage.none=false;else await checkCoverage(Date.now());
+      if(stopped)return;
+      states={...build(ac,stamp,sel),coverage:{none:coverage.none}};
       onUpdate(states,true);
       enrich(ac,stamp,now);
     }else onUpdate(states,false);

@@ -124,7 +124,7 @@ function render(m){
   $.planes.replaceChildren(...stars);$.labels.replaceChildren(...labels);
 
   $['quiet-note'].hidden=!!hero;
-  if(!hero)setText($['quiet-note'].lastChild,demo||m.fresh?`Nothing within ${fmt.dist(range(),0)} right now.`:quietText(m,demo));
+  if(!hero)setText($['quiet-note'].lastChild,(demo||m.fresh)&&!m.noCoverage?`Nothing within ${fmt.dist(range(),0)} right now.`:quietText(m,demo));
   // Everything drawn counts (the sky reaches a little past the map radius at the sides).
   const n=m.planes.filter(a=>{const p=toView(VIEW,a.x,a.y);return p.x>=0&&p.y>=0&&p.x<=W&&p.y<=H;}).length;
   setText($.count,`${n?`${n} aircraft in this sky`:'no aircraft in this sky'} · ${fmt.int(m.log.today)} seen today`);

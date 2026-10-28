@@ -17,6 +17,7 @@ ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&waiting.has(m.id)){waiting.
   if(m.method==='Fetch.requestPaused')send('Fetch.failRequest',{requestId:m.params.requestId,errorReason:'Failed'});};
 await new Promise(r=>ws.onopen=r);
 const send=(method,params={})=>new Promise(r=>{waiting.set(++id,r);ws.send(JSON.stringify({id,method,params}));});
+if(process.env.DRIVE_CPU){}
 await send('Runtime.enable');await send('Network.enable');await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride',{width:960,height:540,deviceScaleFactor:2,mobile:false});
 const CODES={Enter:13,ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Escape:27,Backspace:8};
@@ -31,6 +32,8 @@ const state=async()=>(await send('Runtime.evaluate',{expression:STATE,returnByVa
 if(process.env.DRIVE_BLOCK)await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const re=new RegExp(${JSON.stringify(process.env.DRIVE_BLOCK)});let v;
   Object.defineProperty(window,'ReactNativeWebView',{configurable:true,get:()=>v,set:b=>{const pm=b.postMessage.bind(b);
     b.postMessage=d=>{const r=JSON.parse(d);if(r.url&&re.test(r.url))return setTimeout(()=>window.__whatsupReply(r.id,'connection_error',''),50);pm(d);};v=b;}});})();`});
+if(process.env.DRIVE_CPU)await send('Emulation.setCPUThrottlingRate',{rate:+process.env.DRIVE_CPU});
+await send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__long=[];new PerformanceObserver(l=>{for(const e of l.getEntries())window.__long.push(Math.round(e.duration))}).observe({type:"longtask",buffered:true});'});
 await send('Page.navigate',{url});await new Promise(r=>setTimeout(r,Number(process.env.DRIVE_WAIT)||6000));
 console.log('start',await state());
 for(const s of steps){

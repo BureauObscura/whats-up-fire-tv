@@ -19,6 +19,7 @@
   <div class="layout-note" id="layout-note"></div>
   <!-- Data and map credits: shown on open, layout switch and new map, then fade (full list in Settings). -->
   <div class="toast" id="toast" aria-live="polite"></div>
+  <div class="busy" id="busy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill-rule="evenodd"/></svg></div>
   <div class="credit-flash" id="credit-flash" aria-hidden="true">Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors</div>
 
   <!-- Adjust position: a close-up street map with a fixed dot; arrows move the map. -->
@@ -54,6 +55,7 @@
           <button class="row" id="set-radius" data-focus data-adjust data-edit><span>Alert radius</span><b id="set-radius-v"></b><i>OK to change</i></button>
           <button class="row win" id="set-from" data-focus data-adjust data-edit data-big><span>Window from</span><b id="set-from-v"></b><i>OK to change</i></button>
           <button class="row win" id="set-to" data-focus data-adjust data-edit data-big><span>Window to</span><b id="set-to-v"></b><i>OK to change</i></button>
+          <p class="hint win" id="set-hint">Tip: use a phone compass app at your window for these angles.</p>
           <button class="row win" id="set-view" data-focus data-adjust data-edit><span>Window distance</span><b id="set-view-v"></b><i>OK to change</i></button>
         </div>
         <div class="col">
