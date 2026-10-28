@@ -5,7 +5,7 @@
   --ui-glow:rgba(0,0,0,.08);--ui-alert:#e2231a;--ui-font:'Inter',sans-serif;--ui-radius:0px}
 .L-swiss .layout{background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;font-feature-settings:'tnum'}
 .L-swiss .top{position:absolute;left:36px;right:36px;top:22px;display:flex;justify-content:space-between;align-items:baseline;font:700 24px/1 'Inter';letter-spacing:-.01em}
-.L-swiss .city{display:flex;align-items:center;gap:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:640px}
+.L-swiss .city{display:flex;align-items:center;gap:12px;white-space:nowrap;overflow:hidden;max-width:640px}
 .L-swiss .city:before{content:'';width:18px;height:18px;background:var(--red);flex:none}
 .L-swiss .clock{font-weight:700}
 .L-swiss .rule{position:absolute;left:36px;right:36px;top:60px;height:3px;background:var(--ink)}
@@ -18,7 +18,7 @@
 .L-swiss .unit{font:600 22px/1.15 'Inter';color:var(--ink);padding:0 0 4px 14px;max-width:130px;border-left:3px solid var(--red)}
 .L-swiss .what{position:absolute;left:36px;top:400px;width:560px}
 .L-swiss .flight{font:800 44px/1 'Inter';letter-spacing:-.03em}
-.L-swiss .route{font:400 24px/1.25 'Inter';color:var(--ink);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-swiss .route{font:400 24px/1.25 'Inter';color:var(--ink);margin-top:8px;white-space:nowrap;overflow:hidden}
 .L-swiss .side{position:absolute;left:640px;top:84px;width:284px}
 .L-swiss .mapbox{position:relative;width:284px;height:284px;border-top:3px solid var(--ink)}
 .L-swiss .map,.L-swiss .marks{position:absolute;left:0;top:0;width:284px;height:284px}

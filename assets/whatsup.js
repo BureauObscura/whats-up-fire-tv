@@ -3650,8 +3650,8 @@ const {getJson,getBytes,store}=__modules["live.mjs"];
 const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
-const KEY='whatsup.map.v2',VERSION=3,MAX_AGE=30*86400000; // v3: airfields
-const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
+const KEY='whatsup.map.v2',VERSION=4,MAX_AGE=30*86400000; // v3: airfields, v4: shore
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=2; // v2: shore
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
@@ -3736,7 +3736,23 @@ async function eachTile(home,lim,zoom,template,net,MVT,fn){
     const each=(name,f)=>{const layer=tile.layers[name];if(layer)for(let i=0;i<layer.length;i++)f(layer.feature(i),layer.extent);};
     const geom=(f,extent)=>f.loadGeometry().map(ring=>ring.map(p=>toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom))));
     const point=(f,extent)=>{const [[p]]=f.loadGeometry();return toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom));};
-    fn({each,geom,point});
+    // A polygon's real outline: its rings minus the edges where the tile cut it (both ends
+    // on or past the same tile edge). Stroking whole rings drew every tile's border as a
+    // grid over lakes and seas; the next tile draws the shore that lies past this one's edge.
+    const shore=(f,extent)=>{
+      const runs=[],cut=(a,b)=>a.x<=0&&b.x<=0||a.x>=extent&&b.x>=extent||a.y<=0&&b.y<=0||a.y>=extent&&b.y>=extent;
+      const mi=p=>toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom));
+      for(const ring of f.loadGeometry()){
+        let run=[];
+        for(let i=1;i<ring.length;i++){
+          if(cut(ring[i-1],ring[i])){if(run.length>1)runs.push(run);run=[];continue;}
+          if(!run.length)run.push(mi(ring[i-1]));run.push(mi(ring[i]));
+        }
+        if(run.length>1)runs.push(run);
+      }
+      return runs;
+    };
+    fn({each,geom,point,shore});
   }
   return fetched;
 }
@@ -3751,13 +3767,14 @@ async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis.window
   const lim=range<=10?range+1.5:range*1.5,k=Math.max(1,range/10); // simplify/clip coarser as the view widens
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
-    water:[],rivers:[],roads:[],runways:[],airports:[],airfields:[],shields:[],places:[]};
+    water:[],shore:[],rivers:[],roads:[],runways:[],airports:[],airfields:[],shields:[],places:[]};
   const shields=new Map(),places=new Map();
-  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point,shore})=>{
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
     each('water',(f,e)=>{
       if(f.type!==3)return;
       for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim)){const r=simplify(ring,.04*k);if(r.length>3)out.water.push(round(r));}
+      for(const l of shore(f,e).flatMap(l=>clipLine(l,lim)))out.shore.push(round(simplify(l,.04*k)));
     });
     each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04*k));});
     each('transportation',(f,e)=>{
@@ -3875,7 +3892,7 @@ function decode(s){
   for(let i=0;i<v.length;i+=2){x+=+v[i];y+=+v[i+1];out[i]=x;out[i+1]=y;}
   return out;
 }
-const DETAIL_LAYERS=['water','waterways','roads','landuse','parks','aero','buildings'];
+const DETAIL_LAYERS=['water','shore','waterways','roads','landuse','parks','aero','buildings'];
 // Saved form -> drawable form (p: line, r: ring, both Int16Array in 1/per mi; per defaults to 1000).
 function decodeDetail(m){
   if(!m)return null;
@@ -3887,12 +3904,16 @@ async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.W
   if(!MVT)throw new Error('mvt.js missing');
   const lim=range+.5,template=await tileTemplate(net),per=perMile(range),encode=encoder(per),k=Math.max(1,range/10.5);
   const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,key,per,buildingRange:buildings,built:Date.now(),
-    water:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
+    water:[],shore:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
   const places=new Map();
   const polys=(geom,f,e,tol,box=lim)=>geom(f,e).filter(r=>r.length>3&&touches(r,box)).map(r=>simplify(r,tol)).filter(r=>r.length>3).map(encode);
-  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point,shore})=>{
     const lines=(f,e,tol)=>geom(f,e).flatMap(l=>clipLine(l,lim)).map(l=>encode(simplify(l,tol)));
-    each('water',(f,e)=>{if(f.type===3&&f.properties.class!=='swimming_pool')for(const r of polys(geom,f,e,(.008)*k))out.water.push({r});});
+    each('water',(f,e)=>{
+      if(f.type!==3||f.properties.class==='swimming_pool')return;
+      for(const r of polys(geom,f,e,(.008)*k))out.water.push({r});
+      for(const p of shore(f,e).flatMap(l=>clipLine(l,lim)))out.shore.push({p:encode(simplify(p,.008*k))});
+    });
     each('waterway',(f,e)=>{
       const c=String(f.properties.class||'');
       if(f.type===2&&['river','canal','stream'].includes(c))for(const p of lines(f,e,.008*k))out.waterways.push({c,p});
@@ -4233,6 +4254,13 @@ function demoSource(config,onModel,airports){
   // ?herotype=R44 (demo): the first aircraft flies as that type, to check photos and credits.
   const ht=/^[A-Z0-9]{2,4}$/.test(query.get('herotype')||'')?query.get('herotype'):'';
   if(ht)DEMO[0]=[DEMO[0][0],DEMO[0][1],'N44TST',ht,'',DEMO[0][5],...DEMO[0].slice(6)];
+  // scene=longest: past what a TV will see (stress test for one-line fitting).
+  if(scene==='longest'){
+    DEMO[0]=['0d0a1b','MAA6521','XA-MAAZZ','A124','AEROTRANSPORTES MAS DE CARGA SA DE CV','1991',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
+    DEMO[1]=['a1b2c3','N1234567','N1234567','GLF6','INTERNATIONAL BUSINESS AVIATION SERVICES LLC','2021',-3,2,45000,520,90,0,null];
+    Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},farthest:{name:'MAA6521',value:9876,from:'Santa Cruz de la Sierra',code:'VVI'},
+      cargoBy:[['UPS',19],['FedEx',15],['Amazon',13],['ABX',12],['DHL',12],['Atlas',10]]});
+  }
   if(scene==='long'){
     DEMO[0]=['3c4b26','GEC8401','D-ALFH','B77L','LUFTHANSA CARGO AG','2013',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
     DEMO[5]=['a7c3b9','SWA4499','N8731J','B38M','SOUTHWEST AIRLINES CO','2019',6.9,-5.2,37000,462,198,0,leg('DFW','FRA')];
@@ -4354,7 +4382,27 @@ const svg=(tag,attrs={},text)=>{
 const el=(tag,cls,text)=>{
   const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;
 };
-const setText=(e,v)=>{v=v??'';if(e&&e.textContent!==String(v))e.textContent=v;};
+const setText=(e,v,alts)=>{
+  v=v??'';if(!e)return;
+  // Fitted again when the wording changes, or when its room shrank (a neighbour, e.g. the clock, filled in).
+  if(e._fit){const all=alts?.length?alts:[String(v)],key=all.join('\u0001');if(e._key!==key||e.scrollWidth>e.clientWidth+1){e._key=key;e._alts=all;fitLine(e);}return;}
+  if(e.textContent!==String(v))e.textContent=v;
+};
+// Marks one-line text slots: setText then fits them (fitLine: the first wording in `alts`
+// that fits, shrunk if need be), so a long name never runs out of its box or ends in "…".
+const fitted=new Set();
+const fit=(...es)=>{for(const e of es.flat())if(e){e._fit=true;fitted.add(e);}};
+// Web fonts arrive after the first fit (wider than the fallback): fit them all again then.
+globalThis.document?.fonts?.addEventListener?.('loadingdone',()=>{
+  for(const e of fitted){if(!e.isConnected){fitted.delete(e);continue;}if(e._alts)fitLine(e);}
+});
+// Shorter wordings for common long values, longest first.
+const placeAlts=()=>[...new Set([placeName(),cityName()].filter(Boolean))];
+const airlineAlts=name=>{
+  const s=String(name||''),corp=s.replace(/[\s,]+(S\.?A\.?( de C\.?V\.?)?|LLC|Inc\.?|Co\.?|Corp\.?|AG|GmbH|Ltd\.?|plc|SpA|NV|BV)$/i,'').trim();
+  const short=corp.replace(/\s+(Air ?Lines|Airlines|Airways|Aviation|International|Express|Cargo|Services|Transportes?|Aerotransportes)\b/gi,'').trim();
+  return [...new Set([s,corp,short,short.split(/\s+/)[0]].filter(Boolean))];
+};
 const overlap=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
 // First spot (dx,dy offsets from p) where a w x h box fits inside bounds without hitting boxes.
 function placeBox(boxes,p,w,h,spots,bounds){
@@ -4426,6 +4474,8 @@ function silhouette(a,cls='sil'){
 // to 11 px; if none fits, the shortest one goes down to 9 px.
 function fitLine(e){
   const alts=e._alts||[e.textContent];
+  // Not laid out (hidden): show the full wording and fit again at the next setText.
+  if(!e.isConnected||!e.getClientRects().length){e.textContent=alts[0];e.style.fontSize='';e._key=null;return;}
   for(let i=0;i<alts.length;i++){
     const floor=i===alts.length-1?9:11;
     e.textContent=alts[i];e.style.fontSize='';
@@ -4514,7 +4564,18 @@ function paintMap(canvas,maps,view,spec){
     }
     g.globalAlpha=s.alpha??1;
     g.shadowBlur=s.glow?s.glow*k:0;g.shadowColor=s.glowColor||s.stroke||s.fill||'transparent';
-    if(s.fill){g.fillStyle=s.fill;g.fill('evenodd');}
+    // nonzero: neighbouring tiles' copies of a polygon overlap at the tile edges, and
+    // evenodd would cut those strips out as a grid; holes (islands) wind the other way.
+    if(s.fill){g.fillStyle=s.fill;g.fill('nonzero');}
+    // Water is outlined along its shore only (mapgen's `shore`), not the tile-cut rings.
+    if(s.stroke&&s.layer==='water'&&m.shore){
+      g.beginPath();
+      for(const f of m.shore){
+        const pts=f.p||f;
+        if(ArrayBuffer.isView(pts))for(let i=0;i<pts.length;i+=2){const x=pts[i]/div,y=pts[i+1]/div;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+        else for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+      }
+    }
     if(s.stroke){g.strokeStyle=s.stroke;g.lineWidth=s.width||1;g.setLineDash(s.dash||[]);g.lineCap=s.cap||'round';g.lineJoin=s.join||'round';g.stroke();}
   }
   g.restore();g.globalAlpha=1;g.shadowBlur=0;g.setLineDash([]);
@@ -4562,7 +4623,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {themedQr,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {themedQr,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
@@ -4572,7 +4633,7 @@ const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog,setLogRadius}=__modules["model.mjs"];
 const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
 const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits}=__modules["mapgen.mjs"];
-const {svg,useSettings,fmt,makeCanvas,paintMap}=__modules["kit.mjs"];
+const {svg,useSettings,fmt,makeCanvas,paintMap,fitLine}=__modules["kit.mjs"];
 // What's Up: the page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
@@ -5055,9 +5116,10 @@ async function runSearch(explicit=false){
   if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
   show(...found.slice(0,5).map(p=>{
     const b=document.createElement('button');b.dataset.focus='';
-    b.append(p.street||placeLabel(p),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
+    b.append(Object.assign(document.createElement('span'),{textContent:p.street||placeLabel(p)}),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
     b._place=p;return b;
   }));
+  for(const t of box.querySelectorAll('button span,button small'))fitLine(t); // one line each, never "…"
   // After Search, go to the first match; while typing, stay on the keyboard.
   if(explicit&&layer?.id==='locate')setFocus(box.firstElementChild);
 }
@@ -5166,6 +5228,13 @@ document.addEventListener('keydown',e=>{
   if(busyNow){e.preventDefault();return;}
   const k=e.key,dir=DIRS[k];
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4){e.preventDefault();return back();}
+  // Play/Pause toggles Settings: Vega never passes the remote's Menu (≡) key to the page.
+  if(k==='MediaPlayPause'||e.keyCode===179){
+    e.preventDefault();
+    if(!layer&&!adj){showSettings();open('settings');}
+    else if(layer?.id==='settings'&&!editing)back();
+    return;
+  }
   if(adj){
     if(dir){e.preventDefault();return nudge(dir,e.repeat);}
     if(k==='Enter'||k===' '){e.preventDefault();return endAdjust(true);}

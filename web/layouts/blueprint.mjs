@@ -3,7 +3,7 @@
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
 // from home, and the data lives in a title block and a revision table.
 import {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn} from '../kit.mjs';
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn,fit,placeAlts} from '../kit.mjs';
 
 const W=960,H=540,LIMIT=6.5,VIEW={cx:372,cy:292,ppm:40};
 // The survey limit: linework stops at a drafted border where the detail map ends.
@@ -60,6 +60,7 @@ function ui(){
     <div class="bp-scale"></div>`);
   for(const c of ['city','clock','date','status','rev-b','stamp','stamp-a','stamp-b','fl','op','type','route','alt','spd','hdg','cpa','vs','note','scale'])
     $[c]=root.querySelector('.bp-'+c);
+  fit($.city);
   $.cells=[...root.querySelectorAll('.bp-block .bp-cell:not(.bp-note):not(.bp-foot)')];
   $.side=root.querySelector('.bp-side');$.fig=root.querySelector('.bp-fig');$.fig.append($.pic=photoSlot());
 }
@@ -115,7 +116,7 @@ function dimension(a,b,label){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName().toUpperCase());setText($.clock,fmt.clock(now));
+  setText($.city,'',placeAlts().map(s=>s.toUpperCase()));setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now,{weekday:'short',day:'numeric',month:'short'}).toUpperCase());
   setText($.status,statusText(m,demo).toUpperCase());$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);

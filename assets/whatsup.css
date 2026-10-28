@@ -54,8 +54,9 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .keys button.focus{color:var(--ui-on);border-color:var(--ui-ink)}
 .keys button.w2{grid-column:span 2}.keys button.w3{grid-column:span 3}.keys button.w4{grid-column:span 4}
 .results{display:flex;flex-direction:column;gap:6px;min-width:0}
-.results button{text-align:left;padding:8px 12px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.results button small{display:block;font-size:12px;color:var(--ui-dim)}
+.results button{text-align:left;padding:8px 12px;font-size:16px;white-space:nowrap;overflow:hidden}
+.results button span,.results button small{display:block;white-space:nowrap;overflow:hidden}
+.results button small{font-size:12px;color:var(--ui-dim)}
 .results button.focus small{color:var(--ui-on)}
 .results .msg{color:var(--ui-dim);font-size:14px;line-height:1.4}
 .results .msg.busy{animation:busy 1.2s ease-in-out infinite alternate}

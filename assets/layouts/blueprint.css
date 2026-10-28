@@ -36,7 +36,7 @@
 
 .L-blueprint header.bp-head{position:absolute;left:24px;top:18px}
 .L-blueprint .bp-k{font:600 12px 'Barlow Condensed';letter-spacing:.3em;text-transform:uppercase;color:var(--bp-cyan)}
-.L-blueprint .bp-city{font:700 34px/1 'Barlow Condensed';letter-spacing:.06em;margin-top:2px}
+.L-blueprint .bp-city{font:700 34px/1 'Barlow Condensed';letter-spacing:.06em;margin-top:2px;white-space:nowrap;overflow:hidden;max-width:560px}
 .L-blueprint .bp-time{display:flex;gap:14px;align-items:baseline;margin-top:4px;font:600 15px 'Barlow Condensed';letter-spacing:.1em;color:var(--bp-dim)}
 .L-blueprint .bp-clock{font:700 22px 'Barlow Condensed';color:#fff;letter-spacing:.04em}
 .L-blueprint .bp-status{color:var(--bp-cyan)}.L-blueprint .bp-status.off{color:var(--bp-red)}

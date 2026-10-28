@@ -8,7 +8,7 @@ import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
-import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
+import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
 const setText=(id,v)=>{const el=$(id);v=v??'';if(el&&el.textContent!==String(v))el.textContent=v;};
@@ -481,9 +481,10 @@ async function runSearch(explicit=false){
   if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
   show(...found.slice(0,5).map(p=>{
     const b=document.createElement('button');b.dataset.focus='';
-    b.append(p.street||placeLabel(p),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
+    b.append(Object.assign(document.createElement('span'),{textContent:p.street||placeLabel(p)}),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
     b._place=p;return b;
   }));
+  for(const t of box.querySelectorAll('button span,button small'))fitLine(t); // one line each, never "…"
   // After Search, go to the first match; while typing, stay on the keyboard.
   if(explicit&&layer?.id==='locate')setFocus(box.firstElementChild);
 }
@@ -592,6 +593,13 @@ document.addEventListener('keydown',e=>{
   if(busyNow){e.preventDefault();return;}
   const k=e.key,dir=DIRS[k];
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4){e.preventDefault();return back();}
+  // Play/Pause toggles Settings: Vega never passes the remote's Menu (≡) key to the page.
+  if(k==='MediaPlayPause'||e.keyCode===179){
+    e.preventDefault();
+    if(!layer&&!adj){showSettings();open('settings');}
+    else if(layer?.id==='settings'&&!editing)back();
+    return;
+  }
   if(adj){
     if(dir){e.preventDefault();return nudge(dir,e.repeat);}
     if(k==='Enter'||k===' '){e.preventDefault();return endAdjust(true);}

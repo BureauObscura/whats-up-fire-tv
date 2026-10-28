@@ -2,7 +2,7 @@
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
 import {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  TrailBook,placeBox,number,ppmOf,alertRadius,range,zonePath} from '../kit.mjs';
+  TrailBook,placeBox,number,ppmOf,alertRadius,range,zonePath,fit,placeAlts} from '../kit.mjs';
 
 const W=960,H=540,TRAIL_AGE=8*60000;
 const VIEW={cx:480,cy:300,ppm:24};
@@ -61,7 +61,7 @@ function drawHome(){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());
+  fit($.city);setText($.city,placeName(),placeAlts());
   setText($.clock,fmt.clock(now));
   setText($.date,`${fmt.date(now,{weekday:'long',day:'numeric',month:'long'})} · ${statusText(m,demo).toLowerCase()}`);
   trails.update(m.planes,now);

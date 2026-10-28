@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn}=__modules["kit.mjs"];
+  number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn,fit,placeAlts}=__modules["kit.mjs"];
 // Layout 9, Synthwave: a neon sunset. The map is a glowing grid floor tilted with a
 // CSS 3D transform (looking north from behind home); planes are glowing chevrons in a
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
@@ -67,6 +67,7 @@ function ui(){
   for(const c of ['city','clock','date','hcard','h-label','h-fl','h-rt','h-alt','h-spd','h-cpa','h-type','mayday','m2','quiet','q2',
     's-cargo','s-seen','s-high','s-last','s-status'])$[c]=root.querySelector('.'+c);
   $.hcard.append($.pic=photoSlot());
+  fit($.city);
 }
 
 function drawMap(){
@@ -98,7 +99,7 @@ function drawMap(){
 const CHEV='M0 -13L10 9L0 3L-10 9Z';
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());$.city.classList.toggle('long',placeName().length>17);setText($.clock,fmt.clock(now));
+  setText($.city,'',placeAlts());setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now,{weekday:'long',day:'numeric',month:'long'}));
   setText($['s-status'],statusText(m,demo));$['s-status'].classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);

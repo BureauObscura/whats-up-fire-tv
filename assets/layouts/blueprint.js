@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn}=__modules["kit.mjs"];
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath,niceStep,fitLine,photoSlot,showPhotoIn,fit,placeAlts}=__modules["kit.mjs"];
 // Layout 7, Blueprint: a technical drawing on navy drafting paper. The map is
 // linework only (roads by weight, water outlines, runways); aircraft are outline
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
@@ -63,6 +63,7 @@ function ui(){
     <div class="bp-scale"></div>`);
   for(const c of ['city','clock','date','status','rev-b','stamp','stamp-a','stamp-b','fl','op','type','route','alt','spd','hdg','cpa','vs','note','scale'])
     $[c]=root.querySelector('.bp-'+c);
+  fit($.city);
   $.cells=[...root.querySelectorAll('.bp-block .bp-cell:not(.bp-note):not(.bp-foot)')];
   $.side=root.querySelector('.bp-side');$.fig=root.querySelector('.bp-fig');$.fig.append($.pic=photoSlot());
 }
@@ -118,7 +119,7 @@ function dimension(a,b,label){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName().toUpperCase());setText($.clock,fmt.clock(now));
+  setText($.city,'',placeAlts().map(s=>s.toUpperCase()));setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now,{weekday:'short',day:'numeric',month:'short'}).toUpperCase());
   setText($.status,statusText(m,demo).toUpperCase());$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);

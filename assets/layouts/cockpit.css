@@ -70,7 +70,7 @@
 /* Side panel: header, PFD tapes, data */
 .L-cockpit .side{position:absolute;left:606px;top:0;right:0;bottom:0;padding:10px 16px 8px 4px;border-left:1.5px solid #1d2a30}
 .L-cockpit .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.L-cockpit .city{color:var(--w);font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .city{color:var(--w);font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
 .L-cockpit .clock{color:var(--g);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
 .L-cockpit .pfd{display:grid;grid-template-columns:74px 1fr 84px;gap:8px;margin-top:8px;border:1.5px solid #2c3a40;border-radius:6px;padding:5px;height:232px;
   background:linear-gradient(#071016,#000)}
@@ -84,8 +84,8 @@
 .L-cockpit .flag-t{fill:var(--a);font:700 15px var(--b6)}
 .L-cockpit .pfd-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:0;gap:2px}
 .L-cockpit .sel{color:var(--c);font-size:11px;letter-spacing:.12em}
-.L-cockpit .fl{color:var(--m);font-size:26px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.L-cockpit .op{color:var(--w);font-size:13px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .fl{color:var(--m);font-size:26px;line-height:1.1;max-width:100%;overflow:hidden;white-space:nowrap}
+.L-cockpit .op{color:var(--w);font-size:13px;max-width:100%;white-space:nowrap;overflow:hidden}
 .L-cockpit .rt{color:var(--c);font-size:19px;font-weight:700;margin-top:6px}
 .L-cockpit .vs-row{margin-top:6px}.L-cockpit .vs{color:var(--g);font-size:19px;margin-left:6px}
 .L-cockpit .type{color:var(--w);font-size:13px;opacity:.8;margin-top:4px}
@@ -95,14 +95,14 @@
 .L-cockpit .nodata span{color:var(--w);font-size:13px;line-height:1.35;opacity:.85}
 .L-cockpit .fields{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;margin-top:8px}
 .L-cockpit .fields div,.L-cockpit .log div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px solid #162026;min-width:0}
-.L-cockpit .fields b{color:var(--g);font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-cockpit .fields b{color:var(--g);font-size:17px;white-space:nowrap;overflow:hidden}
 .L-cockpit .fields b.mag{color:var(--m)}
 .L-cockpit .log{display:grid;grid-template-columns:.9fr .9fr 1.5fr;gap:10px;margin-top:8px}
 .L-cockpit .log b{color:var(--c);font-size:16px;white-space:nowrap}
 .L-cockpit .log .k{white-space:nowrap}
 .L-cockpit .recent{margin-top:8px;font-size:15px;line-height:1.3}
 .L-cockpit .rec{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline}
-.L-cockpit .rec b{color:var(--w)}.L-cockpit .rec span{color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.L-cockpit .rec i{font-style:normal;color:var(--g)}
+.L-cockpit .rec b{color:var(--w)}.L-cockpit .rec span{color:var(--c);white-space:nowrap;overflow:hidden}.L-cockpit .rec i{font-style:normal;color:var(--g)}
 .L-cockpit .rec.none{color:var(--w);opacity:.6;display:block}
 /* Aircraft photo strip at the foot of the side panel: photo, QR, credit beside them. */
 .L-cockpit .ph{flex-wrap:nowrap;justify-content:flex-start;gap:8px;margin-top:8px}

@@ -5,7 +5,7 @@
 // Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit} from '../kit.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
@@ -74,6 +74,9 @@ const SAT_DETAIL=[
   {layer:'roads',from:'detail',classes:['primary','trunk'],stroke:'rgba(255,255,255,.45)',width:1.4},
   {layer:'roads',from:'detail',classes:['motorway'],stroke:'rgba(255,214,120,.6)',width:1.8},
 ];
+// Under the imagery: water, for the tiles the imagery service leaves empty (open water far
+// from shore comes back transparent, which showed as black blocks over lakes and seas).
+const SAT_UNDER=[{layer:'water',fill:'#48546f'},{layer:'water',from:'detail',fill:'#48546f'}]; // ~ the imagery's own lake colour
 const SAT_BASE=[
   {layer:'roads',classes:['trunk'],stroke:'rgba(255,255,255,.45)',width:1.4},
   {layer:'roads',classes:['motorway'],stroke:'rgba(255,214,120,.6)',width:1.8},
@@ -127,7 +130,7 @@ function ui(){
     <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
     'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
-  $.barFill=$.bar.firstChild;
+  $.barFill=$.bar.firstChild;fit($.city);
   root.append(map,side);
 }
 
@@ -136,7 +139,7 @@ function ui(){
 function drawSatellite(){
   const place=ctx?.place?.();if(!sat||!$.sat||!place)return;
   const token=++satToken,c=$.sat,k=c._k||1,g=c.getContext('2d');
-  g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);g.setTransform(k,0,0,k,0,0);
+  paintMap(c,maps,VIEW,SAT_UNDER);g.setTransform(k,0,0,k,0,0);
   const us=place.countryCode==='US'||place.countryCode==='PR',ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
   const metresPerPx=1609.344/ppm/k;
   const z=Math.max(3,Math.min(us?16:13,Math.round(Math.log2(156543.03*cos/metresPerPx))));
@@ -234,7 +237,7 @@ function showPhoto(a){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,cityName()||placeName());setText($.clock,fmt.clock(now));
+  setText($.city,'',[cityName()||placeName()]);setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now));
   // Status only when it matters (Connecting / No signal); Live and Preview go unsaid.
   const status=statusText(m,demo);setText($.status,status==='Live'||status==='Preview'?'':status);
@@ -323,7 +326,7 @@ function render(m){
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','at-rr none',windowView()?'Nothing through your window yet.':'Nothing inside the alert zone yet.')]));
   // One-line rows (cargo by brand, Rarest, Farthest): the type shrinks until they fit.
-  for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
+  for(const e of [$['cargo-by'],...$.log.querySelectorAll('dd'),...root.querySelectorAll('.at-stats dd')])fitLine(e);
   // Nothing is cut short: long names wrap, and the sections spread down the full
   // column. If a busy hero leaves no room, Recent goes (its space is shared out by
   // the column), then the type tightens.
@@ -337,7 +340,7 @@ function render(m){
   // Still no room: the photo gives way (the silhouette stays) rather than a stat row.
   if(over()&&!$.pic.hidden){$.pic.hidden=true;side.classList.remove('photo');}
   if(!$.pic.hidden){fitLine($.credit);fitLine($.typet);}
-  for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
+  for(const e of [$['cargo-by'],...$.log.querySelectorAll('dd'),...side.querySelectorAll('.at-stats dd')])fitLine(e);
 }
 
 export default {

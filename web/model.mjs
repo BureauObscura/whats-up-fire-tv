@@ -261,6 +261,13 @@ function demoSource(config,onModel,airports){
   // ?herotype=R44 (demo): the first aircraft flies as that type, to check photos and credits.
   const ht=/^[A-Z0-9]{2,4}$/.test(query.get('herotype')||'')?query.get('herotype'):'';
   if(ht)DEMO[0]=[DEMO[0][0],DEMO[0][1],'N44TST',ht,'',DEMO[0][5],...DEMO[0].slice(6)];
+  // scene=longest: past what a TV will see (stress test for one-line fitting).
+  if(scene==='longest'){
+    DEMO[0]=['0d0a1b','MAA6521','XA-MAAZZ','A124','AEROTRANSPORTES MAS DE CARGA SA DE CV','1991',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
+    DEMO[1]=['a1b2c3','N1234567','N1234567','GLF6','INTERNATIONAL BUSINESS AVIATION SERVICES LLC','2021',-3,2,45000,520,90,0,null];
+    Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},farthest:{name:'MAA6521',value:9876,from:'Santa Cruz de la Sierra',code:'VVI'},
+      cargoBy:[['UPS',19],['FedEx',15],['Amazon',13],['ABX',12],['DHL',12],['Atlas',10]]});
+  }
   if(scene==='long'){
     DEMO[0]=['3c4b26','GEC8401','D-ALFH','B77L','LUFTHANSA CARGO AG','2013',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
     DEMO[5]=['a7c3b9','SWA4499','N8731J','B38M','SOUTHWEST AIRLINES CO','2019',6.9,-5.2,37000,462,198,0,leg('DFW','FRA')];

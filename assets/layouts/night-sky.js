@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  TrailBook,placeBox,number,ppmOf,alertRadius,range,zonePath}=__modules["kit.mjs"];
+  TrailBook,placeBox,number,ppmOf,alertRadius,range,zonePath,fit,placeAlts}=__modules["kit.mjs"];
 // Layout 12, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
@@ -64,7 +64,7 @@ function drawHome(){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());
+  fit($.city);setText($.city,placeName(),placeAlts());
   setText($.clock,fmt.clock(now));
   setText($.date,`${fmt.date(now,{weekday:'long',day:'numeric',month:'long'})} · ${statusText(m,demo).toLowerCase()}`);
   trails.update(m.planes,now);

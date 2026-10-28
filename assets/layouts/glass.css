@@ -27,13 +27,13 @@
 .L-glass .gl-top{position:absolute;left:22px;top:18px;padding:10px 18px 10px;min-width:300px}
 .L-glass .gl-clock{font:400 34px/1.1 Michroma;letter-spacing:.02em;font-variant-numeric:tabular-nums}
 .L-glass .gl-where{display:flex;gap:12px;align-items:baseline;margin-top:4px}
-.L-glass .gl-city{font:700 15px Inter;letter-spacing:.02em}
+.L-glass .gl-city{font:700 15px Inter;letter-spacing:.02em;white-space:nowrap;overflow:hidden;min-width:0;max-width:300px}
 .L-glass .gl-status{font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--gl-accent)}
 .L-glass .gl-status.off{color:var(--gl-red)}
 .L-glass .gl-date{font:400 13px Inter;color:var(--gl-dim)}
 .L-glass .gl-col{position:absolute;left:640px;top:18px;width:298px;bottom:18px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
 .L-glass .gl-kicker{font:400 9.5px Michroma;letter-spacing:.16em;text-transform:uppercase;color:var(--gl-accent)}
-.L-glass .gl-flight{font:400 30px/1.2 Michroma;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-glass .gl-flight{font:400 30px/1.2 Michroma;margin-top:6px;white-space:nowrap;overflow:hidden}
 .L-glass .gl-sub{font:500 14px/1.35 Inter;color:var(--gl-dim)}
 .L-glass .gl-route{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin-top:10px}
 .L-glass .gl-route div{display:flex;flex-direction:column;min-width:0;max-width:96px}.L-glass .gl-route .r{text-align:right}
@@ -45,11 +45,11 @@
 .L-glass .gl-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .L-glass .gl-tiles div{background:rgba(255,255,255,.05);border:1px solid rgba(200,225,255,.1);border-radius:10px;padding:6px 10px;min-width:0}
 .L-glass .gl-tiles span{display:block;font:600 10.5px Inter;letter-spacing:.12em;text-transform:uppercase;color:var(--gl-dim)}
-.L-glass .gl-tiles b{display:block;font:400 16px/1.35 Michroma;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.L-glass .gl-tiles b{display:block;font:400 16px/1.35 Michroma;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
 .L-glass .gl-quiet-t{font:500 20px/1.45 Inter;color:var(--gl-dim);margin-top:8px}
 .L-glass .gl-list{margin-top:6px}
 .L-glass .gl-row{display:grid;grid-template-columns:16px 1fr auto auto;gap:10px;align-items:baseline;font:500 14px/1.6 Inter}
-.L-glass .gl-row b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-glass .gl-row b{font-weight:700;white-space:nowrap;overflow:hidden}
 .L-glass .gl-row span{color:var(--gl-dim);font-variant-numeric:tabular-nums}
 .L-glass .gl-row em{font-style:normal;color:var(--gl-accent);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
 .L-glass .gl-row.none{display:block;color:var(--gl-dim)}
@@ -58,7 +58,7 @@
 .L-glass .gl-mini{padding:9px 14px}
 .L-glass .gl-mini span{display:block;font:400 8.5px Michroma;letter-spacing:.14em;text-transform:uppercase;color:var(--gl-dim)}
 .L-glass .gl-mini b{display:block;font:400 26px/1.3 Michroma}
-.L-glass .gl-mini i{display:block;font:500 12px Inter;font-style:normal;color:var(--gl-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.L-glass .gl-mini i{display:block;font:500 12px Inter;font-style:normal;color:var(--gl-dim);white-space:nowrap;overflow:hidden}
 .L-glass .gl-mini.cargo b{color:var(--gl-cargo)}
 .L-glass .gl-tiles b.gl-look{font:700 17px/1.35 Inter}
 

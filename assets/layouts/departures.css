@@ -8,7 +8,7 @@
 
 .L-departures .top{position:absolute;left:34px;right:34px;top:16px;height:62px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
 .L-departures .kicker{font:600 13px 'Barlow Condensed';letter-spacing:.3em;text-transform:uppercase;color:var(--amber-dim)}
-.L-departures .city{font:600 36px/1 'Barlow Condensed';letter-spacing:.04em;text-transform:uppercase;color:#ffe2a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+.L-departures .city{font:600 36px/1 'Barlow Condensed';letter-spacing:.04em;text-transform:uppercase;color:#ffe2a8;white-space:nowrap;overflow:hidden;max-width:520px}
 .L-departures .where{min-width:0}
 .L-departures .clockbox{text-align:right}
 .L-departures .clockbox .status{margin-top:4px}
@@ -45,7 +45,7 @@
 
 /* Emergency: the hero row and banner go red and pulse. */
 .L-departures .banner{flex:1;align-self:center;text-align:center;font:600 22px 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;
-  background:var(--red);color:#120806;padding:6px 14px;border-radius:3px;animation:dep-pulse 1s steps(2) infinite;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  background:var(--red);color:#120806;padding:6px 14px;border-radius:3px;animation:dep-pulse 1s steps(2) infinite;white-space:nowrap;overflow:hidden}
 @keyframes dep-pulse{50%{opacity:.45}}
 .L-departures .emergency .brow.hero .c{color:var(--red);text-shadow:0 0 8px rgba(255,59,47,.6)}
 .L-departures .emergency .brow.hero:before{border-left-color:var(--red)}

@@ -41,6 +41,14 @@ test('map: rings survive simplification and the layers we draw are kept',async()
   assert.ok(m.roads.some(r=>r.major),'motorways');
   assert.ok(m.airports.some(a=>a.iata==='CVG')&&m.airports.some(a=>a.iata==='LUK'),'airports from the tile');
   assert.equal(m.airports[0].iata,'CVG');
+  // Shorelines: the tile's own edges are not drawn as shore (they made a grid over lakes).
+  const cos=Math.cos(39.10*Math.PI/180),lon=x=>x/1024*360-180,lat=y=>Math.atan(Math.sinh(Math.PI-2*Math.PI*y/1024))*180/Math.PI;
+  const xs=[271,272].map(t=>(lon(t)+84.41)*69.172*cos),ys=[391,392].map(t=>(lat(t)-39.10)*69.0);
+  // a segment on or past one tile edge (the clip strip the tile carries beyond its border)
+  const onEdge=([ax,ay],[bx,by])=>ax<=xs[0]+.01&&bx<=xs[0]+.01||ax>=xs[1]-.01&&bx>=xs[1]-.01||ay>=ys[0]-.01&&by>=ys[0]-.01||ay<=ys[1]+.01&&by<=ys[1]+.01;
+  assert.ok(m.shore.length>0,'shore lines');
+  assert.ok(m.shore.every(l=>l.every((p,i)=>!i||!onEdge(l[i-1],p))),'no shore segment along a tile edge');
+  assert.ok(m.water.some(r=>r.some((p,i)=>i&&onEdge(r[i-1],p))),'(the water rings themselves do)');
 });
 
 test('map: place names, and the detail map round-trips through its saved form',async()=>{

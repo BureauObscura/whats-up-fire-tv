@@ -3,7 +3,7 @@
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
 import {zoneOutline} from '../core.mjs';
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn,fit,placeAlts} from '../kit.mjs';
 
 const W=680,H=540,CX=345,CY=282,PPM0=30,ROSE=118;
 let PPM=PPM0; // at the current map radius (set before each draw)
@@ -66,6 +66,7 @@ function ui(){
       <section class="box photo" hidden><header><span class="tl">Aircraft</span></header></section>
     </aside>`;
   // The aircraft photo takes the legend's place while it shows (the column has room for one).
+  fit([...root.querySelectorAll('.grid dd')],$.city);
   $.key=root.querySelector('.box.key');$.photo=root.querySelector('.box.photo');$.photo.append($.pic=photoSlot());
   const chart=root.querySelector('.chart');
   $.canvas=makeCanvas(W,H,'chart-map');
@@ -117,7 +118,7 @@ function drawMap(){
     if(t1.length>26)t1=t1.split(/[\/ ]/)[0];
     const code=`(${ap.iata||ap.icao||ap.code})`;
     const w=Math.max(t1.length*6.6,code.length*8)+4,box={x:p.x+18,y:p.y-4,w,h:30};
-    if(p.x>-20&&p.x<W+20&&p.y>-20&&p.y<H+20&&!boxes.some(b=>overlap(b,box))&&box.x+w<W-4){
+    if(p.x>-20&&p.x<W+20&&p.y>-20&&p.y<H+20&&!boxes.some(b=>overlap(b,box))&&box.x+w<W-4&&box.y>4&&box.y+box.h<H-4){
       boxes.push(box);
       lab.push(svg('text',{class:'apt-n',x:box.x,y:box.y+11,fill:col},t1),svg('text',{class:'apt-c',x:box.x,y:box.y+26,fill:col},code));
     }
@@ -169,7 +170,7 @@ function drawRose(){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName().toUpperCase());setText($.clock,fmt.clock(now));
+  setText($.city,'',placeAlts().map(s=>s.toUpperCase()));setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now,{weekday:'short',day:'numeric',month:'short'}).toUpperCase());
   setText($.status,statusText(m,demo).toUpperCase());$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);

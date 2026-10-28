@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone,fitLine,photoSlot,showPhotoIn}=__modules["kit.mjs"];
+  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone,fitLine,photoSlot,showPhotoIn,fit,placeAlts,airlineAlts}=__modules["kit.mjs"];
 // Layout 4, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
 // a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 
@@ -54,6 +54,7 @@ function ui(){
     <div class="recent-wrap"><div class="label">Recently above</div><div class="recent"></div></div>`;
   for(const c of ['city','clock','today','status','hero','hero-label','alert','fl','op','route','progress','bar','prog','alt','spd','look','cpa',
     'aircraft','empty-sky','cargo-n','cargo-by','log','recent'])$[c]=panel.querySelector('.'+c);
+  fit([...panel.querySelectorAll('.stats b')],$.city,$.op,$.route,$.aircraft);
   $.barFill=$.bar.firstChild;
 }
 
@@ -116,7 +117,7 @@ function blockText(a){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());setText($.clock,fmt.clock(now));setText($.today,fmt.date(now,{weekday:'long',day:'numeric',month:'short'}));
+  setText($.city,placeName(),placeAlts());setText($.clock,fmt.clock(now));setText($.today,fmt.date(now,{weekday:'long',day:'numeric',month:'short'}));
   setText($.status,statusText(m,demo));$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);
   showPhotoIn($.pic,hero);
@@ -160,9 +161,9 @@ function render(m){
   if(hero){
     setText($['hero-label'],`${hero.status} · ${fmt.dist(hero.distance_mi??hero.ground)}`);
     $.alert.hidden=!hero.emergency;setText($.alert,hero.emergency?`SQUAWK ${hero.squawk} · ${hero.emergency}`:'');
-    setText($.fl,hero.flight);setText($.op,hero.operator||(!hero.callsign||hero.callsign===hero.registration?'Private':''));
+    setText($.fl,hero.flight);setText($.op,'',airlineAlts(hero.operator||(!hero.callsign||hero.callsign===hero.registration?'Private':'')));
     const r=hero.route,city=p=>p?.city?` ${p.city}`:'';
-    setText($.route,r?`${r.origin}${city(r.from)}  →  ${r.destination}${city(r.to)}`:'Route not reported');
+    setText($.route,'',r?[`${r.origin}${city(r.from)}  →  ${r.destination}${city(r.to)}`,`${r.origin}${city(r.from)} → ${r.destination}`,`${r.origin} → ${r.destination}`]:['Route not reported']);
     $.progress.hidden=!hero.progress;
     if(hero.progress){$.barFill.style.width=`${Math.round(hero.progress.share*100)}%`;
       setText($.prog,`${fmt.far(hero.progress.flown)} flown · ${fmt.int(metric()?hero.progress.left*KM:hero.progress.left)} to go`);}
@@ -174,7 +175,8 @@ function render(m){
     setText($.cpa,!c?'—':c.receding?'moving away':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
     // The cargo brand only when the operator line doesn't already say it.
     const bits=[hero.registration,hero.year&&`built ${hero.year}`,hero.cargo&&!hero.operator&&`${hero.cargo} cargo`].filter(Boolean).join(' · ');
-    $.aircraft.replaceChildren(document.createTextNode((hero.type||hero.aircraft_type||'Unknown type')+'  '),el('small','',bits));
+    const type=hero.type||hero.aircraft_type||'Unknown type';
+    setText($.aircraft,'',[...new Set([bits?`${type}  ${bits}`:type,hero.registration?`${type}  ${hero.registration}`:type,type,hero.aircraft_type].filter(Boolean))]);
   }
 
   const L=m.log;

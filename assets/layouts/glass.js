@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  compass,placeBox,alertRadius,ppmOf,range,zonePath,photoSlot,showPhotoIn}=__modules["kit.mjs"];
+  compass,placeBox,alertRadius,ppmOf,range,zonePath,photoSlot,showPhotoIn,fit,fitLine,placeAlts}=__modules["kit.mjs"];
 // Layout 5, Glass: a near-black street map (roads by class, water, parks, faint
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
@@ -64,6 +64,7 @@ function ui(){
   for(const c of ['clock','city','status','date','kicker','flight','sub','o','oc','d','dc','line','alt','spd','look','cpa','quiet-t','list','seen','cargo','cargo-by'])
     $[c]=root.querySelector('.gl-'+c);
   $.lineFill=$.line.firstChild;
+  fit($.city,$.flight,$.alt,$.spd,$.look,$.cpa,$['cargo-by']);
 }
 
 function drawMap(){
@@ -81,7 +82,7 @@ function drawMap(){
 
 function render(m){
   const {now,hero}=m;
-  setText($.clock,fmt.clock(now));setText($.city,placeName());setText($.date,fmt.date(now));
+  setText($.clock,fmt.clock(now));setText($.city,'',placeAlts());setText($.date,fmt.date(now));
   setText($.status,statusText(m,demo));$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   showPhotoIn($.pic,hero,()=>{$.photo.hidden=$.pic.hidden;});
   root.classList.toggle('emergency',!!hero?.emergency);
@@ -126,6 +127,7 @@ function render(m){
     const arrow=el('i','gl-arrow','▲');arrow.style.transform=`rotate(${Math.round(a.heading||0)}deg)`;
     r.append(arrow,el('b','',a.flight),el('span','',fmt.alt(a.altitude_ft)),el('em','',fmt.dist(a.ground)));return r;
   }):[el('div','gl-row none',hero?'No other aircraft in range':m.noCoverage?'No receiver coverage here':`Nothing within ${fmt.dist(range(),0)}`)]));
+  for(const b of $.list.querySelectorAll('.gl-row b'))fitLine(b);
   // Long names wrap instead of being cut, so drop In range rows until the column fits.
   const col=$.list.closest('.gl-col');
   while(col.scrollHeight>col.clientHeight+1&&$.list.children.length>1)$.list.lastElementChild.remove();

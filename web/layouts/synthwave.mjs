@@ -3,7 +3,7 @@
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
 import {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn} from '../kit.mjs';
+  number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn,fit,placeAlts} from '../kit.mjs';
 
 // Floor: a W x H canvas (1 px per CSS px: a soft neon floor needs no more), home at its
 // centre, rotated about its centre by TILT under a perspective of PERSP px seen from VP.
@@ -64,6 +64,7 @@ function ui(){
   for(const c of ['city','clock','date','hcard','h-label','h-fl','h-rt','h-alt','h-spd','h-cpa','h-type','mayday','m2','quiet','q2',
     's-cargo','s-seen','s-high','s-last','s-status'])$[c]=root.querySelector('.'+c);
   $.hcard.append($.pic=photoSlot());
+  fit($.city);
 }
 
 function drawMap(){
@@ -95,7 +96,7 @@ function drawMap(){
 const CHEV='M0 -13L10 9L0 3L-10 9Z';
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());$.city.classList.toggle('long',placeName().length>17);setText($.clock,fmt.clock(now));
+  setText($.city,'',placeAlts());setText($.clock,fmt.clock(now));
   setText($.date,fmt.date(now,{weekday:'long',day:'numeric',month:'long'}));
   setText($['s-status'],statusText(m,demo));$['s-status'].classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);

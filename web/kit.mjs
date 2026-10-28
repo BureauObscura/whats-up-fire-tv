@@ -78,7 +78,27 @@ export const svg=(tag,attrs={},text)=>{
 export const el=(tag,cls,text)=>{
   const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e;
 };
-export const setText=(e,v)=>{v=v??'';if(e&&e.textContent!==String(v))e.textContent=v;};
+export const setText=(e,v,alts)=>{
+  v=v??'';if(!e)return;
+  // Fitted again when the wording changes, or when its room shrank (a neighbour, e.g. the clock, filled in).
+  if(e._fit){const all=alts?.length?alts:[String(v)],key=all.join('\u0001');if(e._key!==key||e.scrollWidth>e.clientWidth+1){e._key=key;e._alts=all;fitLine(e);}return;}
+  if(e.textContent!==String(v))e.textContent=v;
+};
+// Marks one-line text slots: setText then fits them (fitLine: the first wording in `alts`
+// that fits, shrunk if need be), so a long name never runs out of its box or ends in "…".
+const fitted=new Set();
+export const fit=(...es)=>{for(const e of es.flat())if(e){e._fit=true;fitted.add(e);}};
+// Web fonts arrive after the first fit (wider than the fallback): fit them all again then.
+globalThis.document?.fonts?.addEventListener?.('loadingdone',()=>{
+  for(const e of fitted){if(!e.isConnected){fitted.delete(e);continue;}if(e._alts)fitLine(e);}
+});
+// Shorter wordings for common long values, longest first.
+export const placeAlts=()=>[...new Set([placeName(),cityName()].filter(Boolean))];
+export const airlineAlts=name=>{
+  const s=String(name||''),corp=s.replace(/[\s,]+(S\.?A\.?( de C\.?V\.?)?|LLC|Inc\.?|Co\.?|Corp\.?|AG|GmbH|Ltd\.?|plc|SpA|NV|BV)$/i,'').trim();
+  const short=corp.replace(/\s+(Air ?Lines|Airlines|Airways|Aviation|International|Express|Cargo|Services|Transportes?|Aerotransportes)\b/gi,'').trim();
+  return [...new Set([s,corp,short,short.split(/\s+/)[0]].filter(Boolean))];
+};
 export const overlap=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
 // First spot (dx,dy offsets from p) where a w x h box fits inside bounds without hitting boxes.
 export function placeBox(boxes,p,w,h,spots,bounds){
@@ -150,6 +170,8 @@ export function silhouette(a,cls='sil'){
 // to 11 px; if none fits, the shortest one goes down to 9 px.
 export function fitLine(e){
   const alts=e._alts||[e.textContent];
+  // Not laid out (hidden): show the full wording and fit again at the next setText.
+  if(!e.isConnected||!e.getClientRects().length){e.textContent=alts[0];e.style.fontSize='';e._key=null;return;}
   for(let i=0;i<alts.length;i++){
     const floor=i===alts.length-1?9:11;
     e.textContent=alts[i];e.style.fontSize='';
@@ -238,7 +260,18 @@ export function paintMap(canvas,maps,view,spec){
     }
     g.globalAlpha=s.alpha??1;
     g.shadowBlur=s.glow?s.glow*k:0;g.shadowColor=s.glowColor||s.stroke||s.fill||'transparent';
-    if(s.fill){g.fillStyle=s.fill;g.fill('evenodd');}
+    // nonzero: neighbouring tiles' copies of a polygon overlap at the tile edges, and
+    // evenodd would cut those strips out as a grid; holes (islands) wind the other way.
+    if(s.fill){g.fillStyle=s.fill;g.fill('nonzero');}
+    // Water is outlined along its shore only (mapgen's `shore`), not the tile-cut rings.
+    if(s.stroke&&s.layer==='water'&&m.shore){
+      g.beginPath();
+      for(const f of m.shore){
+        const pts=f.p||f;
+        if(ArrayBuffer.isView(pts))for(let i=0;i<pts.length;i+=2){const x=pts[i]/div,y=pts[i+1]/div;i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+        else for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
+      }
+    }
     if(s.stroke){g.strokeStyle=s.stroke;g.lineWidth=s.width||1;g.setLineDash(s.dash||[]);g.lineCap=s.cap||'round';g.lineJoin=s.join||'round';g.stroke();}
   }
   g.restore();g.globalAlpha=1;g.shadowBlur=0;g.setLineDash([]);

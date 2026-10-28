@@ -12,8 +12,8 @@ import {getJson,getBytes,store} from './live.mjs';
 export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
-const KEY='whatsup.map.v2',VERSION=3,MAX_AGE=30*86400000; // v3: airfields
-const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=1;
+const KEY='whatsup.map.v2',VERSION=4,MAX_AGE=30*86400000; // v3: airfields, v4: shore
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=2; // v2: shore
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
@@ -98,7 +98,23 @@ async function eachTile(home,lim,zoom,template,net,MVT,fn){
     const each=(name,f)=>{const layer=tile.layers[name];if(layer)for(let i=0;i<layer.length;i++)f(layer.feature(i),layer.extent);};
     const geom=(f,extent)=>f.loadGeometry().map(ring=>ring.map(p=>toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom))));
     const point=(f,extent)=>{const [[p]]=f.loadGeometry();return toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom));};
-    fn({each,geom,point});
+    // A polygon's real outline: its rings minus the edges where the tile cut it (both ends
+    // on or past the same tile edge). Stroking whole rings drew every tile's border as a
+    // grid over lakes and seas; the next tile draws the shore that lies past this one's edge.
+    const shore=(f,extent)=>{
+      const runs=[],cut=(a,b)=>a.x<=0&&b.x<=0||a.x>=extent&&b.x>=extent||a.y<=0&&b.y<=0||a.y>=extent&&b.y>=extent;
+      const mi=p=>toMiles(lonOf(tx+p.x/extent,zoom),latOf(ty+p.y/extent,zoom));
+      for(const ring of f.loadGeometry()){
+        let run=[];
+        for(let i=1;i<ring.length;i++){
+          if(cut(ring[i-1],ring[i])){if(run.length>1)runs.push(run);run=[];continue;}
+          if(!run.length)run.push(mi(ring[i-1]));run.push(mi(ring[i]));
+        }
+        if(run.length>1)runs.push(run);
+      }
+      return runs;
+    };
+    fn({each,geom,point,shore});
   }
   return fetched;
 }
@@ -113,13 +129,14 @@ export async function buildMap(home,range,{net={getJson,getBytes},MVT=globalThis
   const lim=range<=10?range+1.5:range*1.5,k=Math.max(1,range/10); // simplify/clip coarser as the view widens
   const template=await tileTemplate(net);
   const out={v:VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,built:Date.now(),
-    water:[],rivers:[],roads:[],runways:[],airports:[],airfields:[],shields:[],places:[]};
+    water:[],shore:[],rivers:[],roads:[],runways:[],airports:[],airfields:[],shields:[],places:[]};
   const shields=new Map(),places=new Map();
-  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point,shore})=>{
     const lines=(f,extent,tol)=>geom(f,extent).flatMap(l=>clipLine(l,lim)).map(l=>round(simplify(l,tol)));
     each('water',(f,e)=>{
       if(f.type!==3)return;
       for(const ring of geom(f,e))if(ring.length>3&&touches(ring,lim)){const r=simplify(ring,.04*k);if(r.length>3)out.water.push(round(r));}
+      for(const l of shore(f,e).flatMap(l=>clipLine(l,lim)))out.shore.push(round(simplify(l,.04*k)));
     });
     each('waterway',(f,e)=>{if(f.type===2&&f.properties.class==='river')out.rivers.push(...lines(f,e,.04*k));});
     each('transportation',(f,e)=>{
@@ -237,7 +254,7 @@ function decode(s){
   for(let i=0;i<v.length;i+=2){x+=+v[i];y+=+v[i+1];out[i]=x;out[i+1]=y;}
   return out;
 }
-const DETAIL_LAYERS=['water','waterways','roads','landuse','parks','aero','buildings'];
+const DETAIL_LAYERS=['water','shore','waterways','roads','landuse','parks','aero','buildings'];
 // Saved form -> drawable form (p: line, r: ring, both Int16Array in 1/per mi; per defaults to 1000).
 export function decodeDetail(m){
   if(!m)return null;
@@ -249,12 +266,16 @@ export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.wi
   if(!MVT)throw new Error('mvt.js missing');
   const lim=range+.5,template=await tileTemplate(net),per=perMile(range),encode=encoder(per),k=Math.max(1,range/10.5);
   const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,key,per,buildingRange:buildings,built:Date.now(),
-    water:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
+    water:[],shore:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
   const places=new Map();
   const polys=(geom,f,e,tol,box=lim)=>geom(f,e).filter(r=>r.length>3&&touches(r,box)).map(r=>simplify(r,tol)).filter(r=>r.length>3).map(encode);
-  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point})=>{
+  const fetched=await eachTile(home,lim,zoom,template,net,MVT,({each,geom,point,shore})=>{
     const lines=(f,e,tol)=>geom(f,e).flatMap(l=>clipLine(l,lim)).map(l=>encode(simplify(l,tol)));
-    each('water',(f,e)=>{if(f.type===3&&f.properties.class!=='swimming_pool')for(const r of polys(geom,f,e,(.008)*k))out.water.push({r});});
+    each('water',(f,e)=>{
+      if(f.type!==3||f.properties.class==='swimming_pool')return;
+      for(const r of polys(geom,f,e,(.008)*k))out.water.push({r});
+      for(const p of shore(f,e).flatMap(l=>clipLine(l,lim)))out.shore.push({p:encode(simplify(p,.008*k))});
+    });
     each('waterway',(f,e)=>{
       const c=String(f.properties.class||'');
       if(f.type===2&&['river','canal','stream'].includes(c))for(const p of lines(f,e,.008*k))out.waterways.push({c,p});

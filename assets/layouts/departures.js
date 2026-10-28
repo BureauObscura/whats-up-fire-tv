@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 const __modules=window.__whatsupModules;
-const {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius,zonePath,fitLine,photoSlot,showPhotoIn}=__modules["kit.mjs"];
+const {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius,zonePath,fitLine,photoSlot,showPhotoIn,fit:fitText,placeAlts}=__modules["kit.mjs"];
 // Layout 6, Departures: an amber split-flap board. Rows are the aircraft in range
 // now (hero first) and then those recently above; only the characters that change
 // flip. A small dark map inset shows where they are.
@@ -36,7 +36,9 @@ function setFlaps(row,text){
     c.classList.remove(flip?'fa':'fb');c.classList.add(flip?'fb':'fa');
   }
 }
-const fit=(s,n,right)=>{s=String(s??'').toUpperCase();s=s.length>n?s.slice(0,n):s;return right?s.padStart(n):s.padEnd(n);};
+// A board cell: too long, it keeps whole words (FRANKFURT AM MAIN -> FRANKFURT), as boards do.
+const words=(s,n)=>{if(s.length<=n)return s;let o='';for(const w of s.split(/\s+/)){const t=o?`${o} ${w}`:w;if(t.length>n)break;o=t;}return o||s.slice(0,n);};
+const fit=(s,n,right)=>{s=words(String(s??'').toUpperCase().trim(),n);return right?s.padStart(n):s.padEnd(n);};
 
 function ui(){
   root.innerHTML=`
@@ -54,6 +56,7 @@ function ui(){
     </footer>`;
   for(const c of ['city','banner','clockbox','status','cols','board','hero-line','sub-line','inset','dots','inset-label'])$[c]=root.querySelector('.'+c);
   root.querySelector('.ph-wrap').append($.pic=photoSlot());
+  fitText($.city,$.banner);
   $.clock=flapRow(8,'clock flaps');$.clockbox.prepend($.clock);
   for(const [,label,w,align] of COLS){
     const h=el('span',align==='r'?'r':'',label);h.style.width=`${w*20-2}px`;$.cols.append(h);
@@ -89,13 +92,13 @@ const ticker=(e,alts)=>{e._alts=alts;fitLine(e);};
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName());
+  setText($.city,placeName(),placeAlts());
   setFlaps($.clock,fmt.clock(now).replace(/\s/g,' ').padStart(8));
   setText($.status,statusText(m,demo));
   const emergency=hero?.emergency;
   root.classList.toggle('emergency',!!emergency);
   $.banner.hidden=!emergency;
-  if(emergency)setText($.banner,`${hero.squawk||''} ${emergency} · ${hero.flight}`);
+  if(emergency)setText($.banner,'',[`${hero.squawk||''} ${emergency} · ${hero.flight}`,`${hero.squawk||''} · ${hero.flight}`]);
 
   const live=byInterest(m).filter(a=>a.ground<=range()*1.1).slice(0,ROWS);
   const lines=live.map(a=>({a,cells:[a.flight,dest(a),a.aircraft_type||'',altText(a.altitude_ft),distText(a.ground),remark(a)],cls:a===hero?'hero':a.inside?'in':''}));

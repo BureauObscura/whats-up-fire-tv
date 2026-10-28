@@ -3,7 +3,7 @@
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
 // hero like a primary flight display. Map: airports and runways only.
 import {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
-  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom,zonePath,photoSlot,showPhotoIn,fit,fitLine,placeAlts,airlineAlts} from '../kit.mjs';
 
 const CX=300,CY=292,R=226,PPM0=R/BASE_RANGE;
 let PPM=PPM0,RANGE=BASE_RANGE; // at the current map radius (set before each draw)
@@ -62,6 +62,7 @@ function ui(){
   for(const c of ['gs','nd-alt','trk','wpt','wpt-d','wpt-t','warn','warn-b','tfc','status','range-v','city','clock','spd-tape','alt-tape',
     'fl','op','rt','vs','type','nodata','quiet','pfd-mid','f-gs','f-trk','f-alt','f-dist','f-brg','f-cpa','l-seen','l-cargo','l-high','recent'])$[c]=root.querySelector('.'+c);
   root.querySelector('.side').append($.pic=photoSlot());
+  fit($.city,$.fl,$.op,$.rt,$.type,$['f-gs'],$['f-trk'],$['f-alt'],$['f-dist'],$['f-brg'],$['f-cpa']);
 }
 
 function drawRose(){
@@ -131,7 +132,7 @@ function tape(node,value,{step,label,span,w,right}){
 
 function render(m){
   const {now,hero}=m;
-  setText($.city,placeName().toUpperCase());setText($.clock,fmt.clock(now,{hour:'2-digit',hour12:false}));
+  setText($.city,'',placeAlts().map(s=>s.toUpperCase()));setText($.clock,fmt.clock(now,{hour:'2-digit',hour12:false}));
   setText($.status,statusText(m,demo).toUpperCase());$.status.classList.toggle('off',!demo&&!m.fresh&&!m.connecting);
   root.classList.toggle('emergency',!!hero?.emergency);
 
@@ -188,7 +189,7 @@ function render(m){
     const c=hero.cpa;
     setText($['wpt-t'],!c?'':c.receding?'OUTBOUND':`CPA ${fmt.mmss(c.seconds)}`);
     setText($.fl,hero.flight);
-    setText($.op,(hero.operator||(hero.registration?'PRIVATE':'')).toUpperCase());
+    setText($.op,'',airlineAlts(hero.operator||(hero.registration?'PRIVATE':'')).map(s=>s.toUpperCase()));
     setText($.rt,hero.route?`${hero.route.origin} ▸ ${hero.route.destination}`:'NO ROUTE');
     setText($.vs,number(hero.vertical)&&Math.abs(hero.vertical)>=100?(fmt.altUnit()==='m'?fmt.vs(hero.vertical):`${hero.vertical>0?'+':'−'}${fmt.int(Math.abs(Math.round(hero.vertical/50)*50))}`):'LEVEL');
     setText($.type,[hero.aircraft_type,hero.registration].filter(Boolean).join(' · '));
@@ -204,6 +205,7 @@ function render(m){
   $.recent.replaceChildren(el('div','k','RECENT ABOVE'),...(rec.length?rec.map(a=>{
     const d=el('div','rec');d.append(el('b','',a.flight),el('span','',a.route?`${a.route.origin}▸${a.route.destination}`:a.aircraft_type||''),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','rec none','NONE YET')]));
+  for(const s of $.recent.querySelectorAll('.rec span'))fitLine(s);
   const L=m.log;
   setText($['l-seen'],fmt.int(L.today));
   setText($['l-cargo'],String(L.cargoTonight));
