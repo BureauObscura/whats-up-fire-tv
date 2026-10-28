@@ -18,8 +18,8 @@
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 import {number,zoneOutline} from './core.mjs';
 import {SILHOUETTES,silhouetteFamily} from './silhouettes.mjs';
-import {photoFor,qrFor} from './photos.mjs';
-export {photoFor,qrFor};
+import {photoFor,qrFor,modelPhoto} from './photos.mjs';
+export {photoFor,qrFor,modelPhoto};
 import {MAP_ATTRIBUTION} from './mapgen.mjs';
 import {placeLabel} from './place.mjs';
 import {tz,compass,offset} from './model.mjs';

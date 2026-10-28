@@ -223,13 +223,20 @@ let picHex='',photo=null;
 function showPhoto(a){
   const hex=a?.hex||'';
   if(hex===picHex)return;
-  picHex=hex;photo=null;$.pic.hidden=true;$.img.removeAttribute('src');$.qr.removeAttribute('src');
+  picHex=hex;photo=null;$.pic.hidden=true;$.img.removeAttribute('src');$.qr.removeAttribute('src');$.pic.classList.remove('model');
   if(!hex)return;
   photoFor(a).then(p=>{
-    if(!root||picHex!==hex||!p)return;
-    const qr=qrFor(p.link);if(!qr)return;
-    photo=p;$.img.src=p.src;$.qr.src=qr;
-    $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
+    if(!root||picHex!==hex)return;
+    const qr=p&&qrFor(p.link);
+    if(p&&qr){
+      photo=p;$.img.src=p.src;$.qr.src=qr;
+      $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
+    }else{
+      // No photo of this aircraft: a typical one of its type, labelled so, if bundled.
+      const m=modelPhoto(a);if(!m)return;
+      photo=m;$.img.src=m.src;$.pic.classList.add('model');
+      $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`Model photo · ${m.license}`];
+    }
     $.credit.textContent=$.credit._alts[0];
   });
 }

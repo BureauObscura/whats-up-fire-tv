@@ -8,6 +8,8 @@
 // URLs used unchanged; JSON may be cached up to 24 h; identify with a User-Agent (the app
 // bridge sends one). Lookups are cached per aircraft for this session, misses too.
 import {getJson} from './live.mjs';
+import {modelPhoto} from './models.mjs';
+export {modelPhoto};
 
 export const PHOTO_URL=(kind,id)=>`https://api.planespotters.net/pub/photos/${kind}/${id}`;
 const IMG=/^https:\/\/(cdn\.planespotters\.net|[a-z0-9-]+\.plnspttrs\.net)\/[^\s"'<>]+\.(jpe?g|png|webp)$/i;
