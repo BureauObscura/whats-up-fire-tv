@@ -99,6 +99,17 @@ Automated: `npm run test:web` (node, 23 tests) and `npx jest` (3 tests). All pas
 
 Desktop: 16–36 detail tiles per radius, cached 1.1–1.6 MB per wide map; detail drawn within ~5–7 s on desktop, under the 60 s window on the TV at every step. App responsive throughout (Up/Down steps, plane updates). Limit: none needed.
 
+## Later additions (2026-10-28)
+
+| Check | Where | Result |
+| --- | --- | --- |
+| Window view: wedge membership incl. wrap across north, reach, overhead within 1 mi, saved settings | U | PASS (3 tests) |
+| Window view on the TV: set ENE 74° → S 175°, 25 mi with the remote (OK to edit, ‹ › 1°, ▲▼ 10°); wedge drawn; hero says "In your window" | S, D | PASS |
+| Settings with 13 rows fits the screen | D, S | PASS after tightening rows |
+| Rarest/Farthest/cargo on one line at every radius (Antonov An-124 Ruslan; Frankfurt am Main · 4,310 mi) | D, S | PASS |
+| Atlas Satellite at 5/15/50 mi (USGS) and London (Sentinel-2) | S, D | PASS; lowest RAM 253 MB at 50 mi |
+| Airports: coded only, ring markers, labels hide under flight tags | D, S | PASS |
+
 ## Could not test / notes
 
 * The stick went into standby after its screensaver at 05:59 UTC and stayed asleep until at least
