@@ -211,6 +211,8 @@ function demoSource(config,onModel,airports){
   ];
   const started=Date.now(),log={today:184,highest:{name:'UAE2VL',value:41000},fastest:{name:'SWA1987',value:512},
     rarest:{code:'C130',name:typeName('C130'),count:1},farthest:{name:'DHK283',value:4207,from:'Leipzig',code:'LEJ'},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
+  if(scene==='long')Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},
+    farthest:{name:'GEC8401',value:4310,from:'Frankfurt am Main',code:'FRA'},cargoBy:[['UPS',9],['FedEx',5],['Amazon',3],['ABX',2],['DHL',2]]});
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
     ['a9f8e7','DAL2370','B712',leg('HOME','ATL'),19],['a8b7c6','N22PG','C25B',null,28]];
   // scene=long: the hero and a neighbour get the longest names a TV is likely to see.

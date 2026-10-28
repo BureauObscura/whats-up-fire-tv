@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
   makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom}=__modules["kit.mjs"];
-// Layout 10, Cockpit: a Boeing-style navigation display in centred map mode, north up.
+// Layout 11, Cockpit: a Boeing-style navigation display in centred map mode, north up.
 // Home is own-ship; traffic uses TCAS symbols with relative-altitude tags; a magenta
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
 // hero like a primary flight display. Map: airports and runways only.

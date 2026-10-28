@@ -65,10 +65,12 @@
 .L-atlas h4{margin:0 0 4px;font:800 11.5px Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--at-ink)}
 .L-atlas .at-books{padding-top:10px;border-top:2px solid var(--at-ink)}
 .L-atlas .at-cargo{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.L-atlas .at-cargo>div{flex:1;min-width:0}
 .L-atlas .at-cargo-n{font:900 38px/1 Inter;color:var(--at-cargo);font-variant-numeric:tabular-nums}
-.L-atlas .at-cargo-by{font:600 13.5px/1.35 Inter;color:var(--at-dim)}
+.L-atlas .at-cargo-by{white-space:nowrap;overflow:hidden;min-width:0;font:600 13.5px/1.35 Inter;color:var(--at-dim)}
 .L-atlas .at-log{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 8px;margin:0}
 .L-atlas .at-log div{min-width:0}.L-atlas .at-log .wide{grid-column:1/-1;display:flex;gap:8px;align-items:baseline}
+.L-atlas .at-log .wide dt{flex:none}.L-atlas .at-log .wide dd{flex:1;min-width:0;white-space:nowrap;overflow:hidden}
 .L-atlas .at-log dd{margin:0;font:800 16.5px/1.25 Inter}
 .L-atlas .at-recent{flex:none;padding-top:8px;border-top:1px solid #d9d0bf}
 .L-atlas .at-rr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;font:500 14px/1.65 Inter;align-items:baseline}
@@ -90,4 +92,5 @@
 .L-atlas .tight .at-cargo-n{font-size:32px}.L-atlas .tight .at-cargo{margin-bottom:4px}
 .L-atlas .tight .at-route{font-size:15.5px}.L-atlas .tight .at-type{font-size:14px;margin-top:2px}.L-atlas .tight .at-books{padding-top:6px}
 /* Tighter: the least useful lines go before any text would be cut. */
-.L-atlas .tighter .at-prog,.L-atlas .tighter .at-log .wide:not(.far){display:none}
+.L-atlas .tighter .at-prog{display:none}
+.L-atlas .tighter .at-stats dt{font-size:10px}.L-atlas .tighter .at-log{gap:2px 8px}

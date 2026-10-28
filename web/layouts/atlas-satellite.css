@@ -1,0 +1,11 @@
+/* Layout 7, Atlas Satellite: Atlas (atlas.mjs) with atlas.css + atlas-dark.css, satellite
+   imagery under a light road overlay. The imagery is dimmed and a little desaturated so
+   tags, rings and trails stay readable. */
+.L-atlas-satellite .at-map{background:#0d0f12}
+.L-atlas-satellite .at-sat{filter:brightness(.72) saturate(.8) contrast(1.05)}
+.L-atlas-satellite .at-place{fill:#f2f3f5;stroke:rgba(0,0,0,.85);stroke-width:3.5px}
+.L-atlas-satellite .at-place.big{fill:#fff}
+.L-atlas-satellite .at-field{fill:#fff;stroke:rgba(0,0,0,.85)}
+.L-atlas-satellite .at-fieldm{fill:rgba(0,0,0,.6);stroke:#fff}
+.L-atlas-satellite .at-alertring{fill:rgba(255,91,82,.08);stroke-width:1.8}
+.L-atlas-satellite .at-scale{background:rgba(10,11,13,.8)}

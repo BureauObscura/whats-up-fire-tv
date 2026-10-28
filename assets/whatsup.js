@@ -3872,6 +3872,8 @@ function demoSource(config,onModel,airports){
   ];
   const started=Date.now(),log={today:184,highest:{name:'UAE2VL',value:41000},fastest:{name:'SWA1987',value:512},
     rarest:{code:'C130',name:typeName('C130'),count:1},farthest:{name:'DHK283',value:4207,from:'Leipzig',code:'LEJ'},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
+  if(scene==='long')Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},
+    farthest:{name:'GEC8401',value:4310,from:'Frankfurt am Main',code:'FRA'},cargoBy:[['UPS',9],['FedEx',5],['Amazon',3],['ABX',2],['DHL',2]]});
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
     ['a9f8e7','DAL2370','B712',leg('HOME','ATL'),19],['a8b7c6','N22PG','C25B',null,28]];
   // scene=long: the hero and a neighbour get the longest names a TV is likely to see.
@@ -4180,19 +4182,24 @@ const maps={base:null,detail:null};
 // --- Credits: always in Settings; on the dashboard one line that fades out ~5 s after
 // the app opens, the layout changes or a new location's map is drawn.
 let creditTimer=0;
+const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 function flashCredits(){
-  const c=$('credit-flash');c.classList.add('on');
+  const c=$('credit-flash'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
+  c.textContent=CREDITS+(sat?(us?' · Imagery USGS':' · Imagery Sentinel-2 cloudless 2016 by EOX (Copernicus Sentinel data 2016)'):'');
+  c.classList.add('on');
   clearTimeout(creditTimer);creditTimer=setTimeout(()=>c.classList.remove('on'),5000);
 }
 
 // --- Layouts. Order is the Settings order; the first is the default.
 const LAYOUTS=[['radar','Radar'],['glass','Glass'],['departures','Departures'],['blueprint','Blueprint'],['atlas','Atlas'],
-  ['atlas-dark','Atlas Dark'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
+  ['atlas-dark','Atlas Dark'],['atlas-satellite','Atlas Satellite'],['swiss','Swiss'],['synthwave','Synthwave'],['sectional','Sectional'],['cockpit','Cockpit'],['night-sky','Night Sky']];
 const layoutName=id=>(LAYOUTS.find(([k])=>k===id)||LAYOUTS[0])[1];
 const validLayout=id=>LAYOUTS.some(([k])=>k===id)?id:'radar';
-// A variant reuses another layout's code with its own stylesheet on top (ctx.layout() tells it which).
-const VARIANTS={'atlas-dark':'atlas'};
-const codeOf=id=>VARIANTS[id]||id;
+// A variant reuses another layout's code, with stylesheets layered on top in order
+// (each also becomes an L-<id> class on the stage); ctx.layout() tells the code which.
+const VARIANTS={'atlas-dark':['atlas','atlas-dark'],'atlas-satellite':['atlas','atlas-dark','atlas-satellite']};
+const sheetsOf=id=>VARIANTS[id]||[id];
+const codeOf=id=>sheetsOf(id)[0];
 const bundled=!!window.__whatsupModules;
 const registry={};
 window.__whatsupLayout=(id,mod)=>{registry[id]=mod;};
@@ -4204,9 +4211,9 @@ function addCss(id,done){
 function loadLayout(id){
   const code=codeOf(id);
   return new Promise((resolve,reject)=>{
-    let waiting=code===id?2:3;
+    const sheets=sheetsOf(id);let waiting=sheets.length+1;
     const done=()=>{if(--waiting)return;registry[code]?resolve(registry[code]):reject(new Error(`layout ${id} failed to load`));};
-    addCss(code,done);if(code!==id)addCss(id,done);
+    for(const sheet of sheets)addCss(sheet,done);
     if(registry[code])done();
     else if(bundled){
       const s=Object.assign(document.createElement('script'),{src:`layouts/${code}.js`});
@@ -4216,7 +4223,7 @@ function loadLayout(id){
 }
 // Keep only the active layout's code and stylesheets so only it costs memory.
 function unloadExcept(id){
-  const keep=new Set([id,codeOf(id)]);
+  const keep=new Set(sheetsOf(id));
   for(const k of Object.keys(registry))if(!keep.has(k))delete registry[k];
   for(const l of document.querySelectorAll('link[data-layout]'))if(!keep.has(l.dataset.layout))l.remove();
 }
@@ -4234,11 +4241,11 @@ async function useLayout(id){
   const old=active;
   if(old){
     try{old.mod.unmount?.();}catch(e){console.error('unmount',e);}
-    stage.classList.remove(`L-${old.id}`,`L-${codeOf(old.id)}`);
+    stage.classList.remove(...sheetsOf(old.id).map(s=>`L-${s}`));
   }
   unloadExcept(id);
   root.replaceChildren();root.className='layout';
-  stage.classList.add(`L-${codeOf(id)}`,`L-${id}`);stage.dataset.layout=id;
+  stage.classList.add(...sheetsOf(id).map(s=>`L-${s}`));stage.dataset.layout=id;
   active={id,mod};
   if(mod.map!=='detail')maps.detail=null; // free it; it reloads from storage when needed
   try{

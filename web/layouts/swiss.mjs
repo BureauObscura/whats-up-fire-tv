@@ -1,4 +1,4 @@
-// Layout 7, Swiss: an off-white poster. One giant number (how far away the nearest
+// Layout 8, Swiss: an off-white poster. One giant number (how far away the nearest
 // aircraft is) dominates; the map is only the river/coastline and a red home dot.
 import {svg,setText,fmt,metric,KM,placeName,statusText,quietText,makeCanvas,paintMap,toView,planeIcon,number,BASE_RANGE,range} from '../kit.mjs';
 

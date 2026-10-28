@@ -1,4 +1,4 @@
-/* Layout 9, Sectional: a cream VFR sectional chart. Barlow Condensed for chart lettering. */
+/* Layout 10, Sectional: a cream VFR sectional chart. Barlow Condensed for chart lettering. */
 @font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-Medium.woff2) format('woff2');font-weight:500;font-display:block}
 @font-face{font-family:'Barlow Condensed';src:url(../fonts/BarlowCondensed-SemiBold.woff2) format('woff2');font-weight:600 700;font-display:block}
 .L-sectional{--paper:#f3ecd6;--ink:#2a2622;--blue:#2a63ad;--mag:#a3237f;--tan:#e6d6ae;--red:#c8231c;--bc:'Barlow Condensed','Arial Narrow',sans-serif;

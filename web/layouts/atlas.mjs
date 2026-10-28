@@ -2,7 +2,8 @@
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
 // layout: hero flight, route and progress, six stats, cargo tonight, today, recent.
-// Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css.
+// Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 7,
+// Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
   airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap} from '../kit.mjs';
 
@@ -67,6 +68,20 @@ const DARK_BASE=[
   {layer:'roads',classes:['motorway'],stroke:'#868c97',width:3.6},
   {layer:'runways',stroke:'#585a69',width:4},
 ];
+// Atlas Satellite: just the main roads, light and thin, over the imagery.
+const SAT_DETAIL=[
+  {layer:'roads',from:'detail',classes:['secondary','tertiary'],stroke:'rgba(255,255,255,.28)',width:1},
+  {layer:'roads',from:'detail',classes:['primary','trunk'],stroke:'rgba(255,255,255,.45)',width:1.4},
+  {layer:'roads',from:'detail',classes:['motorway'],stroke:'rgba(255,214,120,.6)',width:1.8},
+];
+const SAT_BASE=[
+  {layer:'roads',classes:['trunk'],stroke:'rgba(255,255,255,.45)',width:1.4},
+  {layer:'roads',classes:['motorway'],stroke:'rgba(255,214,120,.6)',width:1.8},
+];
+// Imagery: USGS The National Map in the US (public domain), else Sentinel-2 cloudless 2016
+// by EOX (Contains modified Copernicus Sentinel data 2016). {z}/{y}/{x} web-mercator tiles.
+const USGS='https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
+const EOX='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
 const BASE=[
   {layer:'water',fill:'#a6cae0'},
   {layer:'rivers',stroke:'#a6cae0',width:2.2},
@@ -75,17 +90,18 @@ const BASE=[
   {layer:'runways',stroke:'#a29bb8',width:4},
 ];
 
-let root,demo,dark=false,$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
+let root,demo,ctx,dark=false,sat=false,satToken=0,$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
 
 function ui(){
   const map=el('div','at-map'),side=el('aside','at-side');
   $.canvas=makeCanvas(W,H,'at-canvas');
+  if(sat)$.sat=makeCanvas(W,H,'at-canvas at-sat');
   $.labels=svg('svg',{class:'at-svg',viewBox:`0 0 ${W} ${H}`});
   $.over=svg('svg',{class:'at-svg',viewBox:`0 0 ${W} ${H}`});
   for(const k of ['ring','trails','marks','tags'])$.over.append($[k]=svg('g',{class:`at-${k}`}));
   $.scale=el('div','at-scale');$.note=el('div','at-note');
   const north=el('div','at-north');north.innerHTML='<b>N</b><i></i>';
-  map.append($.canvas,$.labels,$.over,north,$.scale,$.note);
+  map.append(...(sat?[$.sat]:[]),$.canvas,$.labels,$.over,north,$.scale,$.note);
   side.innerHTML=`
     <div class="at-top"><header><div class="at-city"></div><div class="at-time"><b class="at-clock"></b><span class="at-status"></span></div></header>
     <div class="at-date"></div></div>
@@ -114,8 +130,37 @@ function ui(){
   root.append(map,side);
 }
 
+// Satellite tiles for the current view at about one tile pixel per screen pixel (at most
+// ~40 tiles), drawn as they arrive onto their own canvas; the images are dropped once drawn.
+function drawSatellite(){
+  const place=ctx?.place?.();if(!sat||!$.sat||!place)return;
+  const token=++satToken,c=$.sat,k=c._k||1,g=c.getContext('2d');
+  g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);g.setTransform(k,0,0,k,0,0);
+  const us=place.countryCode==='US'||place.countryCode==='PR',ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
+  const metresPerPx=1609.344/ppm/k;
+  const z=Math.max(3,Math.min(us?16:13,Math.round(Math.log2(156543.03*cos/metresPerPx))));
+  const n=2**z,tx=lon=>(lon+180)/360*n,ty=lat=>{const s=Math.sin(lat*Math.PI/180);return (.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n;};
+  const lonOf=x=>x/n*360-180,latOf=y=>Math.atan(Math.sinh(Math.PI-2*Math.PI*y/n))*180/Math.PI;
+  // Screen point of a lat/lon (same equirectangular miles as the vector maps).
+  const px=(lat,lon)=>({x:VIEW.cx+(lon-place.longitude)*69.172*cos*ppm,y:VIEW.cy-(lat-place.latitude)*69*ppm});
+  const halfW=W/2/ppm/(69.172*cos),halfH=H/2/ppm/69;
+  const x0=Math.floor(tx(place.longitude-halfW)),x1=Math.floor(tx(place.longitude+halfW));
+  const y0=Math.floor(ty(place.latitude+halfH)),y1=Math.floor(ty(place.latitude-halfH));
+  if((x1-x0+1)*(y1-y0+1)>48)return;
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
+    const img=new Image();
+    img.onload=()=>{
+      if(token!==satToken||!$.sat)return;
+      const a=px(latOf(y),lonOf(x)),b=px(latOf(y+1),lonOf(x+1));
+      g.drawImage(img,a.x,a.y,b.x-a.x+.5,b.y-a.y+.5);img.src='';
+    };
+    img.src=(us?USGS:EOX).replace('{z}',z).replace('{y}',y).replace('{x}',x);
+  }
+}
+
 function drawMap(){
-  paintMap($.canvas,maps,VIEW,maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
+  drawSatellite();
+  paintMap($.canvas,maps,VIEW,sat?(maps.detail?SAT_DETAIL:SAT_BASE):maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
   setText($.note,maps.detail?'':maps.base?'Drawing detail…':'Drawing the map…');
   // Labels, set once per map with a halo like print. Up to 15 mi: no place names, just the
   // airports with an official code (IATA/ICAO/FAA), each a ring marker (never a plane
@@ -155,6 +200,19 @@ function drawMap(){
   // Scale bar: a round distance about 60 px long at the current map radius.
   const bar=niceDistance(VIEW,60);
   $.scale.innerHTML=`<i style="width:${bar.px.toFixed(0)}px"></i><span>${bar.label}</span>`;
+}
+
+// One line, never cut: try each wording (e._alts, longest first) shrinking the type down
+// to 11 px; if none fits, the shortest one goes down to 9 px.
+function fitLine(e){
+  const alts=e._alts||[e.textContent];
+  for(let i=0;i<alts.length;i++){
+    const floor=i===alts.length-1?9:11;
+    e.textContent=alts[i];e.style.fontSize='';
+    let size=parseFloat(getComputedStyle(e).fontSize);
+    while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
+    if(e.scrollWidth<=e.clientWidth+1)return;
+  }
 }
 
 function render(m){
@@ -215,15 +273,19 @@ function render(m){
   }
   const L=m.log;
   setText($['cargo-n'],L.cargoTonight);
-  setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'none yet':'counted 6 pm – 6 am');
-  const cell=(k,v,cls='')=>{const d=el('div',cls);d.append(el('dt','',k),el('dd','',v));return d;};
+  const brands=n=>L.cargoBy.slice(0,n).map(([b,c])=>`${b} ${c}`).join(' · ');
+  $['cargo-by']._alts=L.cargoBy.length?[brands(4),brands(3),brands(2)]:[L.night?'none yet':'counted 6 pm – 6 am'];
+  const cell=(k,v,cls='',alts)=>{const d=el('div',cls),dd=el('dd','',v);dd._alts=alts;d.append(el('dt','',k),dd);return d;};
+  const far=L.farthest,farMi=far&&fmt.far(far.value);
   $.log.replaceChildren(cell('Seen',fmt.int(L.today)),cell('Highest',L.highest?fmt.alt(L.highest.value):'—'),
-    cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide'),
-    cell('Farthest',L.farthest?`${L.farthest.name} · ${L.farthest.from} · ${fmt.far(L.farthest.value)}`:'—','wide far'));
+    cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide',L.rarest&&[L.rarest.name,L.rarest.code]),
+    cell('Farthest',far?`${far.name} · ${far.from} · ${farMi}`:'—','wide far',far&&[`${far.name} · ${far.from} · ${farMi}`,`${far.from} · ${farMi}`,`${far.name} · ${far.code||far.from} · ${farMi}`,`${far.code||far.from} · ${farMi}`]));
   const rec=m.recent.slice(0,hero?3:5);
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','at-rr none','Nothing inside the alert ring yet.')]));
+  // One-line rows (cargo by brand, Rarest, Farthest): the type shrinks until they fit.
+  for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
   // Nothing is cut short: long names wrap, and the sections spread down the full
   // column. If a busy hero leaves no room, Recent goes (its space is shared out by
   // the column), then the type tightens.
@@ -233,13 +295,14 @@ function render(m){
   if(over())sec.hidden=true;
   if(over())side.classList.add('tight');
   if(over())side.classList.add('tighter');
+  for(const e of [$['cargo-by'],...$.log.querySelectorAll('.wide dd')])fitLine(e);
 }
 
 export default {
   name:'Atlas',map:'detail',
-  mount(r,c){root=r;demo=c.demo;dark=c.layout?.()==='atlas-dark';$={};trails.clear();ui();drawMap();},
+  mount(r,c){root=r;ctx=c;demo=c.demo;sat=c.layout?.()==='atlas-satellite';dark=c.layout?.()==='atlas-dark'||sat;$={};trails.clear();ui();drawMap();},
   setMap(m){maps=m;drawMap();},
   render,
   refresh(){drawMap();},
-  unmount(){root=null;$={};maps={};trails.clear();},
+  unmount(){root=null;satToken++;$={};maps={};trails.clear();},
 };

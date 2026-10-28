@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="only dark">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://opendata.adsb.fi https://vrs-standing-data.adsb.lol https://tiles.openfreemap.org https://geocoding-api.open-meteo.com https://get.geojs.io; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://basemap.nationalmap.gov https://tiles.maps.eox.at; connect-src 'self' https://opendata.adsb.fi https://vrs-standing-data.adsb.lol https://tiles.openfreemap.org https://geocoding-api.open-meteo.com https://get.geojs.io; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>What's Up</title>
 <link rel="stylesheet" href="whatsup.css">
 <script src="mvt.js"></script>
@@ -54,7 +54,8 @@
       <button class="row" id="set-awake" data-focus data-adjust><span>Keep screen awake</span><b id="set-awake-v"></b><i>‹ ›</i></button>
       <button class="row done" id="set-done" data-focus><span>Done</span></button>
       <p class="note small">Aircraft positions: adsb.fi (personal, non-commercial use). Routes: ADSB.lol.
-        Map: © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors. Place search: Open-Meteo (GeoNames data, CC BY 4.0). IP location: GeoJS, using GeoLite2 data from MaxMind.</p>
+        Map: © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors. Place search: Open-Meteo (GeoNames data, CC BY 4.0). IP location: GeoJS, using GeoLite2 data from MaxMind.
+        Satellite imagery (Atlas Satellite): USGS The National Map (US, public domain); elsewhere Sentinel-2 cloudless 2016 by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2016.</p>
     </div>
   </div>
 

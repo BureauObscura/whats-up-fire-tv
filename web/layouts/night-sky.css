@@ -1,4 +1,4 @@
-/* Layout 11, Night Sky: ambient. Black sky, aircraft as stars, EB Garamond. */
+/* Layout 12, Night Sky: ambient. Black sky, aircraft as stars, EB Garamond. */
 @font-face{font-family:'EB Garamond';src:url(../fonts/EBGaramond.woff2) format('woff2');font-weight:400 600;font-display:block}
 .L-night-sky{--star:#e6eeff;--dim:rgba(214,226,255,.55);--faint:rgba(214,226,255,.32);--red:#ff5a4a;
   --ui-ink:#e6eeff;--ui-dim:rgba(214,226,255,.62);--ui-faint:rgba(214,226,255,.28);--ui-bg:#05070c;--ui-shade:rgba(0,0,0,.8);

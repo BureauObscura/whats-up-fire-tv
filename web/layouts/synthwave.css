@@ -1,4 +1,4 @@
-/* Layout 8, Synthwave: magenta/cyan neon on a purple sunset, a tilted grid floor. Orbitron. */
+/* Layout 9, Synthwave: magenta/cyan neon on a purple sunset, a tilted grid floor. Orbitron. */
 @font-face{font-family:'Orbitron';src:url(../fonts/Orbitron.woff2) format('woff2');font-weight:400 900;font-display:block}
 .L-synthwave{--pink:#ff4fd8;--hot:#ff2e88;--cyan:#21f0ff;--sun1:#ffe45c;--violet:#b040ff;--night:#0b0221;--orb:'Orbitron','Michroma',sans-serif;
   --ui-ink:#21f0ff;--ui-dim:rgba(255,190,240,.8);--ui-faint:rgba(255,79,216,.45);--ui-bg:#12032b;--ui-shade:rgba(8,0,24,.78);

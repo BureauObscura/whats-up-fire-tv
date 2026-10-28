@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
   TrailBook,placeBox,number,ppmOf,alertRadius,range}=__modules["kit.mjs"];
-// Layout 11, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
+// Layout 12, Night Sky: no streets. A black sky, the aircraft as stars dragging soft
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
 

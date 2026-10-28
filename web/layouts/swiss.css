@@ -1,4 +1,4 @@
-/* Layout 7, Swiss: International Typographic Style poster. Inter, off-white, one red. */
+/* Layout 8, Swiss: International Typographic Style poster. Inter, off-white, one red. */
 @font-face{font-family:'Inter';src:url(../fonts/Inter.woff2) format('woff2');font-weight:300 900;font-display:block}
 .L-swiss{--paper:#f1eee6;--ink:#111;--grey:#7d7a72;--red:#e2231a;
   --ui-ink:#111;--ui-dim:#5f5c55;--ui-faint:#b9b5ab;--ui-bg:#f1eee6;--ui-shade:rgba(241,238,230,.9);--ui-on:#f1eee6;

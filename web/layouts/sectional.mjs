@@ -1,4 +1,4 @@
-// Layout 9, Sectional: a cream VFR sectional chart around home. Towns in chart
+// Layout 10, Sectional: a cream VFR sectional chart around home. Towns in chart
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,

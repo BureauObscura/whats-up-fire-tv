@@ -1,4 +1,4 @@
-// Layout 8, Synthwave: a neon sunset. The map is a glowing grid floor tilted with a
+// Layout 9, Synthwave: a neon sunset. The map is a glowing grid floor tilted with a
 // CSS 3D transform (looking north from behind home); planes are glowing chevrons in a
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
