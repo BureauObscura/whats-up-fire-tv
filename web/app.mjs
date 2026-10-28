@@ -225,7 +225,8 @@ function close(){
   if(layer.id==='picker')endPick(false);
   layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;
   if(layer){
-    if(layer.id==='settings'){showSettings();setFocus($('set-layout'));}else{const last=layer._last;setFocus(last&&layer.contains(last)&&last.offsetParent?last:focusables()[0]);}
+    if(layer.id==='settings')showSettings();
+    {const last=layer._last;setFocus(last&&layer.contains(last)&&last.offsetParent?last:focusables()[0]);}
   }else setFocus(null);
   syncApp();
 }
@@ -238,8 +239,10 @@ function move(dir){
   if(!focused||!items.includes(focused))return setFocus(items[0]);
   const a=focused.getBoundingClientRect(),ax=a.left+a.width/2,ay=a.top+a.height/2;
   let best=null,score=Infinity;
+  // Left/Right moves between columns: a centred bottom button (Done) is only for Down.
+  const sideways=dir==='left'||dir==='right';
   for(const el of items){
-    if(el===focused)continue;
+    if(el===focused||sideways&&el.classList.contains('done'))continue;
     const b=el.getBoundingClientRect(),bx=b.left+b.width/2,by=b.top+b.height/2,dx=bx-ax,dy=by-ay;
     const main={left:-dx,right:dx,up:-dy,down:dy}[dir],side=dir==='left'||dir==='right'?Math.abs(dy):Math.abs(dx);
     if(main<=4)continue;
@@ -304,7 +307,8 @@ let editing=null;
 function editKey(e){
   const k=e.key,dir={ArrowLeft:-1,ArrowRight:1,ArrowDown:-10,ArrowUp:10}[k];
   e.preventDefault();
-  if(dir)return adjustSetting(editing,dir);
+  // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
+  if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
   if(k==='Enter'||k===' '||['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return stopEdit();
 }
 function stopEdit(){editing?.classList.remove('editing');editing=null;}
@@ -436,6 +440,8 @@ function select(el){
     case 'confirm-adjust':return startAdjust(pending);
     case 'confirm-again':return close();
     case 'set-done':return close();
+    case 'set-about':return open('about','about-back');
+    case 'about-back':return close();
     case 'pick-prev':return stepPick(-1);
     case 'pick-next':return stepPick(1);
     case 'search-retry':entry=lastQuery||entry;setText('entry-text',entry);setFocus($('keys').querySelector('[data-key="search"]'));return runSearch(true);
@@ -535,7 +541,6 @@ document.addEventListener('keydown',e=>{
   }
   if(dir){
     e.preventDefault();
-    if((dir==='left'||dir==='right')&&focused?.dataset.adjust!==undefined)return adjustSetting(focused,dir==='left'?-1:1);
     return move(dir);
   }
   if(k==='Enter'||k===' '&&layer.id!=='locate'){e.preventDefault();return select(focused);}
