@@ -160,3 +160,25 @@ export function placeLabels(points,width,height,scale=1) {
     return {...p,box:best};
   });
 }
+
+// Alert zone. 'circle': within `radius` miles all around. 'window': a wedge of compass
+// bearings from `from` to `to` degrees (clockwise; 300 -> 40 crosses north), out to `miles`,
+// for a view from one window; a plane within OVERHEAD_MI is counted either way.
+export const OVERHEAD_MI=1;
+export const norm=deg=>((deg%360)+360)%360;
+export function inBearings(bearing,from,to){
+  const b=norm(bearing),f=norm(from),t=norm(to);
+  return f<=t?b>=f&&b<=t:b>=f||b<=t;
+}
+export function inZone(zone,x,y){
+  const d=Math.hypot(x,y);
+  if(zone?.kind!=='window')return d<=(zone?.radius??3);
+  return d<=OVERHEAD_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
+}
+// The zone's outline as [x,y] miles east/north of home (a closed ring).
+export function zoneOutline(zone,steps=64){
+  if(zone?.kind!=='window'){const r=zone?.radius??3;return Array.from({length:steps+1},(_,i)=>{const a=i/steps*2*Math.PI;return [r*Math.sin(a),r*Math.cos(a)];});}
+  const span=norm(zone.to-zone.from)||360,n=Math.max(4,Math.ceil(span/4)),pts=[[0,0]];
+  for(let i=0;i<=n;i++){const a=(zone.from+span*i/n)*Math.PI/180;pts.push([zone.miles*Math.sin(a),zone.miles*Math.cos(a)]);}
+  pts.push([0,0]);return pts;
+}

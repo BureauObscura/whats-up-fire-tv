@@ -135,3 +135,31 @@ test('keep screen awake: on unless turned off',()=>{
   }
   delete globalThis.localStorage;
 });
+
+// --- Alert zone: Window view
+import {inBearings,inZone,zoneOutline,OVERHEAD_MI} from '../web/core.mjs';
+test('window view: bearings in range, including ranges that cross north',()=>{
+  assert.ok(inBearings(74,74,175)&&inBearings(175,74,175)&&inBearings(120,74,175));
+  assert.ok(!inBearings(73,74,175)&&!inBearings(176,74,175)&&!inBearings(300,74,175));
+  assert.ok(inBearings(350,300,40)&&inBearings(0,300,40)&&inBearings(40,300,40)&&inBearings(-10,300,40)&&inBearings(370,300,40));
+  assert.ok(!inBearings(41,300,40)&&!inBearings(299,300,40)&&!inBearings(180,300,40));
+});
+test('window view: wedge reach, overhead always counts, circle unchanged',()=>{
+  const z={kind:'window',from:74,to:175,miles:25};
+  const at=(deg,mi)=>[mi*Math.sin(deg*Math.PI/180),mi*Math.cos(deg*Math.PI/180)];
+  assert.ok(inZone(z,...at(120,24)));
+  assert.ok(!inZone(z,...at(120,26)),'beyond the distance');
+  assert.ok(!inZone(z,...at(270,5)),'behind the window');
+  assert.ok(inZone(z,...at(270,OVERHEAD_MI*.9)),'right overhead counts from any side');
+  const c={kind:'circle',radius:3};
+  assert.ok(inZone(c,...at(270,2.9))&&!inZone(c,...at(90,3.1)));
+  const ring=zoneOutline(z);
+  assert.deepEqual(ring[0],[0,0]);assert.deepEqual(ring.at(-1),[0,0]);
+  assert.ok(Math.abs(Math.hypot(...ring[1])-25)<1e-9);
+});
+test('window view settings: defaults and saved values',()=>{
+  globalThis.localStorage={getItem:()=>JSON.stringify({alertZone:'window',viewFrom:434,viewTo:-185,viewMiles:33}),setItem(){},removeItem(){}};
+  const s=loadSettings();
+  assert.equal(s.alertZone,'window');assert.equal(s.viewFrom,74);assert.equal(s.viewTo,175);assert.equal(s.viewMiles,25);
+  delete globalThis.localStorage;
+});

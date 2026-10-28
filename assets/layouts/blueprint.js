@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom}=__modules["kit.mjs"];
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath}=__modules["kit.mjs"];
 // Layout 4, Blueprint: a technical drawing on navy drafting paper. The map is
 // linework only (roads by weight, water outlines, runways); aircraft are outline
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
@@ -77,7 +77,7 @@ function construction(){
     const a=-Math.PI/4,tx=h.x+Math.cos(a)*r,ty=h.y+Math.sin(a)*r;
     n.push(svg('text',{class:'bp-ringt',x:tx+4,y:ty-4},`R ${+(i*step).toPrecision(3)} ${metric()?'KM':'MI'}`));ringBoxes.push({x:tx,y:ty-18,w:50,h:18});
   }
-  n.push(svg('circle',{class:'bp-alert',cx:h.x,cy:h.y,r:alertRadius()*ppm}));
+  n.push(svg('path',{class:'bp-alert',d:zonePath((x,y)=>toView(VIEW,x,y))}));
   n.push(svg('circle',{class:'bp-datum',cx:h.x,cy:h.y,r:7}),svg('line',{class:'bp-datumx',x1:h.x-11,y1:h.y,x2:h.x+11,y2:h.y}),
     svg('line',{class:'bp-datumx',x1:h.x,y1:h.y-11,x2:h.x,y2:h.y+11}),svg('text',{class:'bp-datumt',x:h.x+10,y:h.y+20},'DATUM · HOME'));
   // Compass rose ticks on the outer ring.

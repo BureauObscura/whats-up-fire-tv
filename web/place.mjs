@@ -47,6 +47,9 @@ function makePlace(o){
     accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
 }
 
+// Window view reach (Settings > Window distance) and whole-degree bearings.
+export const VIEW_MILES=[5,10,15,20,25,30,40,50,60,75,100];
+const deg=(v,d)=>Number.isFinite(Number(v))?((Math.round(Number(v))%360)+360)%360:d;
 // Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
 export const MAP_RADII=[2,5,10,15,25,50,100,150,250];
 // The alert ring sits inside the map: never wider than the map radius.
@@ -58,6 +61,10 @@ export function loadSettings(){
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
+    // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
+    alertZone:s.alertZone==='window'?'window':'circle',
+    viewFrom:deg(s.viewFrom,90),viewTo:deg(s.viewTo,180),
+    viewMiles:VIEW_MILES.includes(Number(s.viewMiles))?Number(s.viewMiles):25,
     layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
 }
 export const saveSettings=s=>store.set(KEY,s);

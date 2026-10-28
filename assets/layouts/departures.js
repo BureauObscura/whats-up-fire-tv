@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 const __modules=window.__whatsupModules;
-const {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius}=__modules["kit.mjs"];
+const {el,svg,setText,fmt,metric,KM,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,number,BASE_RANGE,range,ppmOf,alertRadius,zonePath}=__modules["kit.mjs"];
 // Layout 3, Departures: an amber split-flap board. Rows are the aircraft in range
 // now (hero first) and then those recently above; only the characters that change
 // flip. A small dark map inset shows where they are.
@@ -118,7 +118,7 @@ function render(m){
     setText($['sub-line'],`Seen today ${fmt.int(m.log.today)} · cargo tonight ${m.log.cargoTonight}`);
   }
   // Inset: home and plane dots.
-  const dots=[svg('circle',{class:'home',cx:view.cx,cy:view.cy,r:2.6}),svg('circle',{class:'ring',cx:view.cx,cy:view.cy,r:ppmOf(view)*alertRadius()})];
+  const dots=[svg('circle',{class:'home',cx:view.cx,cy:view.cy,r:2.6}),svg('path',{class:'ring',d:zonePath((x,y)=>toView(view,x,y))})];
   for(const a of m.planes){
     const p=toView(view,a.x,a.y);
     if(p.x<0||p.y<0||p.x>INSET.w||p.y>INSET.h)continue;

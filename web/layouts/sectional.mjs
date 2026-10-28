@@ -2,7 +2,7 @@
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView} from '../kit.mjs';
 
 const W=680,H=540,CX=345,CY=282,PPM0=30,ROSE=118;
 let PPM=PPM0; // at the current map radius (set before each draw)
@@ -137,11 +137,11 @@ function drawRose(){
       transform:`rotate(${d} ${CX+Math.sin(a)*(ROSE-24)} ${CY-Math.cos(a)*(ROSE-24)})`},String(d/10).padStart(2,'0')));
   }
   n.push(svg('path',{class:'rose-arrow',d:`M${CX} ${CY-ROSE-16}l7 16h-14z`}),svg('text',{class:'rose-north',x:CX,y:CY-ROSE-20,'text-anchor':'middle'},'N'));
-  n.push(svg('circle',{class:'alert',cx:CX,cy:CY,r:alertRadius()*PPM}));
+  n.push(svg('path',{class:'alert',d:zonePath(P)}));
   // VOR-style hexagon on home.
   const hex=[...Array(6)].map((_,i)=>{const a=(i*60+30)*Math.PI/180;return `${(CX+Math.cos(a)*9).toFixed(1)} ${(CY+Math.sin(a)*9).toFixed(1)}`;}).join('L');
   n.push(svg('path',{class:'hex',d:`M${hex}Z`}),svg('circle',{class:'hex-dot',cx:CX,cy:CY,r:2.2}));
-  n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
+  if(!windowView())n.push(svg('text',{class:'alert-t',x:CX,y:CY+alertRadius()*PPM-5,'text-anchor':'middle'},`ALERT ${fmt.dist(alertRadius(),0).toUpperCase()}`));
   $.rose.replaceChildren(...n);
   // Scale bar: 0-5 miles (or 0-8 km).
   const km=metric(),bar=niceDistance({ppm:PPM0},120),len=5,px=bar.px,x0=18,y0=H-34,s=[];

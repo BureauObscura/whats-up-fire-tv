@@ -1,7 +1,7 @@
 // Layout 1, Radar: the green phosphor scope (10-mile range, sweep, data blocks) and
 // a panel with the hero flight, cargo tonight, today's logbook and recent sightings.
 import {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,mapShift,offset,compass,number,BASE_RANGE,range,zoom,niceStep,zonePath,windowView,alertZone} from '../kit.mjs';
 
 const CX=270,CY=270,R=250,PPM0=R/BASE_RANGE;
 let PPM=PPM0; // px per mile at the current map radius (set before each draw)
@@ -65,7 +65,7 @@ function drawRings(){
     if(isMajor&&mi<RANGE-.06*RANGE)nodes.push(svg('text',{class:'ring-label',x:CX+4,y:CY-mi*PPM-3},String(+(i*stepU).toPrecision(3))));
   }
   nodes.push(svg('circle',{class:'ring edge',cx:CX,cy:CY,r:R}));
-  nodes.push(svg('circle',{class:'ring boundary',cx:CX,cy:CY,r:alertRadius()*PPM}));
+  nodes.push(svg('path',{class:'ring boundary',d:zonePath(P)}));
   for(let deg=0;deg<360;deg+=5){
     const big=deg%30===0,a=deg*Math.PI/180,r1=R-(big?9:4);
     nodes.push(svg('line',{class:`tick${big?' major':''}`,x1:CX+Math.sin(a)*r1,y1:CY-Math.cos(a)*r1,x2:CX+Math.sin(a)*R,y2:CY-Math.cos(a)*R}));
@@ -78,7 +78,7 @@ function drawRings(){
   }
   nodes.push(svg('rect',{class:'home',x:CX-2.5,y:CY-2.5,width:5,height:5}));
   $.rings.replaceChildren(...nodes);
-  setText($.ringNote,`Rings ${+stepU.toPrecision(3)} ${km?'km':'mi'} · alert ${fmt.dist(alertRadius(),0)}`);
+  setText($.ringNote,`Rings ${+stepU.toPrecision(3)} ${km?'km':'mi'} · ${windowView()?`window ${fmt.dist(alertZone().miles,0)}`:`alert ${fmt.dist(alertRadius(),0)}`}`);
 }
 
 function drawMap(){

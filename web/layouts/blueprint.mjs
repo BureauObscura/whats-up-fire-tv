@@ -3,7 +3,7 @@
 // silhouettes with drafting callouts on leader lines, the hero gets a dimension line
 // from home, and the data lives in a title block and a revision table.
 import {svg,el,setText,fmt,placeName,statusText,quietText,shapeFor,byInterest,makeCanvas,paintMap,toView,
-  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom} from '../kit.mjs';
+  compass,number,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,zoom,zonePath} from '../kit.mjs';
 
 const W=960,H=540,LIMIT=6.5,VIEW={cx:372,cy:292,ppm:40};
 // The survey limit: linework stops at a drafted border where the detail map ends.
@@ -74,7 +74,7 @@ function construction(){
     const a=-Math.PI/4,tx=h.x+Math.cos(a)*r,ty=h.y+Math.sin(a)*r;
     n.push(svg('text',{class:'bp-ringt',x:tx+4,y:ty-4},`R ${+(i*step).toPrecision(3)} ${metric()?'KM':'MI'}`));ringBoxes.push({x:tx,y:ty-18,w:50,h:18});
   }
-  n.push(svg('circle',{class:'bp-alert',cx:h.x,cy:h.y,r:alertRadius()*ppm}));
+  n.push(svg('path',{class:'bp-alert',d:zonePath((x,y)=>toView(VIEW,x,y))}));
   n.push(svg('circle',{class:'bp-datum',cx:h.x,cy:h.y,r:7}),svg('line',{class:'bp-datumx',x1:h.x-11,y1:h.y,x2:h.x+11,y2:h.y}),
     svg('line',{class:'bp-datumx',x1:h.x,y1:h.y-11,x2:h.x,y2:h.y+11}),svg('text',{class:'bp-datumt',x:h.x+10,y:h.y+20},'DATUM · HOME'));
   // Compass rose ticks on the outer ring.

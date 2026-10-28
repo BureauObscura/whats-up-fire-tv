@@ -182,7 +182,29 @@ function placeLabels(points,width,height,scale=1) {
   });
 }
 
-return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels};
+// Alert zone. 'circle': within `radius` miles all around. 'window': a wedge of compass
+// bearings from `from` to `to` degrees (clockwise; 300 -> 40 crosses north), out to `miles`,
+// for a view from one window; a plane within OVERHEAD_MI is counted either way.
+const OVERHEAD_MI=1;
+const norm=deg=>((deg%360)+360)%360;
+function inBearings(bearing,from,to){
+  const b=norm(bearing),f=norm(from),t=norm(to);
+  return f<=t?b>=f&&b<=t:b>=f||b<=t;
+}
+function inZone(zone,x,y){
+  const d=Math.hypot(x,y);
+  if(zone?.kind!=='window')return d<=(zone?.radius??3);
+  return d<=OVERHEAD_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
+}
+// The zone's outline as [x,y] miles east/north of home (a closed ring).
+function zoneOutline(zone,steps=64){
+  if(zone?.kind!=='window'){const r=zone?.radius??3;return Array.from({length:steps+1},(_,i)=>{const a=i/steps*2*Math.PI;return [r*Math.sin(a),r*Math.cos(a)];});}
+  const span=norm(zone.to-zone.from)||360,n=Math.max(4,Math.ceil(span/4)),pts=[[0,0]];
+  for(let i=0;i<=n;i++){const a=(zone.from+span*i/n)*Math.PI/180;pts.push([zone.miles*Math.sin(a),zone.miles*Math.cos(a)]);}
+  pts.push([0,0]);return pts;
+}
+
+return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline};
 })();
 // ---- routes.mjs
 __modules["routes.mjs"]=(()=>{
@@ -3246,6 +3268,9 @@ function makePlace(o){
     accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
 }
 
+// Window view reach (Settings > Window distance) and whole-degree bearings.
+const VIEW_MILES=[5,10,15,20,25,30,40,50,60,75,100];
+const deg=(v,d)=>Number.isFinite(Number(v))?((Math.round(Number(v))%360)+360)%360:d;
 // Map radius steps (Settings > Map radius, and Up/Down on the dashboard).
 const MAP_RADII=[2,5,10,15,25,50,100,150,250];
 // The alert ring sits inside the map: never wider than the map radius.
@@ -3257,6 +3282,10 @@ function loadSettings(){
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
     keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
+    // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
+    alertZone:s.alertZone==='window'?'window':'circle',
+    viewFrom:deg(s.viewFrom,90),viewTo:deg(s.viewTo,180),
+    viewMiles:VIEW_MILES.includes(Number(s.viewMiles))?Number(s.viewMiles):25,
     layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'radar'};
 }
 const saveSettings=s=>store.set(KEY,s);
@@ -3321,7 +3350,7 @@ async function searchAddress(query,{skipCensus=false}={}){
   return found;
 }
 
-return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,searchAddress};
+return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,VIEW_MILES,MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,searchAddress};
 })();
 // ---- mapgen.mjs
 __modules["mapgen.mjs"]=(()=>{
@@ -3656,7 +3685,7 @@ return {MAP_ATTRIBUTION,zoomFor,AIRFIELD_MAX_RANGE,DETAIL_MAX_RANGE,buildMap,sav
 })();
 // ---- model.mjs
 __modules["model.mjs"]=(()=>{
-const {IDS,airspace,recentSightings,number}=__modules["core.mjs"];
+const {IDS,airspace,recentSightings,number,inZone,OVERHEAD_MI}=__modules["core.mjs"];
 const {RouteLookup}=__modules["routes.mjs"];
 const {startLive,haversine,store}=__modules["live.mjs"];
 const {AIRCRAFT_TYPES}=__modules["aircraft-types.mjs"];
@@ -3726,7 +3755,7 @@ function derive(a){
   if(number(a.heading)&&number(a.speed_kt)&&a.speed_kt>30){
     const v=a.speed_kt*1.15078/3600,vx=v*Math.sin(a.heading*Math.PI/180),vy=v*Math.cos(a.heading*Math.PI/180);
     const t=-(x*vx+y*vy)/(v*v);
-    cpa=t>0?{seconds:t,miles:Math.hypot(x+vx*t,y+vy*t)}:{seconds:0,miles:ground,receding:true};
+    cpa=t>0?{seconds:t,miles:Math.hypot(x+vx*t,y+vy*t),x:x+vx*t,y:y+vy*t}:{seconds:0,miles:ground,x,y,receding:true};
   }
   return {x,y,ground,bearing,elevation,cpa};
 }
@@ -3808,13 +3837,21 @@ function enrich(a,raw,route,now){
     cargo,route,progress,...derive(a),trend:trend(a,now)};
 }
 
-// The hero: an emergency first, then the nearest inside the boundary, then the
-// one arriving soonest, then the nearest.
-function pickHero(planes,radius,range){
-  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.miles<radius+1&&a.cpa.seconds<600&&a.ground<=range;
+// The hero: an emergency first, then the nearest inside the alert zone, then the one
+// arriving soonest, then the nearest. In Window view, "inside" means in the window's
+// wedge (or right overhead) and "approaching" means its closest point falls in the wedge.
+function inAlert(a,config){
+  const z=config.zone;
+  return z?.kind==='window'?inZone(z,a.x,a.y):a.distance_mi<=config.radiusMiles;
+}
+function pickHero(planes,config){
+  const z=config.zone,win=z?.kind==='window';
+  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&(win?inZone(z,a.cpa.x,a.cpa.y):
+    a.cpa.miles<config.radiusMiles+1&&a.ground<=config.rangeMiles);
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||planes[0]||null;
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Above you now':approaching(hero)?'Approaching':'Nearest';
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>OVERHEAD_MI?'In your window':'Above you now'):
+    approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
 
@@ -3831,13 +3868,14 @@ function liveSource(config,onModel){
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
     // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
     const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
+    for(const a of planes)a.inside=inAlert(a,config);
     pruneSamples(now);
     // Today's logbook and cargo tonight count the same local area at every map radius
     // (the original 15 NM feed), so zooming out doesn't inflate them.
     if(fresh){log=updateLog(log,planes.filter(a=>a.distance_mi<=LOG_MILES),now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
+    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log)});
   },config);
 }
 
@@ -3890,12 +3928,12 @@ function demoSource(config,onModel,airports){
         heading:track,position_timestamp:now/1000-1};
       a.distance_mi=Math.hypot(east,north);a.inside=a.distance_mi<=config.radiusMiles;
       const raw={ownOp,year,squawk:scene==='emergency'&&hex===DEMO[0][0]?'7700':'2214',baro_rate:fpm};
-      return enrich(a,raw,route?{...route,flight:callsign}:null,now);
+      const p=enrich(a,raw,route?{...route,flight:callsign}:null,now);p.inside=inAlert(p,config);return p;
     }).filter(a=>a.distance_mi<config.rangeMiles+3&&scene!=='quiet')
       .sort((a,b)=>Number(b.inside)-Number(a.inside)||a.distance_mi-b.distance_mi);
     const recent=recentRows.map(([hex,flight,code,route,mins])=>({hex,flight,callsign:flight,aircraft_type:code,
       type:typeName(code),route,cargo:cargoBrand(flight,flight.startsWith('ATN')?'AMAZON':''),last_seen:now/1000-mins*60}));
-    onModel({now,live:false,fresh:true,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log});
+    onModel({now,live:false,fresh:true,planes,hero:pickHero(planes,config),recent,log});
   };
   tick();const timer=setInterval(tick,1000);
   return {stop(){clearInterval(timer);}};
@@ -3913,7 +3951,7 @@ return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,carg
 })();
 // ---- kit.mjs
 __modules["kit.mjs"]=(()=>{
-const {number}=__modules["core.mjs"];
+const {number,zoneOutline}=__modules["core.mjs"];
 const {MAP_ATTRIBUTION}=__modules["mapgen.mjs"];
 const {placeLabel}=__modules["place.mjs"];
 const {tz,compass,offset}=__modules["model.mjs"];
@@ -3995,6 +4033,11 @@ const fmt={
 const placeName=()=>placeLabel(S.place)||'';
 const cityName=()=>S.place?.name||'';
 const alertRadius=()=>Math.min(S.radiusMiles||3,range());
+// Settings > Alert zone: the circle (Alert radius) or the Window view wedge.
+const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:S.viewMiles}:{kind:'circle',radius:alertRadius()};
+const windowView=()=>S.alertZone==='window';
+// SVG path of the alert zone; at(x,y) maps miles east/north of home to screen {x,y}.
+const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(x,y);return `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;}).join('L')+'Z';
 const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
@@ -4134,14 +4177,14 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,shortField,airfieldsNear,airportsNear,credits,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placesNear,shortField,airfieldsNear,airportsNear,credits,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
 const {CONFIG}=__modules["config.js"];
 const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog}=__modules["model.mjs"];
-const {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
+const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
 const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits}=__modules["mapgen.mjs"];
 const {svg,useSettings,fmt,makeCanvas,paintMap}=__modules["kit.mjs"];
 // What's Up: the page. Owns the data (feed model, settings, maps) and the shared
@@ -4173,8 +4216,10 @@ const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
 // show that far sideways), at most its 250 NM, and polled less often over big areas.
 const feedConfig=()=>{
   const r=mapMiles();
+  const win=settings.alertZone==='window',reach=Math.max(r*1.5,win?settings.viewMiles+3:0);
   return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
-    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(r*1.5/1.15078))),
+    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:settings.viewMiles}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
+    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(reach/1.15078))),
     pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
 };
 const maps={base:null,detail:null};
@@ -4394,6 +4439,12 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
+  setText('set-zone-v',win?'Window view':'All around');
+  setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
+  setText('set-view-v',fmt.dist(settings.viewMiles,0));
+  for(const r of document.querySelectorAll('#settings .row.win'))r.hidden=!win;
+  $('set-radius').hidden=win;
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
@@ -4401,12 +4452,33 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
+  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';return zoneChanged();}
+  else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
+  else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
   if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
   else refreshLayout();
 }
+
+// Alert zone changes redraw at once; the feed (which marks planes inside the zone and may
+// need to reach further for Window distance) restarts after a short pause.
+let zoneTimer=0;
+function zoneChanged(){
+  saveSettings(settings);useSettings(settings);showSettings();refreshLayout();
+  if(lastModel)draw(lastModel);
+  clearTimeout(zoneTimer);zoneTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},900);
+}
+// Window bearings: OK on the row to edit, then Left/Right 1°, Up/Down 10°, OK or Back to finish.
+let editing=null;
+function editKey(e){
+  const k=e.key,dir={ArrowLeft:-1,ArrowRight:1,ArrowDown:-10,ArrowUp:10}[k];
+  e.preventDefault();
+  if(dir)return adjustSetting(editing,dir);
+  if(k==='Enter'||k===' '||['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return stopEdit();
+}
+function stopEdit(){editing?.classList.remove('editing');editing=null;}
 
 // Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
 // once (the current map, rescaled); the map for the new radius and the wider or
@@ -4522,6 +4594,7 @@ function openLocate(help){
 
 function select(el){
   if(!el)return;
+  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');return;}
   if(el._place)return confirmPlace(el._place);
   if(el.dataset.key)return typeKey(el.dataset.key);
   switch(el.id){
@@ -4543,6 +4616,7 @@ function select(el){
 
 let lastBack=0;
 function back(){
+  if(editing)return stopEdit();
   const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();
@@ -4622,6 +4696,7 @@ document.addEventListener('keydown',e=>{
     if(k==='Enter'||k===' '||k==='ContextMenu'||k==='Menu'||e.keyCode===82){e.preventDefault();showSettings();open('settings');}
     return;
   }
+  if(editing)return editKey(e);
   if(layer.id==='picker'){
     e.preventDefault();
     if(dir==='left'||dir==='up')return stepPick(-1);
@@ -4658,6 +4733,9 @@ async function boot(){
   tellAwake();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
+  // Screenshot hook: ?window=90-180-25 sets a Window view zone (from-to-miles) for this launch.
+  const w=/^(\d{1,3})-(\d{1,3})-(\d{1,3})$/.exec(query.get('window')||'');
+  if(w)Object.assign(settings,{alertZone:'window',viewFrom:+w[1]%360,viewTo:+w[2]%360,viewMiles:VIEW_MILES.includes(+w[3])?+w[3]:25});
   // Screenshot hook: ?map=50 sets the map radius for this launch.
   if(MAP_RADII.includes(Number(query.get('map'))))settings.mapMiles=Number(query.get('map'));
   // Screenshot hook: ?layout=atlas shows that layout for this launch.

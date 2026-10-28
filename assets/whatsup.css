@@ -37,7 +37,8 @@ kbd{font:inherit;border:1px solid var(--ui-faint);padding:0 4px;border-radius:3p
 button{font:inherit;color:inherit;background:none;border:1.5px solid var(--ui-faint);cursor:pointer;outline:none;border-radius:var(--ui-radius)}
 .btn{font-size:18px;font-weight:700;padding:10px 22px}
 button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-on);text-shadow:none}
-.overlay .row{display:grid;grid-template-columns:190px 1fr auto;align-items:baseline;width:100%;text-align:left;padding:8px 16px;margin-top:6px;font-size:18px}
+.overlay .row{display:grid;grid-template-columns:190px 1fr auto;align-items:baseline;width:100%;text-align:left;padding:6px 16px;margin-top:4px;font-size:17px}
+.overlay .row.editing{outline:3px solid var(--ui-ink);outline-offset:2px}.overlay .row.editing i::before{content:'‹ › 1°  ▲▼ 10°  ';}
 .overlay .row span{color:var(--ui-dim)}.overlay .row b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.overlay .row i{font-style:normal;color:var(--ui-faint);font-size:15px}
 .overlay .row.focus span,.overlay .row.focus i{color:var(--ui-on)}
 .overlay .row.done{grid-template-columns:1fr;text-align:center;margin-top:12px}.overlay .row.done span{color:inherit;font-weight:700}
@@ -91,3 +92,9 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .adjust-where{font-size:20px;font-weight:700;margin-top:4px}
 .adjust-moved{font-size:22px;font-weight:700;margin-top:14px}
 .keys-help{font-size:17px}
+/* Settings holds up to 13 rows: tighter rows so it fits the 540 px stage. */
+#settings .card{padding:16px 30px 12px}
+#settings .title{margin-bottom:4px}
+#settings .row{padding:4px 14px;margin-top:3px;font-size:16px}
+#settings .row.done{margin-top:8px}
+#settings .note.small{margin-top:8px;font-size:10.5px;line-height:1.4}

@@ -5,7 +5,7 @@
 import {CONFIG} from './config.js';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog} from './model.mjs';
-import {MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
+import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap} from './kit.mjs';
 
@@ -28,8 +28,10 @@ const mapMiles=()=>settings.mapMiles||CONFIG.rangeMiles;
 // show that far sideways), at most its 250 NM, and polled less often over big areas.
 const feedConfig=()=>{
   const r=mapMiles();
+  const win=settings.alertZone==='window',reach=Math.max(r*1.5,win?settings.viewMiles+3:0);
   return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
-    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(r*1.5/1.15078))),
+    zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:settings.viewMiles}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
+    searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(reach/1.15078))),
     pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
 };
 const maps={base:null,detail:null};
@@ -249,6 +251,12 @@ function showSettings(){
   setText('set-distance-v',settings.distance==='km'?'Kilometres':'Miles');
   setText('set-altitude-v',settings.altitude==='m'?'Metres':'Feet');
   setText('set-awake-v',settings.keepAwake?'On':'Off');
+  const win=settings.alertZone==='window',bearing=d=>`${compass(d)} ${d}°`;
+  setText('set-zone-v',win?'Window view':'All around');
+  setText('set-from-v',bearing(settings.viewFrom));setText('set-to-v',bearing(settings.viewTo));
+  setText('set-view-v',fmt.dist(settings.viewMiles,0));
+  for(const r of document.querySelectorAll('#settings .row.win'))r.hidden=!win;
+  $('set-radius').hidden=win;
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
@@ -256,12 +264,33 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
+  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';return zoneChanged();}
+  else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
+  else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}
   else return;
   saveSettings(settings);useSettings(settings);showSettings();
   if(el.id==='set-radius'&&settings.place){refreshLayout();applyPlace(settings.place);} // the feed's alert radius
   else refreshLayout();
 }
+
+// Alert zone changes redraw at once; the feed (which marks planes inside the zone and may
+// need to reach further for Window distance) restarts after a short pause.
+let zoneTimer=0;
+function zoneChanged(){
+  saveSettings(settings);useSettings(settings);showSettings();refreshLayout();
+  if(lastModel)draw(lastModel);
+  clearTimeout(zoneTimer);zoneTimer=setTimeout(()=>{if(settings.place)applyPlace(settings.place);},900);
+}
+// Window bearings: OK on the row to edit, then Left/Right 1°, Up/Down 10°, OK or Back to finish.
+let editing=null;
+function editKey(e){
+  const k=e.key,dir={ArrowLeft:-1,ArrowRight:1,ArrowDown:-10,ArrowUp:10}[k];
+  e.preventDefault();
+  if(dir)return adjustSetting(editing,dir);
+  if(k==='Enter'||k===' '||['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return stopEdit();
+}
+function stopEdit(){editing?.classList.remove('editing');editing=null;}
 
 // Map radius: Settings > Map radius, or Up/Down on the dashboard. The view redraws at
 // once (the current map, rescaled); the map for the new radius and the wider or
@@ -377,6 +406,7 @@ function openLocate(help){
 
 function select(el){
   if(!el)return;
+  if(el.dataset.edit!==undefined){editing=el;el.classList.add('editing');return;}
   if(el._place)return confirmPlace(el._place);
   if(el.dataset.key)return typeKey(el.dataset.key);
   switch(el.id){
@@ -398,6 +428,7 @@ function select(el){
 
 let lastBack=0;
 function back(){
+  if(editing)return stopEdit();
   const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();
@@ -477,6 +508,7 @@ document.addEventListener('keydown',e=>{
     if(k==='Enter'||k===' '||k==='ContextMenu'||k==='Menu'||e.keyCode===82){e.preventDefault();showSettings();open('settings');}
     return;
   }
+  if(editing)return editKey(e);
   if(layer.id==='picker'){
     e.preventDefault();
     if(dir==='left'||dir==='up')return stepPick(-1);
@@ -513,6 +545,9 @@ async function boot(){
   tellAwake();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
+  // Screenshot hook: ?window=90-180-25 sets a Window view zone (from-to-miles) for this launch.
+  const w=/^(\d{1,3})-(\d{1,3})-(\d{1,3})$/.exec(query.get('window')||'');
+  if(w)Object.assign(settings,{alertZone:'window',viewFrom:+w[1]%360,viewTo:+w[2]%360,viewMiles:VIEW_MILES.includes(+w[3])?+w[3]:25});
   // Screenshot hook: ?map=50 sets the map radius for this launch.
   if(MAP_RADII.includes(Number(query.get('map'))))settings.mapMiles=Number(query.get('map'));
   // Screenshot hook: ?layout=atlas shows that layout for this launch.

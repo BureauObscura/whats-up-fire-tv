@@ -3,7 +3,7 @@
 // line runs to the selected (hero) aircraft. Speed and altitude tapes read out the
 // hero like a primary flight display. Map: airports and runways only.
 import {svg,el,setText,fmt,metric,KM,placeName,alertRadius,statusText,quietText,byInterest,
-  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom} from '../kit.mjs';
+  makeCanvas,paintMap,airportsNear,compass,number,BASE_RANGE,range,zoom,zonePath} from '../kit.mjs';
 
 const CX=300,CY=292,R=226,PPM0=R/BASE_RANGE;
 let PPM=PPM0,RANGE=BASE_RANGE; // at the current map radius (set before each draw)
@@ -79,7 +79,7 @@ function drawRose(){
   n.push(svg('path',{class:'lubber',d:`M${CX} ${CY-R-2}l-9 -14h18z`}));
   // Alert radius as a dashed cyan circle.
   setScale();
-  n.push(svg('circle',{class:'alert-r',cx:CX,cy:CY,r:alertRadius()*PPM}));
+  n.push(svg('path',{class:'alert-r',d:zonePath(P)}));
   const r=metric()?RANGE*KM:RANGE;
   n.push(svg('text',{class:'range-n',x:CX-R*.707-6,y:CY-R*.707+2,'text-anchor':'end'},String(Math.round(r))));
   n.push(svg('text',{class:'range-n',x:CX-R*.354-6,y:CY-R*.354+2,'text-anchor':'end'},String(r/2>=10?Math.round(r/2):+(r/2).toPrecision(2))));

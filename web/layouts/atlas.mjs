@@ -5,7 +5,7 @@
 // Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 7,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath} from '../kit.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
@@ -226,8 +226,8 @@ function render(m){
   trails.update(m.planes,now);
 
   // Alert ring around home.
-  const h=toView(VIEW,0,0),rr=alertRadius()*ppmOf(VIEW);
-  $.ring.replaceChildren(svg('circle',{class:'at-alertring',cx:h.x,cy:h.y,r:rr}),
+  const h=toView(VIEW,0,0);
+  $.ring.replaceChildren(svg('path',{class:'at-alertring',d:zonePath((x,y)=>toView(VIEW,x,y))}),
     svg('circle',{class:'at-home',cx:h.x,cy:h.y,r:6}),svg('text',{class:'at-homet',x:h.x+10,y:h.y+4},'HOME'));
 
   // Tags sit on white chips over the place names, so they only avoid each other and home.

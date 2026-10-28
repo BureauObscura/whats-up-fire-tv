@@ -2,7 +2,7 @@
 // with operator, cargo brand, look-up angles, closest approach, trend and a daily
 // logbook. ?demo=1 makes a synthetic sky around whatever home is set (&scene=emergency:
 // a 7700 squawk; &scene=quiet: nothing in range; &scene=long: long names everywhere, to check nothing is cut off).
-import {IDS,airspace,recentSightings,number} from './core.mjs';
+import {IDS,airspace,recentSightings,number,inZone,OVERHEAD_MI} from './core.mjs';
 import {RouteLookup} from './routes.mjs';
 import {startLive,haversine,store} from './live.mjs';
 import {AIRCRAFT_TYPES} from './aircraft-types.mjs';
@@ -65,7 +65,7 @@ function derive(a){
   if(number(a.heading)&&number(a.speed_kt)&&a.speed_kt>30){
     const v=a.speed_kt*1.15078/3600,vx=v*Math.sin(a.heading*Math.PI/180),vy=v*Math.cos(a.heading*Math.PI/180);
     const t=-(x*vx+y*vy)/(v*v);
-    cpa=t>0?{seconds:t,miles:Math.hypot(x+vx*t,y+vy*t)}:{seconds:0,miles:ground,receding:true};
+    cpa=t>0?{seconds:t,miles:Math.hypot(x+vx*t,y+vy*t),x:x+vx*t,y:y+vy*t}:{seconds:0,miles:ground,x,y,receding:true};
   }
   return {x,y,ground,bearing,elevation,cpa};
 }
@@ -147,13 +147,21 @@ function enrich(a,raw,route,now){
     cargo,route,progress,...derive(a),trend:trend(a,now)};
 }
 
-// The hero: an emergency first, then the nearest inside the boundary, then the
-// one arriving soonest, then the nearest.
-function pickHero(planes,radius,range){
-  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.miles<radius+1&&a.cpa.seconds<600&&a.ground<=range;
+// The hero: an emergency first, then the nearest inside the alert zone, then the one
+// arriving soonest, then the nearest. In Window view, "inside" means in the window's
+// wedge (or right overhead) and "approaching" means its closest point falls in the wedge.
+function inAlert(a,config){
+  const z=config.zone;
+  return z?.kind==='window'?inZone(z,a.x,a.y):a.distance_mi<=config.radiusMiles;
+}
+function pickHero(planes,config){
+  const z=config.zone,win=z?.kind==='window';
+  const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&(win?inZone(z,a.cpa.x,a.cpa.y):
+    a.cpa.miles<config.radiusMiles+1&&a.ground<=config.rangeMiles);
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||planes[0]||null;
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?'Above you now':approaching(hero)?'Approaching':'Nearest';
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>OVERHEAD_MI?'In your window':'Above you now'):
+    approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
 
@@ -170,13 +178,14 @@ function liveSource(config,onModel){
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
     // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
     const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
+    for(const a of planes)a.inside=inAlert(a,config);
     pruneSamples(now);
     // Today's logbook and cargo tonight count the same local area at every map radius
     // (the original 15 NM feed), so zooming out doesn't inflate them.
     if(fresh){log=updateLog(log,planes.filter(a=>a.distance_mi<=LOG_MILES),now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log:logSummary(log)});
+    onModel({now,live:true,fresh,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log)});
   },config);
 }
 
@@ -229,12 +238,12 @@ function demoSource(config,onModel,airports){
         heading:track,position_timestamp:now/1000-1};
       a.distance_mi=Math.hypot(east,north);a.inside=a.distance_mi<=config.radiusMiles;
       const raw={ownOp,year,squawk:scene==='emergency'&&hex===DEMO[0][0]?'7700':'2214',baro_rate:fpm};
-      return enrich(a,raw,route?{...route,flight:callsign}:null,now);
+      const p=enrich(a,raw,route?{...route,flight:callsign}:null,now);p.inside=inAlert(p,config);return p;
     }).filter(a=>a.distance_mi<config.rangeMiles+3&&scene!=='quiet')
       .sort((a,b)=>Number(b.inside)-Number(a.inside)||a.distance_mi-b.distance_mi);
     const recent=recentRows.map(([hex,flight,code,route,mins])=>({hex,flight,callsign:flight,aircraft_type:code,
       type:typeName(code),route,cargo:cargoBrand(flight,flight.startsWith('ATN')?'AMAZON':''),last_seen:now/1000-mins*60}));
-    onModel({now,live:false,fresh:true,planes,hero:pickHero(planes,config.radiusMiles,config.rangeMiles),recent,log});
+    onModel({now,live:false,fresh:true,planes,hero:pickHero(planes,config),recent,log});
   };
   tick();const timer=setInterval(tick,1000);
   return {stop(){clearInterval(timer);}};

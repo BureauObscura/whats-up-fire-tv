@@ -3,7 +3,7 @@
 // flat overlay, placed with the same perspective maths and lifted by altitude, so
 // their labels stay upright and readable. Map: water, rivers, motorways, runways.
 import {svg,el,setText,overlap,fmt,placeName,alertRadius,statusText,quietText,byInterest,paintMap,airportsNear,
-  number,BASE_RANGE,range,zoom} from '../kit.mjs';
+  number,BASE_RANGE,range,zoom,zonePath} from '../kit.mjs';
 
 // Floor: a W x H canvas (1 px per CSS px: a soft neon floor needs no more), home at its
 // centre, rotated about its centre by TILT under a perspective of PERSP px seen from VP.
@@ -80,8 +80,7 @@ function drawMap(){
   g.restore();
   // Ground marks drawn flat in the overlay: home, alert ring, airports.
   const m=[],ring=[];
-  for(let i=0;i<=48;i++){const a=i/48*Math.PI*2,p=project(Math.sin(a)*alertRadius(),Math.cos(a)*alertRadius());ring.push(`${p.x.toFixed(1)} ${p.y.toFixed(1)}`);}
-  m.push(svg('path',{class:'alert',d:`M${ring.join('L')}Z`}));
+  m.push(svg('path',{class:'alert',d:zonePath(project)}));
   const h=project(0,0);
   m.push(svg('path',{class:'home',d:`M${h.x} ${h.y-9}L${h.x+12} ${h.y}L${h.x} ${h.y+9}L${h.x-12} ${h.y}Z`}),
     svg('text',{class:'home-t',x:h.x,y:h.y+26,'text-anchor':'middle'},'HOME'));

@@ -16,7 +16,7 @@
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
-import {number} from './core.mjs';
+import {number,zoneOutline} from './core.mjs';
 import {MAP_ATTRIBUTION} from './mapgen.mjs';
 import {placeLabel} from './place.mjs';
 import {tz,compass,offset} from './model.mjs';
@@ -77,6 +77,11 @@ export const fmt={
 export const placeName=()=>placeLabel(S.place)||'';
 export const cityName=()=>S.place?.name||'';
 export const alertRadius=()=>Math.min(S.radiusMiles||3,range());
+// Settings > Alert zone: the circle (Alert radius) or the Window view wedge.
+export const alertZone=()=>S.alertZone==='window'?{kind:'window',from:S.viewFrom,to:S.viewTo,miles:S.viewMiles}:{kind:'circle',radius:alertRadius()};
+export const windowView=()=>S.alertZone==='window';
+// SVG path of the alert zone; at(x,y) maps miles east/north of home to screen {x,y}.
+export const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(x,y);return `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;}).join('L')+'Z';
 export const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 export const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.

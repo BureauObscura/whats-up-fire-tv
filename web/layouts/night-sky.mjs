@@ -2,7 +2,7 @@
 // contrails that fade over several minutes, the coastline and rivers barely there,
 // and small serif labels.
 import {el,svg,setText,fmt,metric,placeName,statusText,quietText,byInterest,makeCanvas,paintMap,toView,
-  TrailBook,placeBox,number,ppmOf,alertRadius,range} from '../kit.mjs';
+  TrailBook,placeBox,number,ppmOf,alertRadius,range,zonePath} from '../kit.mjs';
 
 const W=960,H=540,TRAIL_AGE=8*60000;
 const VIEW={cx:480,cy:300,ppm:24};
@@ -56,7 +56,7 @@ function ui(){
 }
 function drawHome(){
   const {cx,cy}=VIEW,ppm=ppmOf(VIEW);
-  $.home.replaceChildren(svg('circle',{class:'ring',cx,cy,r:radius*ppm}),svg('circle',{class:'me',cx,cy,r:3.2}));
+  $.home.replaceChildren(svg('path',{class:'ring',d:zonePath((x,y)=>({x:cx+x*ppm,y:cy-y*ppm}))}),svg('circle',{class:'me',cx,cy,r:3.2}));
 }
 
 function render(m){

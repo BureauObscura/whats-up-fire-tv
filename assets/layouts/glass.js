@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  compass,placeBox,alertRadius,ppmOf,range}=__modules["kit.mjs"];
+  compass,placeBox,alertRadius,ppmOf,range,zonePath}=__modules["kit.mjs"];
 // Layout 2, Glass: a near-black street map (roads by class, water, parks, faint
 // buildings) under see-through glass cards: time and place, the hero flight with
 // route and four instrument tiles, the nearest aircraft in range, and today's tallies.
@@ -84,7 +84,7 @@ function render(m){
   root.classList.toggle('emergency',!!hero?.emergency);
 
   const h=toView(VIEW,0,0);
-  $.ring.replaceChildren(svg('circle',{class:'gl-alertring',cx:h.x,cy:h.y,r:alertRadius()*ppmOf(VIEW)}),
+  $.ring.replaceChildren(svg('path',{class:'gl-alertring',d:zonePath((x,y)=>toView(VIEW,x,y))}),
     svg('circle',{class:'gl-pulse',cx:h.x,cy:h.y,r:10}),svg('circle',{class:'gl-home',cx:h.x,cy:h.y,r:4.5}));
   const planes=[],tags=[],boxes=[{x:h.x-8,y:h.y-8,w:16,h:16}],bounds={x:8,y:118,w:610,h:392};
   for(const a of byInterest(m)){
