@@ -1,5 +1,5 @@
 {
   "//": "The declared app name must follow this pattern to be KRL-compatible",
-  "name": "com.bureauobscura.whatsup.main",
+  "name": "com.spacelydigital.whatsup.main",
   "displayName": "What's Up"
 }

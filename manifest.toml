@@ -4,7 +4,7 @@ schema-version = 1
 title = "What's Up"
 icon = "@image/whatsup_icon.png"
 version = "0.1.0"
-id = "com.bureauobscura.whatsup"
+id = "com.spacelydigital.whatsup"
 
 [os.version]
 min = "1.2"
@@ -36,7 +36,7 @@ id = "/com.amazon.kepler.w3cmedia_2@IW3cmedia_3"
 
 [components]
 [[components.interactive]]
-id = "com.bureauobscura.whatsup.main"
+id = "com.spacelydigital.whatsup.main"
 runtime-module = "/com.amazon.kepler.runtime.react_native_kepler_4@IReactNativeKepler_0"
 launch-type = "singleton"
 categories = ["com.amazon.category.main"]

@@ -235,7 +235,10 @@ function showPhoto(a){
       // No photo of this aircraft: a typical one of its type, labelled so, if bundled.
       const m=modelPhoto(a);if(!m)return;
       photo=m;$.img.src=m.src;$.pic.classList.add('model');
-      $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`Model photo · ${m.license}`];
+      // CC BY: the author stays in every wording; long names shorten to an initial.
+      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,
+        `${m.author} · ${m.license}`,`Model photo · ${short} · ${m.license}`,`${short} · ${m.license}`];
     }
     $.credit.textContent=$.credit._alts[0];
   });

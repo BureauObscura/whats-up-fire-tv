@@ -30,7 +30,7 @@ createServer(async(req,res)=>{
     const target=url.searchParams.get('url')||'';
     let status='blocked',text='';
     if(ALLOWED.some(p=>p.test(target)))try{
-      const r=await fetch(target,{headers:{'User-Agent':'WhatsUp-FireTV/0.1 (dev server; +https://github.com/BureauObscura)'},signal:AbortSignal.timeout(8000)});
+      const r=await fetch(target,{headers:{'User-Agent':'WhatsUp-FireTV/0.1 (Spacely Digital, dev server; spacelydigital@gmail.com)'},signal:AbortSignal.timeout(8000)});
       status=r.status;text=r.status!==200?'':url.searchParams.get('binary')?Buffer.from(await r.arrayBuffer()).toString('base64'):await r.text();
     }catch{status='connection_error';}
     res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({status,text}));return;

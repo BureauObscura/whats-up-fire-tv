@@ -121,3 +121,10 @@ test('selection: in Window view only planes inside the wedge (or overhead) count
   assert.deepEqual(selection(ac,now-1,home,z,now).inside.map(a=>a.hex).sort(),['abc120','abc200']);
   assert.deepEqual(selection(ac,now-1,home,3,now).inside.map(a=>a.hex),['abc200']);
 });
+test('route: far from both airports, a leg pointing well away from the track is rejected',()=>{
+  const lol={callsign:'CSB107',_airports:[{iata:'HRL',lat:26.2285,lon:-97.6544},{iata:'CVG',lat:39.0488,lon:-84.6678}]};
+  // Over Arkansas on a DFW -> CVG line, ~400 mi from CVG, heading ~55 deg: HRL -> CVG points ~40 deg.
+  const onLine={callsign:'CSB107',latitude:35.0,longitude:-91.3,heading:55,speed_kt:450,vertical_rate:0,altitude_ft:35000,observed:1700000000};
+  assert.ok(commercialRoute(lol,onLine),'a modest difference still passes');
+  assert.equal(commercialRoute(lol,{...onLine,heading:110}),null,'55 deg off the leg, 400 mi out: rejected');
+});

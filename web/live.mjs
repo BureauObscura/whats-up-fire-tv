@@ -168,7 +168,8 @@ export function commercialRoute(payload,a,previous=null){
     if(hasTrack&&Math.min(fromOrigin,toDestination)>25){
       const toward=((bearing(lat,lon,end.lat,end.lon)*180/Math.PI)%360+360)%360;
       error=Math.abs(((heading-toward+180)%360+360)%360-180);
-      if(error>100)continue;
+      // Far from both ends a real leg points close to where the plane is heading.
+      if(error>(Math.min(fromOrigin,toDestination)>100?45:100))continue;
     }
     legs.set(`${origin}>${destination}`,{origin,destination,detour,track_error:error,departing,arriving,start,end});
   }

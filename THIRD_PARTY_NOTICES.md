@@ -1,5 +1,7 @@
 # Third-party notices
 
+What's Up is published by Spacely Digital (spacelydigital@gmail.com).
+
 Portions (adsb.fi selection logic, ADSB.lol route matching in `web/live.mjs`, `web/core.mjs`,
 `web/routes.mjs`, the aircraft type table and aircraft silhouettes) are adapted from
 https://github.com/alexlmiller/overhead, Copyright (c) 2026 Alex Miller, MIT License; the

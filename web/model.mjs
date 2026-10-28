@@ -257,6 +257,9 @@ function demoSource(config,onModel,airports){
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
     ['a9f8e7','DAL2370','B712',leg('HOME','ATL'),19],['a8b7c6','N22PG','C25B',null,28]];
   // scene=long: the hero and a neighbour get the longest names a TV is likely to see.
+  // ?herotype=R44 (demo): the first aircraft flies as that type, to check photos and credits.
+  const ht=/^[A-Z0-9]{2,4}$/.test(query.get('herotype')||'')?query.get('herotype'):'';
+  if(ht)DEMO[0]=[DEMO[0][0],DEMO[0][1],'N44TST',ht,'',DEMO[0][5],...DEMO[0].slice(6)];
   if(scene==='long'){
     DEMO[0]=['3c4b26','GEC8401','D-ALFH','B77L','LUFTHANSA CARGO AG','2013',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
     DEMO[5]=['a7c3b9','SWA4499','N8731J','B38M','SOUTHWEST AIRLINES CO','2019',6.9,-5.2,37000,462,198,0,leg('DFW','FRA')];

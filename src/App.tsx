@@ -32,7 +32,7 @@ const ALLOWED = [
 ];
 const MAX_BYTES = 2 * 1024 * 1024;
 // Names the app and a contact, as Nominatim's and Planespotters' API terms ask.
-const USER_AGENT = 'WhatsUp-FireTV/0.1 (Vega OS aircraft display; +https://github.com/BureauObscura)';
+const USER_AGENT = 'WhatsUp-FireTV/0.1 (Spacely Digital; spacelydigital@gmail.com)';
 
 type Request = {
   type: 'get' | 'ui' | 'awake';

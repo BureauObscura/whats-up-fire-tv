@@ -1,7 +1,7 @@
 # What's Up for Fire TV (Vega OS)
 
 A "what's flying over me" display for Fire TV (Vega OS), for anywhere, in twelve layouts.
-Includes MIT-licensed code by Alex Miller; see `THIRD_PARTY_NOTICES.md`. Package id `com.bureauobscura.whatsup`.
+Includes MIT-licensed code by Alex Miller; see `THIRD_PARTY_NOTICES.md`. By Spacely Digital (spacelydigital@gmail.com). Package id `com.spacelydigital.whatsup`.
 
 * **Location.** First launch looks up an approximate location from the IP address (GeoJS:
   the Vega SDK has a geolocation interface, but only as native C++ IDL with no JS package)
@@ -68,7 +68,7 @@ npm run serve                    # http://127.0.0.1:8767/  (?demo=1[&scene=emerg
 node scripts/dev-server.mjs web 8770   # the same from web/ as ES modules, no build step
 node scripts/shot.mjs "http://127.0.0.1:8767/?q=Chicago" out.png 25000   # 1920x1080 via Chrome
 npm run build:release            # -> build/armv7-release/whatsup_armv7.vpkg (and aarch64, x86_64)
-vega run-app build/armv7-release/whatsup_armv7.vpkg com.bureauobscura.whatsup.main -d <fire-tv-ip>:5555
+vega run-app build/armv7-release/whatsup_armv7.vpkg com.spacelydigital.whatsup.main -d <fire-tv-ip>:5555
 ```
 
 Before shipping beyond personal use: adsb.fi's open data is personal/non-commercial, and
