@@ -62,3 +62,11 @@ test('map: place names, and the detail map round-trips through its saved form',a
   assert.ok(d.water.every(w=>w.r instanceof Int16Array&&w.r.length>=8),'water rings decode');
   assert.ok(d.roads.every(r=>r.p.every(v=>Math.abs(v)<=32000)),'coordinates (1/1000 mi) fit Int16');
 });
+test('aircraft silhouettes: family from the type designator, else the category',async()=>{
+  const {silhouetteFamily:f,SILHOUETTES}=await import('../web/silhouettes.mjs');
+  const want={A320:'narrow',B38M:'narrow',B789:'wide',A359:'wide',B744:'quad',A124:'quad',CRJ9:'regional',E75L:'regional',
+    AT76:'turboprop',DH8D:'turboprop',C56X:'bizjet',C172:'single',PA28:'single',EC45:'heli',C130:'military',C17:'military'};
+  for(const [t,fam] of Object.entries(want))assert.equal(f({aircraft_type:t}),fam,t);
+  assert.equal(f({category:'A7'}),'heli');assert.equal(f({}),'narrow');
+  for(const fam of new Set(Object.values(want)))assert.ok(SILHOUETTES[fam]);
+});

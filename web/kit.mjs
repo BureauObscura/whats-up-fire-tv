@@ -17,6 +17,7 @@
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
 import {number,zoneOutline} from './core.mjs';
+import {SILHOUETTES,silhouetteFamily} from './silhouettes.mjs';
 import {MAP_ATTRIBUTION} from './mapgen.mjs';
 import {placeLabel} from './place.mjs';
 import {tz,compass,offset} from './model.mjs';
@@ -99,6 +100,11 @@ export const shapeFor=a=>isHeli(a)?HELI:isLight(a)?SINGLE:PLANE;
 export function planeIcon(a,p,size,cls,shape=shapeFor(a)){
   const g=svg('g',{class:cls,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${size/64})`});
   g.append(svg('path',{d:shape}));return g;
+}
+// Small side-profile picture of the aircraft family (silhouettes.mjs), coloured by CSS.
+export function silhouette(a,cls='sil'){
+  const family=silhouetteFamily(a),e=svg('svg',{class:`${cls} ${family}`,viewBox:'0 0 120 40','aria-hidden':'true'});
+  e.append(svg('path',{d:SILHOUETTES[family],'fill-rule':'nonzero'}));e.dataset.family=family;return e;
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];

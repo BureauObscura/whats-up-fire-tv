@@ -58,7 +58,9 @@
 .L-atlas .at-stats div{min-width:0;border-top:1px solid #e3dac9;padding-top:3px}
 .L-atlas dt{font:600 11px Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--at-dim)}
 .L-atlas .at-stats dd{margin:0;font:800 17px/1.2 Inter;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-.L-atlas .at-type{font:700 15px/1.3 Inter;margin-top:4px}
+.L-atlas .at-type{font:700 15px/1.3 Inter;margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.L-atlas .at-sil{flex:none;width:72px;height:24px;fill:var(--at-ink);opacity:.9}
+.L-atlas .tight .at-sil{width:48px;height:16px}
 .L-atlas .at-reg{font:600 13.5px/1.3 Inter;color:var(--at-dim)}
 .L-atlas .at-reg:empty{display:none}
 .L-atlas .at-quiet{font:600 20px/1.45 Inter;color:var(--at-dim)}

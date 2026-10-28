@@ -264,7 +264,7 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
-  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';return zoneChanged();}
+  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
   else if(el.id==='set-from'||el.id==='set-to'){const k=el.id==='set-from'?'viewFrom':'viewTo';settings[k]=((settings[k]+dir)%360+360)%360;return zoneChanged();}
   else if(el.id==='set-view'){settings.viewMiles=VIEW_MILES[Math.max(0,Math.min(VIEW_MILES.length-1,VIEW_MILES.indexOf(settings.viewMiles)+dir))];return zoneChanged();}
   else if(el.id==='set-awake'){settings.keepAwake=!settings.keepAwake;saveSettings(settings);showSettings();return tellAwake();}

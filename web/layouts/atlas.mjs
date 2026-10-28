@@ -5,7 +5,7 @@
 // Layout 6, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 7,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette} from '../kit.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 const W=700,H=540,VIEW={cx:350,cy:276,ppm:54,clip:{x:0,y:0,w:W,h:H}};
@@ -116,16 +116,16 @@ function ui(){
         <div><dt>Climb</dt><dd class="at-vs"></dd></div><div><dt>Heading</dt><dd class="at-hdg"></dd></div>
         <div><dt>Look</dt><dd class="at-look"></dd></div><div><dt>Closest</dt><dd class="at-cpa"></dd></div>
       </dl>
-      <div class="at-type"></div><div class="at-reg"></div>
+      <div class="at-type"><span class="at-typet"></span></div><div class="at-reg"></div>
     </section>
     <section class="at-quiet" hidden></section>
     <section class="at-books">
       <div class="at-cargo"><b class="at-cargo-n"></b><div><h4>Cargo tonight</h4><div class="at-cargo-by"></div></div></div>
       <h4>Today</h4><dl class="at-log"></dl>
     </section>
-    <section class="at-recent"><h4>Recently above</h4><div class="at-rec"></div></section>`;
+    <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
-    'type','reg','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+    'type','typet','reg','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
   $.barFill=$.bar.firstChild;
   root.append(map,side);
 }
@@ -268,7 +268,10 @@ function render(m){
     setText($.vs,fmt.vs(hero.vertical));setText($.hdg,number(hero.heading)?`${String(Math.round(hero.heading)).padStart(3,'0')}° ${compass(hero.heading)}`:'—');
     setText($.look,`${compass(hero.bearing)} ${Math.max(0,Math.round(hero.elevation))}°`);
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'passed':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
-    setText($.type,hero.type||hero.aircraft_type||'Unknown type');
+    setText($.typet,hero.type||hero.aircraft_type||'Unknown type');
+    // A small side-profile picture of the aircraft family beside the type.
+    const sil=silhouette(hero,'at-sil');
+    if($.type.lastElementChild?.dataset?.family!==sil.dataset.family){$.type.querySelector('.at-sil')?.remove();$.type.append(sil);}
     setText($.reg,[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean).join(' · '));
   }
   const L=m.log;
@@ -280,6 +283,7 @@ function render(m){
   $.log.replaceChildren(cell('Seen',fmt.int(L.today)),cell('Highest',L.highest?fmt.alt(L.highest.value):'—'),
     cell('Fastest',L.fastest?fmt.speed(L.fastest.value):'—'),cell('Rarest',L.rarest?L.rarest.name:'—','wide',L.rarest&&[L.rarest.name,L.rarest.code]),
     cell('Farthest',far?`${far.name} · ${far.from} · ${farMi}`:'—','wide far',far&&[`${far.name} · ${far.from} · ${farMi}`,`${far.from} · ${farMi}`,`${far.name} · ${far.code||far.from} · ${farMi}`,`${far.code||far.from} · ${farMi}`]));
+  setText(root.querySelector('.at-rech'),windowView()?'Through your window':'Recently above');
   const rec=m.recent.slice(0,hero?3:5);
   $.rec.replaceChildren(...(rec.length?rec.map(a=>{
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;

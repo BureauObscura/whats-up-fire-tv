@@ -112,3 +112,12 @@ test('enricher: one request per 5 s, 1 h hit / 30 min miss cache, routes kept 6 
   assert.ok(restored.routes(1000+3601+6*3600-1).length>=1);
   assert.equal(restored.routes(1000+3601+6*3600+1).length,0);
 });
+test('selection: in Window view only planes inside the wedge (or overhead) count as inside',()=>{
+  const now=1700000000,home={latitude:39.05,longitude:-84.65};
+  const at=(deg,mi)=>({hex:'abc'+String(deg).padStart(3,'0'),lat:home.latitude+mi*Math.cos(deg*Math.PI/180)/69,
+    lon:home.longitude+mi*Math.sin(deg*Math.PI/180)/(69.172*Math.cos(home.latitude*Math.PI/180)),alt_baro:20000,seen_pos:1,flight:'T'});
+  const ac=[at(120,20),at(270,5),at(200,.5)];
+  const z={kind:'window',from:74,to:175,miles:25};
+  assert.deepEqual(selection(ac,now-1,home,z,now).inside.map(a=>a.hex).sort(),['abc120','abc200']);
+  assert.deepEqual(selection(ac,now-1,home,3,now).inside.map(a=>a.hex),['abc200']);
+});

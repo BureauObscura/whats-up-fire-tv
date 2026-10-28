@@ -2,7 +2,7 @@
 // reads, from adsb.fi positions and ADSB.lol standing routes. Ports the
 // selection/history template in home_assistant/packages/aircraft-package.yaml
 // and the free (ADSB.lol) part of custom_components/office_aircraft_routes/model.py.
-import {IDS,number,coordinates} from './core.mjs';
+import {IDS,number,coordinates,inZone} from './core.mjs';
 
 const HOUR=3600,SIX_HOURS=6*HOUR;
 export const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
@@ -76,6 +76,7 @@ export function feedStamp(body){
   const stamp=Number(body?.now)||0;
   return stamp>100000000000?stamp/1000:stamp;
 }
+// `radius`: miles (the circle), or a Window view zone {kind:'window',from,to,miles}.
 export function selection(ac,stamp,home,radius,now){
   const age=now-stamp,fresh=age>=-5&&age<=15,radians=0.017453292519943295;
   let nearest=null,best=Infinity;const inside=[];
@@ -87,7 +88,8 @@ export function selection(ac,stamp,home,radius,now){
     const record={hex:a.hex,callsign:typeof a.flight==='string'?a.flight.trim():'',registration:a.r??'',
       aircraft_type:a.t??'',latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,speed_kt:a.gs??null,
       heading:a.track??null,distance_mi:Math.round(miles*100)/100,position_timestamp:stamp-a.seen_pos};
-    if(miles<=radius){inside.push(record);if(miles<best){nearest=record;best=miles;}}
+    const inAlert=typeof radius==='object'?inZone(radius,x*3958.7613,y*3958.7613):miles<=radius;
+    if(inAlert){inside.push(record);if(miles<best){nearest=record;best=miles;}}
   }
   // No manual selection standalone: the current aircraft is the nearest one.
   return {candidate:nearest,current:nearest,feed_fresh:fresh,inside};
@@ -271,7 +273,9 @@ export function startLive(onUpdate,config){
   const radius=Math.max(1,Math.min(10,Number(config.radiusMiles)||3));
   const ledger=new Ledger(store.get(LEDGER_KEY)),enricher=new Enricher(ledger,url=>getJson(url,8000));
   let history=store.get(HISTORY_KEY)||[],routes=ledger.routes(Date.now()/1000),enriching=false,timer=null,stopped=false;
-  let states=build(null,0,selection([],0,home,radius,0));
+  // Recently above: in Window view only planes that passed through the window (or overhead).
+  const zone=config.zone?.kind==='window'?config.zone:radius;
+  let states=build(null,0,selection([],0,home,zone,0));
   function build(ac,stamp,sel){
     const current=sel.current||{};
     return {
@@ -302,7 +306,7 @@ export function startLive(onUpdate,config){
     if(stopped)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
-      const sel=selection(ac,stamp,home,radius,now);
+      const sel=selection(ac,stamp,home,zone,now);
       if(sel.inside.length){history=mergeHistory(history,sel.inside);store.set(HISTORY_KEY,history);}
       states=build(ac,stamp,sel);
       onUpdate(states,true);
