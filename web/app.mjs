@@ -46,7 +46,12 @@ const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © Open
 function flashCredits(){
   if(pick)return; // the picker bar sits where the line would
   const c=$('credit-flash'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
-  c.textContent=CREDITS+(sat?(us?' · Imagery USGS':' · Imagery Sentinel-2 cloudless 2016 by EOX (Copernicus Sentinel data 2016)'):'');
+  // One line: shorter wordings keep the map and imagery credits exact (About has them all).
+  const EOX='Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
+  const img=sat?(us?'Imagery USGS':`Imagery ${EOX}`):'';
+  c._alts=[[CREDITS,img].filter(Boolean).join(' · '),['Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',img].filter(Boolean).join(' · '),
+    ['© OpenMapTiles © OpenStreetMap contributors',img].filter(Boolean).join(' · ')];
+  c.textContent=c._alts[0];fitLine(c);
   c.classList.add('on');
   clearTimeout(creditTimer);creditTimer=setTimeout(()=>c.classList.remove('on'),5000);
 }
@@ -271,10 +276,7 @@ const focusables=()=>layer?[...layer.querySelectorAll('[data-focus]')].filter(el
 function open(id,first){
   if(layer){layer._last=focused;layers.push(layer);}
   layer=$(id);layer.hidden=false;
-  if(id==='settings'){
-    const refit=()=>{if(layer?.id!=='settings')return;for(const r of layer.querySelectorAll('.row'))fitValue(r);showTipJar();};
-    refit();document.fonts?.ready.then(refit);setTimeout(refit,700); // the layout's font may still be loading
-  }
+  if(id==='settings')refitSettings();
   // Stack order follows opening order, not page order: a later screen must cover an earlier one.
   layer.style.zIndex=String(10+layers.length);setFocus(first?$(first):focusables()[0]);syncApp();
 }
@@ -285,11 +287,18 @@ function close(){
   if(layer.id==='picker')endPick(false);
   layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;
   if(layer){
-    if(layer.id==='settings')showSettings();
+    if(layer.id==='settings'){showSettings();refitSettings();} // the layout (and its font) may have changed
     {const last=layer._last;setFocus(last&&layer.contains(last)&&last.offsetParent?last:focusables()[0]);}
   }else setFocus(null);
   syncApp();
 }
+// Settings values and the tip lines fit their rows in the active layout's font; again when
+// a font arrives (a layout picked meanwhile brings its own).
+function refitSettings(){
+  const refit=()=>{if(layer?.id!=='settings')return;for(const r of layer.querySelectorAll('.row'))fitValue(r);showTipJar();};
+  refit();document.fonts?.ready.then(refit);setTimeout(refit,700);
+}
+document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();});
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
 function syncApp(){hideBehind();tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}

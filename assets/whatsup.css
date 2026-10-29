@@ -14,7 +14,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000}
 .layout{position:absolute;inset:0;overflow:hidden}
 .layout-note{position:absolute;left:0;right:0;bottom:44%;text-align:center;font:600 16px var(--ui-font);color:var(--ui-dim);pointer-events:none;z-index:4}
 .layout-note:empty{display:none}
-.credit-flash{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:4;pointer-events:none;white-space:nowrap;
+.credit-flash{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:4;pointer-events:none;white-space:nowrap;max-width:944px;overflow:hidden;box-sizing:border-box;
   font:500 10.5px/1 var(--ui-font);color:var(--ui-ink);background:var(--ui-bg);border:1px solid var(--ui-faint);padding:5px 10px;border-radius:10px;
   opacity:0;transition:opacity 1.2s ease}
 .toast{position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:6;pointer-events:none;white-space:nowrap;
