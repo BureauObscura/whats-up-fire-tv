@@ -113,35 +113,38 @@ export const App = () => {
   const webRef = useRef<any>(null);
   // True while the page shows Settings or the location screen: Back closes it.
   const overlayRef = useRef(false);
-  // Settings > Keep screen awake (the page reports it on load and when it changes).
-  const [awake, setAwake] = useState(true);
+  // Settings > Keep screen awake (the page reports it on load and when it changes; off
+  // until it says otherwise).
+  const [awake, setAwake] = useState(false);
   const [active, setActive] = useState(AppState.currentState !== 'background');
   // Keep the splash screen up until the page has loaded.
   usePreventHideSplashScreen();
   const hideSplashScreenCallback = useHideSplashScreenCallback();
 
   useEffect(() => {
-    let active = AppState.currentState !== 'background';
-    engage(active);
-    // Re-report engagement every few minutes while shown: the platform may let a
-    // single long-running report lapse (seen on the stick after ~15-20 min).
-    const timer = setInterval(() => {
-      if (active) {
-        engage(false);
-        engage(true);
-      }
-    }, REASSERT_MS);
     const sub = AppState.addEventListener('change', state => {
-      active = state === 'active';
-      engage(active);
-      setActive(active);
+      setActive(state === 'active');
     });
+    return () => sub.remove();
+  }, []);
+
+  // The user-engagement report holds off the screensaver, so it runs only while the app is
+  // shown AND Settings > Keep screen awake is on. Re-reported every few minutes: the
+  // platform may let a single long-running report lapse (seen on the stick after ~15-20 min).
+  useEffect(() => {
+    if (!(awake && active)) {
+      return;
+    }
+    engage(true);
+    const timer = setInterval(() => {
+      engage(false);
+      engage(true);
+    }, REASSERT_MS);
     return () => {
       clearInterval(timer);
-      sub.remove();
       engage(false);
     };
-  }, []);
+  }, [awake, active]);
 
   // The silent loop plays only while the app is shown and the switch is on.
   useEffect(() => {

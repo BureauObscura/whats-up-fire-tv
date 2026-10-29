@@ -20,7 +20,7 @@ addEventListener('resize',fit);fit();
 const native=window.ReactNativeWebView;
 const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* desktop */}};
 // Keep screen awake: the app plays a silent, invisible loop so the screensaver stays away.
-const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake!==false});
+const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake===true});
 
 // Rarest/Farthest follow the map radius (Settings > Map radius, Up/Down).
 setLogRadius(()=>settings.mapMiles||CONFIG.rangeMiles);

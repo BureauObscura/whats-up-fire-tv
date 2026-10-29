@@ -3582,7 +3582,7 @@ function loadSettings(){
   return {place:s.place?makePlace(s.place):null,mapMiles,
     radiusMiles:Math.max(1,Math.min(10,Math.round(Number(s.radiusMiles))||CONFIG.radiusMiles)),
     distance:s.distance==='km'?'km':'mi',altitude:s.altitude==='m'?'m':'ft',confirmed:!!s.confirmed,
-    keepAwake:s.keepAwake!==false, // Settings > Keep screen awake (on unless turned off)
+    keepAwake:s.keepAwake===true, // Settings > Keep screen awake (off unless turned on; a saved choice is kept)
     chime:['off','low','med','high'].includes(s.chime)?s.chime:'med', // Settings > Chime (a plane enters your zone)
     placeNames:['off','cities','hoods','both'].includes(s.placeNames)?s.placeNames:'cities', // Settings > Place names
     // Alert zone: 'circle' (all around, Alert radius) or 'window' (bearings from -> to, out to viewMiles).
@@ -4714,7 +4714,7 @@ addEventListener('resize',fit);fit();
 const native=window.ReactNativeWebView;
 const tellApp=msg=>{try{native?.postMessage(JSON.stringify(msg));}catch{/* desktop */}};
 // Keep screen awake: the app plays a silent, invisible loop so the screensaver stays away.
-const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake!==false});
+const tellAwake=()=>tellApp({type:'awake',on:settings.keepAwake===true});
 
 // Rarest/Farthest follow the map radius (Settings > Map radius, Up/Down).
 setLogRadius(()=>settings.mapMiles||CONFIG.rangeMiles);

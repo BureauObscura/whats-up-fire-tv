@@ -44,43 +44,61 @@ describe('App', () => {
     expect(toJSON()).toBeTruthy();
   });
 
-  it('holds off the screensaver while shown and lets go when backgrounded or closed', () => {
+  // The page reports Settings > Keep screen awake through the bridge.
+  const sayAwake = (r: ReturnType<typeof render>, on: boolean) =>
+    act(() =>
+      r.UNSAFE_root.findByType('WebView' as any).props.onMessage({
+        nativeEvent: {data: JSON.stringify({type: 'awake', on})},
+      }),
+    );
+
+  it('holds off the screensaver only while shown AND the switch is on', () => {
     mockKeepAwake.start.mockClear();
     mockKeepAwake.stop.mockClear();
-    const {unmount} = render(<App />);
+    const r = render(<App />);
+    expect(mockKeepAwake.start).not.toHaveBeenCalled(); // off until the page says on
+    sayAwake(r, true);
     expect(mockKeepAwake.start).toHaveBeenCalledTimes(1);
-    mockAppState.listener('background');
+    act(() => mockAppState.listener('background'));
     expect(mockKeepAwake.stop).toHaveBeenCalledTimes(1);
-    mockAppState.listener('active');
+    act(() => mockAppState.listener('active'));
     expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
-    unmount();
+    sayAwake(r, false);
     expect(mockKeepAwake.stop).toHaveBeenCalledTimes(2);
+    act(() => mockAppState.listener('background'));
+    act(() => mockAppState.listener('active'));
+    expect(mockKeepAwake.start).toHaveBeenCalledTimes(2); // switch off: nothing reported
+    r.unmount();
   });
 
   it('plays the silent loop only while shown and Keep screen awake is on', () => {
     mockLoop.startLoop.mockClear();
     mockLoop.stopLoop.mockClear();
-    const {unmount} = render(<App />);
+    const r = render(<App />);
+    expect(mockLoop.startLoop).not.toHaveBeenCalled();
+    sayAwake(r, true);
     expect(mockLoop.startLoop).toHaveBeenCalled();
     act(() => mockAppState.listener('background'));
     expect(mockLoop.stopLoop).toHaveBeenCalled();
     mockLoop.startLoop.mockClear();
     act(() => mockAppState.listener('active'));
     expect(mockLoop.startLoop).toHaveBeenCalled();
-    unmount();
+    r.unmount();
   });
 
-  it('re-reports engagement every 4 minutes only while active', () => {
+  it('re-reports engagement every 4 minutes only while active and on', () => {
     jest.useFakeTimers();
     mockKeepAwake.start.mockClear();
-    mockKeepAwake.stop.mockClear();
-    const {unmount} = render(<App />);
+    const r = render(<App />);
+    jest.advanceTimersByTime(8 * 60 * 1000);
+    expect(mockKeepAwake.start).toHaveBeenCalledTimes(0);
+    sayAwake(r, true);
     jest.advanceTimersByTime(4 * 60 * 1000);
     expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
-    mockAppState.listener('background');
+    act(() => mockAppState.listener('background'));
     jest.advanceTimersByTime(8 * 60 * 1000);
     expect(mockKeepAwake.start).toHaveBeenCalledTimes(2);
-    unmount();
+    r.unmount();
     jest.useRealTimers();
   });
 });
