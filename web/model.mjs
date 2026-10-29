@@ -202,10 +202,13 @@ function pickHero(planes,config){
 // --- Live
 const MAX_PLANES=300,LOG_MILES=17.3; // 15 NM
 function liveSource(config,onModel){
-  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0;
+  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0,lastGood=null;
   return startLive((states,ok)=>{
     if(ok)lastOk=Date.now();
-    const now=Date.now();
+    const now=Date.now(),retryIn=states.retryAt?Math.max(0,Math.round((states.retryAt-now)/1000)):0;
+    // One failed check (or a few) doesn't blank the sky: the last good picture stays up to
+    // 60 s old (wide maps poll every 15 s), then "No live data, reconnecting in N s".
+    if(!ok&&lastGood&&now-lastOk<60000)return onModel({...lastGood,now,retryIn});
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
@@ -219,7 +222,9 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log)});
+    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};
+    if(ok&&fresh)lastGood=model;
+    onModel(model);
   },config);
 }
 

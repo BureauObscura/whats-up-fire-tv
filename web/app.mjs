@@ -697,6 +697,9 @@ function eraseAll(){
   location.reload();
 }
 
+// The app tells the page when it leaves or returns to the screen: polling pauses meanwhile.
+window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
+
 // --- Boot
 async function boot(){
   buildKeys();

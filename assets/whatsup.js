@@ -3011,8 +3011,9 @@ if(typeof window!=='undefined')window.__whatsupReply=(id,status,text)=>{
 };
 function getJson(url,timeoutMs=8000){
   const bridge=typeof window!=='undefined'&&window.ReactNativeWebView;
+  // Non-200: `retryAfter` is the service's Retry-After in seconds, when it sent one.
   const parse=(status,text)=>{
-    if(status!==200)return {status,payload:null};
+    if(status!==200)return {status,payload:null,retryAfter:Number(text)||0};
     try{return {status,payload:JSON.parse(text)};}catch{return {status:'invalid',payload:null};}
   };
   if(bridge)return new Promise(resolve=>{
@@ -3022,7 +3023,7 @@ function getJson(url,timeoutMs=8000){
   });
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   return fetch(url,{cache:'no-store',credentials:'omit',redirect:'error',signal:controller.signal})
-    .then(async r=>parse(r.status,r.status===200?await r.text():''))
+    .then(async r=>parse(r.status,r.status===200?await r.text():r.headers.get('retry-after')||''))
     .catch(()=>({status:'connection_error',payload:null}))
     .finally(()=>clearTimeout(timer));
 }
@@ -3291,22 +3292,33 @@ function startLive(onUpdate,config){
     }catch{/* Routes stay as they were; retried next poll. */}
     finally{enriching=false;}
   }
-  // Receiver coverage: when the feed has nothing around home, ask once (per 30 min) for
+  // Receiver coverage: when the feed has nothing around home, ask (at most every 2 h) for
   // the widest area adsb.fi serves; nothing there either means no feeders, not quiet skies.
   let coverage={none:false,checked:0};
   async function checkCoverage(nowMs){
-    if(nowMs-coverage.checked<1800000)return;
+    if(nowMs-coverage.checked<7200000)return;
     coverage.checked=nowMs;
     const url=feedUrlFor(home,MAX_NM);if(!url)return;
     const {status,payload}=await getJson(url,8000);
     if(status===200&&payload&&typeof payload==='object')coverage.none=!(Array.isArray(payload.ac)&&payload.ac.length);
   }
+  // Back-off (adsb.fi etiquette): network errors and 5xx double the wait (with jitter) up
+  // to 5 min; a 429 waits at least 60 s and its Retry-After; any other 4xx waits 5 min.
+  // Polling (and with it routes and the coverage probe) pauses while the app is hidden.
+  let fails=0,paused=false;
+  const backoff=(status,retryAfter)=>{
+    fails++;
+    const jitter=t=>Math.round(t*(.8+Math.random()*.4));
+    if(status===429)return Math.min(300000,Math.max(60000,retryAfter*1000,jitter(config.pollSeconds*1000*2**fails)));
+    if(typeof status==='number'&&status>=400&&status<500)return 300000;
+    return Math.min(300000,Math.max(retryAfter*1000,jitter(config.pollSeconds*1000*2**(fails-1))));
+  };
   async function poll(){
-    if(stopped)return;
+    if(stopped||paused)return;
     const started=Date.now();
     const url=feedUrlFor(home,config.searchNm);
-    const {status,payload}=url?await getJson(url,4000):{status:0};
-    if(stopped)return;
+    const {status,payload,retryAfter}=url?await getJson(url,4000):{status:0};
+    if(stopped||paused)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
       const sel=selection(ac,stamp,home,zone,now);
@@ -3314,14 +3326,22 @@ function startLive(onUpdate,config){
       if(ac.length)coverage.none=false;else await checkCoverage(Date.now());
       if(stopped)return;
       states={...build(ac,stamp,sel),coverage:{none:coverage.none}};
+      fails=0;
       onUpdate(states,true);
       enrich(ac,stamp,now);
-    }else onUpdate(states,false);
-    timer=setTimeout(poll,Math.max(1000,config.pollSeconds*1000-(Date.now()-started)));
+      timer=setTimeout(poll,Math.max(1000,config.pollSeconds*1000-(Date.now()-started)));
+    }else{
+      const wait=backoff(status,retryAfter||0);
+      states={...states,retryAt:Date.now()+wait};
+      onUpdate(states,false);
+      timer=setTimeout(poll,wait);
+    }
   }
   onUpdate(states,false);
   poll();
-  return {stop(){stopped=true;clearTimeout(timer);}};
+  return {stop(){stopped=true;clearTimeout(timer);},
+    pause(){paused=true;clearTimeout(timer);},
+    resume(){if(!paused)return;paused=false;fails=0;clearTimeout(timer);poll();}};
 }
 
 return {HISTORY_KEY,MAX_NM,FEED_URL,feedUrlFor,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
@@ -4244,10 +4264,13 @@ function pickHero(planes,config){
 // --- Live
 const MAX_PLANES=300,LOG_MILES=17.3; // 15 NM
 function liveSource(config,onModel){
-  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0;
+  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0,lastGood=null;
   return startLive((states,ok)=>{
     if(ok)lastOk=Date.now();
-    const now=Date.now();
+    const now=Date.now(),retryIn=states.retryAt?Math.max(0,Math.round((states.retryAt-now)/1000)):0;
+    // One failed check (or a few) doesn't blank the sky: the last good picture stays up to
+    // 60 s old (wide maps poll every 15 s), then "No live data, reconnecting in N s".
+    if(!ok&&lastGood&&now-lastOk<60000)return onModel({...lastGood,now,retryIn});
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
@@ -4261,7 +4284,9 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    onModel({now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log)});
+    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};
+    if(ok&&fresh)lastGood=model;
+    onModel(model);
   },config);
 }
 
@@ -4500,7 +4525,8 @@ const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
 const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
-const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':'No live data right now. Retrying every few seconds.'):
+const fmtWait=s=>s<90?`${s} s`:`${Math.round(s/60)} min`;
+const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':m.retryIn>=5?`No live data right now. Reconnecting in ${fmtWait(m.retryIn)}.`:'No live data right now. Reconnecting.'):
   m.noCoverage?'No receiver coverage here. The aircraft feed has no receivers near this location.':
   'Quiet skies. Nothing within range right now.';
 
@@ -5390,6 +5416,9 @@ function eraseAll(){
   try{indexedDB?.deleteDatabase?.('whatsup');}catch{/* none */}
   location.reload();
 }
+
+// The app tells the page when it leaves or returns to the screen: polling pauses meanwhile.
+window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
 
 // --- Boot
 async function boot(){

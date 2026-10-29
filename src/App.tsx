@@ -76,8 +76,18 @@ async function get(
       },
       signal: controller.signal,
     });
+    // A redirect may only land on another allowed URL (P2-1).
+    if (response.url && response.url !== url && !ALLOWED.some(p => p.test(response.url))) {
+      return ['blocked', ''];
+    }
     if (response.status !== 200) {
-      return [response.status, ''];
+      // Tell the page how long the service asked it to wait (429/503), so it backs off.
+      return [response.status, response.headers.get('retry-after') || ''];
+    }
+    // Refuse an announced oversize body before downloading it (P2-2).
+    if (Number(response.headers.get('content-length')) > MAX_BYTES) {
+      controller.abort();
+      return ['oversize', ''];
     }
     if (binary) {
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -124,6 +134,10 @@ export const App = () => {
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => {
       setActive(state === 'active');
+      // The page pauses all polling while the app is not shown (and resumes on return).
+      webRef.current?.injectJavaScript(
+        `window.__whatsupActive&&window.__whatsupActive(${state === 'active'});true;`,
+      );
     });
     return () => sub.remove();
   }, []);
@@ -205,7 +219,8 @@ export const App = () => {
     }
     // Answer a refused URL at once, so the page never waits out its timeout.
     if (!ALLOWED.some(pattern => pattern.test(request.url))) {
-      console.error(`[bridge] refused ${request.url.slice(0, 120)}`);
+      // The host only: a refused geocoder URL could carry a typed address (P2-4).
+      console.error(`[bridge] refused ${(/^https?:\/\/([^/?#]+)/.exec(request.url) || [])[1] || 'non-http URL'}`);
       webRef.current?.injectJavaScript(
         `window.__whatsupReply&&window.__whatsupReply(${request.id},"blocked","");true;`,
       );
