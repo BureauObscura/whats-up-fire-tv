@@ -5,7 +5,7 @@
 // Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt} from '../kit.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 // ppm 25.5: the map radius fits between home and the bottom edge (264 px), so every plane
@@ -230,12 +230,12 @@ function showPhoto(a){
     if(!root||picHex!==hex)return;
     const qr=p&&themedQr(p.link);
     if(p&&qr){
-      photo=p;$.img.src=p.src;$.qr.src=qr;
+      photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
       $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
     }else{
       // No photo of this aircraft: a typical one of its type, labelled so, if bundled.
       const m=modelPhoto(a);if(!m)return;
-      photo=m;$.img.src=m.src;$.pic.classList.add('model');
+      photo=m;$.img.src=m.src;$.img.alt=`Typical ${m.model}`;$.qr.alt='';$.pic.classList.add('model');
       // CC BY: the author stays in every wording; long names shorten to an initial.
       const short=shortAuthor(m.author);
       $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,

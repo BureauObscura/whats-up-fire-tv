@@ -19,6 +19,8 @@
   <div class="layout-note" id="layout-note"></div>
   <!-- Data and map credits: shown on open, layout switch and new map, then fade (full list in Settings). -->
   <div class="toast" id="toast" aria-live="polite"></div>
+  <!-- For screen readers (VoiceView): the closest plane, announced only when it changes. -->
+  <div class="sr-only" id="sr-live" aria-live="polite" aria-atomic="true"></div>
   <div class="busy" id="busy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill-rule="evenodd"/></svg></div>
   <div class="credit-flash" id="credit-flash" aria-hidden="true">Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors</div>
 
@@ -66,7 +68,7 @@
   </div>
 
   <!-- First launch: the location found from the connection. -->
-  <div class="overlay" id="welcome" hidden>
+  <div class="overlay" id="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-city">
     <div class="card">
       <div class="label" id="welcome-label">Is this right?</div>
       <div class="big-city" id="welcome-city"></div>
@@ -78,7 +80,7 @@
     </div>
   </div>
 
-  <div class="overlay" id="settings" hidden>
+  <div class="overlay" id="settings" hidden role="dialog" aria-modal="true" aria-label="Settings">
     <div class="card wide settings">
       <div class="title">Settings</div>
       <div class="cols">
@@ -122,7 +124,7 @@
     </div>
   </div>
 
-  <div class="overlay" id="confirm" hidden>
+  <div class="overlay" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-main">
     <div class="card">
       <div class="label" id="confirm-label"></div>
       <div class="big-city small" id="confirm-main"></div>
@@ -136,24 +138,24 @@
     </div>
   </div>
 
-  <div class="adjust-panel" id="adjust-panel">
+  <div class="adjust-panel" id="adjust-panel" role="dialog" aria-label="Adjust position">
     <div class="title">Adjust position</div>
     <div class="adjust-where" id="adjust-where"></div>
     <p>Move the map with the arrows until the dot sits on your home. Each press is about 50 m; hold to go faster.</p>
     <div class="adjust-moved" id="adjust-moved"></div>
     <p class="keys-help"><kbd>OK</kbd> save &nbsp; <kbd>Back</kbd> cancel</p>
-    <p class="note small">Your exact position stays on this device. Aircraft are fetched for the area rounded to about 1 km.</p>
+    <p class="note small">Your exact position stays on this device. Aircraft and maps are fetched for the area rounded to a few miles.</p>
   </div>
 
   <!-- Layout picker: the layout behind it is live; arrows switch, OK keeps, Back reverts. -->
-  <div class="picker" id="picker" hidden>
-    <button class="pick-arrow" id="pick-prev" data-focus>‹</button>
-    <div class="pick-body"><div class="pick-count" id="pick-count"></div><div class="pick-name" id="pick-name"></div>
+  <div class="picker" id="picker" hidden role="dialog" aria-label="Choose a layout">
+    <button class="pick-arrow" id="pick-prev" data-focus aria-label="Previous layout">‹</button>
+    <div class="pick-body"><div class="pick-count" id="pick-count"></div><div class="pick-name" id="pick-name" aria-live="polite"></div>
       <div class="pick-help"><kbd>‹ ›</kbd> preview &nbsp; <kbd>OK</kbd> keep &nbsp; <kbd>Back</kbd> cancel</div></div>
-    <button class="pick-arrow" id="pick-next" data-focus>›</button>
+    <button class="pick-arrow" id="pick-next" data-focus aria-label="Next layout">›</button>
   </div>
 
-  <div class="overlay" id="locate" hidden>
+  <div class="overlay" id="locate" hidden role="dialog" aria-modal="true" aria-label="Change location">
     <div class="card wide locate">
       <div class="title">Change location</div>
       <div class="entry"><span id="entry-text"></span><span class="caret"></span></div>

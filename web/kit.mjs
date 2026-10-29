@@ -38,6 +38,8 @@ export function photoSlot(cls=''){
   s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
   s._img.alt='';s._qr.alt='';return s;
 }
+// Alt text for an aircraft's photo, for screen readers: "Photo of a Boeing 737-800".
+export const photoAlt=a=>{const t=a?.type||a?.aircraft_type||'aircraft';return `Photo of ${/^[aeiou]/i.test(t)?'an':'a'} ${t}`;};
 // Show the picture for aircraft `a` in slot `s`; `relayout()` runs when it appears or goes.
 export function showPhotoIn(s,a,relayout=()=>{}){
   const hex=a?.hex||'';
@@ -47,15 +49,15 @@ export function showPhotoIn(s,a,relayout=()=>{}){
   photoFor(a).then(p=>{
     if(s._hex!==hex||!s.isConnected)return;
     const qr=p&&themedQr(p.link);
-    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
     else{
       const m=modelPhoto(a);if(!m)return;
       const short=shortAuthor(m.author);
-      s.classList.add('model');s._img.src=m.src;
+      s.classList.add('model');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;s._qr.alt='';
       s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${short} · ${m.license}`];
     }
     s._cap.textContent=s._cap._alts[0];s.hidden=false;
-    const fit=()=>{if(s._hex===hex){fitLine(s._cap);relayout();}};
+    const fit=()=>{if(s._hex===hex&&s.isConnected){fitLine(s._cap);relayout();}}; // not after a layout switch (seed 211)
     s._img.onload=fit; // the photo's width decides the room left for the credit
     requestAnimationFrame(fit);
   });

@@ -4416,6 +4416,8 @@ function photoSlot(cls=''){
   s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
   s._img.alt='';s._qr.alt='';return s;
 }
+// Alt text for an aircraft's photo, for screen readers: "Photo of a Boeing 737-800".
+const photoAlt=a=>{const t=a?.type||a?.aircraft_type||'aircraft';return `Photo of ${/^[aeiou]/i.test(t)?'an':'a'} ${t}`;};
 // Show the picture for aircraft `a` in slot `s`; `relayout()` runs when it appears or goes.
 function showPhotoIn(s,a,relayout=()=>{}){
   const hex=a?.hex||'';
@@ -4425,15 +4427,15 @@ function showPhotoIn(s,a,relayout=()=>{}){
   photoFor(a).then(p=>{
     if(s._hex!==hex||!s.isConnected)return;
     const qr=p&&themedQr(p.link);
-    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
     else{
       const m=modelPhoto(a);if(!m)return;
       const short=shortAuthor(m.author);
-      s.classList.add('model');s._img.src=m.src;
+      s.classList.add('model');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;s._qr.alt='';
       s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${short} · ${m.license}`];
     }
     s._cap.textContent=s._cap._alts[0];s.hidden=false;
-    const fit=()=>{if(s._hex===hex){fitLine(s._cap);relayout();}};
+    const fit=()=>{if(s._hex===hex&&s.isConnected){fitLine(s._cap);relayout();}}; // not after a layout switch (seed 211)
     s._img.onload=fit; // the photo's width decides the room left for the credit
     requestAnimationFrame(fit);
   });
@@ -4711,7 +4713,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {themedQr,shortAuthor,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,snapped,GRID_PAD_MI,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {themedQr,shortAuthor,photoSlot,photoAlt,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,snapped,GRID_PAD_MI,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
@@ -4880,7 +4882,14 @@ function listen(m){
   const r=chimeGate(chime,m.planes.filter(a=>a.inside).length,m.now,m.live&&m.fresh);chime=r.state;
   if(r.ring&&settings.chime!=='off')tellApp({type:'chime',volume:CHIME_VOLUME[settings.chime]});
 }
-function render(m){lastModel=m;listen(m);draw(m);}
+// Screen readers: one polite announcement when the closest plane changes.
+let spoken='';
+function announce(m){
+  const h=m.hero,key=h?h.hex:'';
+  if(key===spoken)return;spoken=key;
+  $('sr-live').textContent=h?[h.status,h.flight,h.type||h.aircraft_type,fmt.dist(h.ground)].filter(Boolean).join(', '):'';
+}
+function render(m){lastModel=m;listen(m);draw(m);announce(m);}
 // Restart only the aircraft feed (alert zone or alert radius changed): the maps stay as
 // they are. Re-reading and re-decoding the saved maps blocked the stick for seconds.
 function restartFeed(){
@@ -4941,9 +4950,18 @@ function choosePlace(place){
 function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);}if(lastModel)draw(lastModel);}
 
 // --- Focus and remote navigation
+function labelRow(el){
+  const name=el.querySelector?.(':scope > span'),value=el.querySelector?.(':scope > b');
+  if(name&&el.classList.contains('row'))el.setAttribute('aria-label',[name.textContent,value?.textContent].filter(Boolean).join(', '));
+}
+// While a screen is open the dashboard behind it is hidden from screen readers.
+const hideBehind=()=>{$('layout').setAttribute('aria-hidden',layer||adj?'true':'false');};
 let layer=null,focused=null;
 const layers=[];
+// The .focus class draws the highlight; DOM focus (without scrolling) lets a screen reader
+// (VoiceView) read the control. Settings rows read "name, value".
 function setFocus(el){focused?.classList.remove('focus');const was=focused;focused=el||null;focused?.classList.add('focus');
+  if(focused){labelRow(focused);try{focused.focus({preventScroll:true});}catch{/* not focusable */}}
   if(layer?.id==='settings'){fitValue(was);fitValue(focused);}}
 // Settings values never end in "...": try each wording (b._alts, longest first), shrinking
 // to 13 px; if the focused row's hint is what doesn't fit, drop the hint on that row.
@@ -4985,7 +5003,7 @@ function close(){
 }
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
-function syncApp(){tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}
+function syncApp(){hideBehind();tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}
 
 function move(dir){
   const items=focusables();
@@ -5179,7 +5197,8 @@ function typeKey(key){
   else if(key==='search')return runSearch(true);
   else if(entry.length<40)entry+=key;
   setText('entry-text',entry);
-  clearTimeout(searchTimer);searchTimer=setTimeout(runSearch,900);
+  // Search as you type: after 800 ms of no typing, and only from 3 characters (P3-7).
+  clearTimeout(searchTimer);if(entry.trim().length>=3)searchTimer=setTimeout(runSearch,800);
 }
 // ZIP/city searches run as you type; street addresses only on Search (one geocoder
 // request per search, as Nominatim's usage policy asks). Every search ends in results,
