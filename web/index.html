@@ -22,7 +22,7 @@
   <!-- For screen readers (VoiceView): the closest plane, announced only when it changes. -->
   <div class="sr-only" id="sr-live" aria-live="polite" aria-atomic="true"></div>
   <div class="busy" id="busy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill-rule="evenodd"/></svg></div>
-  <div class="credit-flash" id="credit-flash" aria-hidden="true"><span class="cl" id="credit-a">Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors</span><span class="cl" id="credit-b"></span></div>
+  <div class="credit-flash" id="credit-flash" aria-hidden="true"><span class="cl" id="credit-a"></span><span class="cl" id="credit-b"></span></div>
 
   <!-- Adjust position: a close-up street map with a fixed dot; arrows move the map. -->
   <div class="adjust-view" id="adjust-view">
@@ -36,7 +36,7 @@
   <div class="overlay" id="consent" hidden role="dialog" aria-modal="true" aria-labelledby="consent-title">
     <div class="card wide consent">
       <div class="title" id="consent-title">Before we start</div>
-      <p class="consent-body">To show planes near you, this app sends your approximate location, rounded to a few miles, to public flight and map services (adsb.fi, OpenFreeMap, Open-Meteo, USGS, EOX). It looks up the planes it shows with ADSB.lol and Planespotters. Your first city guess comes from your internet address (GeoJS). An address you search for goes to the U.S. Census Bureau or OpenStreetMap to find it. Your exact location, settings and history stay on this TV. No accounts, ads or analytics. You can erase it all in Settings.</p>
+      <p class="consent-body" id="consent-body"></p>
       <div class="buttons">
         <button class="btn" id="consent-ok" data-focus>Agree and continue</button>
         <button class="btn" id="consent-policy" data-focus>Privacy policy</button>
@@ -162,7 +162,7 @@
       <p class="note" id="entry-help">Type a ZIP or postal code, or a city name.</p>
       <div class="locate-body">
         <div class="keys" id="keys"></div>
-        <div class="results" id="results"></div>
+        <div class="results-col"><div class="results" id="results"></div><p class="src-note" id="results-src"></p><p class="src-note" id="search-src"></p></div>
       </div>
     </div>
   </div>

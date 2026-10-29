@@ -4,7 +4,7 @@ Made by Spacely Digital. Questions, credit corrections or removal requests: spac
 
 For fun and general information only. Positions can be late, incomplete or wrong, and many aircraft are not shown. Not for navigation, air traffic, safety or emergency use.
 
-Airline, operator and aircraft-manufacturer names are trademarks of their owners, used only to identify aircraft. This app is not affiliated with or endorsed by any airline, manufacturer or data provider.
+Airline, operator and aircraft-manufacturer names are trademarks of their owners, used only to identify aircraft. This app is not affiliated with or endorsed by any airline, manufacturer or data provider. Not affiliated with the FAA.
 
 ## Data
 
@@ -20,17 +20,19 @@ Vector tile schema © OpenMapTiles (openmaptiles.org), licensed under CC BY 4.0:
 
 Tiles served by OpenFreeMap: openfreemap.org
 
-Aircraft photos: Planespotters.net. Each photographer is credited beside their photo.
+Aircraft photos: Planespotters.net. Each photo is credited "Photo © photographer / Planespotters.net" beside it.
 
-Satellite imagery in the U.S.: USGS The National Map.
+Satellite imagery in the U.S.: Map services and data available from U.S. Geological Survey, National Geospatial Program.
 
-Satellite imagery elsewhere: Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017).
+Satellite imagery elsewhere: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), licensed under CC BY 4.0: creativecommons.org/licenses/by/4.0. Served from maps.eox.at. The imagery is resized and darkened for this app.
 
-Place search and time zones: Open-Meteo (GeoNames data, CC BY 4.0).
+Place search: GeoNames via Open-Meteo (CC BY 4.0). Time zones for addresses: Open-Meteo.
 
-First location guess: GeoJS. This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com.
+Approximate location: GeoJS (geojs.io), using GeoLite2 data created by MaxMind (maxmind.com)
 
-U.S. street addresses: U.S. Census Bureau geocoder. Other addresses: Nominatim, © OpenStreetMap contributors.
+Address matching: U.S. Census Bureau Geocoder (not endorsed by the Census Bureau)
+
+Other addresses: Nominatim, © OpenStreetMap contributors.
 
 ## Aircraft model photos
 

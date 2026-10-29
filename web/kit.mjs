@@ -17,6 +17,7 @@
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
+import {PROFILE} from './profile.mjs';
 import {number,zoneOutline,snapped,GRID_PAD_MI} from './core.mjs';
 export {snapped,GRID_PAD_MI};
 import {SILHOUETTES,silhouetteFamily} from './silhouettes.mjs';
@@ -54,7 +55,7 @@ export function showPhotoIn(s,a,relayout=()=>{}){
       if(!m){s.hidden=true;relayout();return;}
       s.classList.add('model');s._qr.removeAttribute('src');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;
       s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${shortAuthor(m.author)} · ${m.license}`];fitLine(s._cap);};
-    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`Photo © ${p.photographer} / Planespotters.net`,`© ${p.photographer} / Planespotters.net`];}
     else{
       const m=modelPhoto(a);if(!m)return;
       const short=shortAuthor(m.author);
@@ -72,7 +73,7 @@ import {placeLabel} from './place.mjs';
 import {tz,compass,offset} from './model.mjs';
 
 export {number,compass,offset,placeLabel,MAP_ATTRIBUTION};
-export const DATA_ATTRIBUTION='Aircraft: adsb.fi · Routes: ADSB.lol';
+export const DATA_ATTRIBUTION=`${PROFILE.feed==='adsb.fi'?'Aircraft: adsb.fi':'Positions: adsb.lol (ODbL)'} · Routes: ADSB.lol`;
 // Map radius in miles (Settings > Map radius). Layouts are drawn for a 10-mile view
 // (BASE_RANGE); paintMap and toView scale every view by zoom() = 10 / map radius, so
 // fixed pixel sizes in a layout stay put while distances shrink or grow.

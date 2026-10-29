@@ -64,7 +64,8 @@
 /* Photo of the aircraft (Planespotters): photo, QR to its page, photographer credit. */
 /* Photo (+ QR) centred as a pair; the credit spans the full column, centred on the same axis. */
 .L-atlas .at-pic{display:grid;grid-template-columns:1fr auto auto 1fr;grid-template-rows:auto auto;column-gap:5px;row-gap:3px;align-items:center}
-.L-atlas .at-img{grid-row:1;grid-column:2;width:auto;max-width:100%;height:62px;object-fit:contain;border-radius:3px;justify-self:end}
+.L-atlas .at-img{grid-row:1;grid-column:2;width:auto;max-width:100%;height:62px;object-fit:contain;justify-self:end} /* whole photo: no rounded corners */
+.L-atlas .at-pic.model .at-img{border-radius:3px}
 .L-atlas .at-qr{grid-row:1;grid-column:3;width:58px;height:58px;image-rendering:pixelated;background:#fff;border-radius:2px}
 .L-atlas .at-credit{grid-row:2;grid-column:1/-1;justify-self:stretch;text-align:center;padding:0 3px;font:600 10.5px/1.2 Inter;color:var(--at-dim);white-space:nowrap;overflow:hidden;min-width:0}
 .L-atlas .photo .at-sil,.L-atlas .photo .at-reg{display:none}

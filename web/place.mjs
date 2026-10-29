@@ -97,6 +97,23 @@ export async function searchPlaces(query){
 
 // "123 Main St ..." or "10 Downing Street": a house number, then words.
 export const looksLikeAddress=q=>/^\d+[A-Z]?\s+[A-Z]/i.test(clean(q))&&!/^\d{5}(-\d{4})?$/.test(clean(q));
+// A street address the U.S. Census geocoder covers: a house number and street, plus a U.S.
+// state, territory (Puerto Rico, Island Areas) or ZIP. Only such text is ever sent to it.
+const TERRITORIES={'Guam':'GU','U.S. Virgin Islands':'VI','Virgin Islands':'VI','American Samoa':'AS','Northern Mariana Islands':'MP'};
+const US_CODES=new Set([...Object.values(US),...Object.values(TERRITORIES)]);
+const US_NAMES=[...Object.keys(US),...Object.keys(TERRITORIES),'United States','USA'].map(n=>n.toLowerCase().replace(/[.,]/g,''));
+export function looksLikeUSAddress(query){
+  const q=clean(query,120);
+  if(!looksLikeAddress(q))return false;
+  const rest=q.replace(/^\d+[A-Z]?\s+/i,'');
+  if(/\b\d{5}(-\d{4})?\s*$/.test(rest)||/,\s*\d{5}(-\d{4})?\b/.test(rest))return true; // a ZIP at the end or after a comma
+  const words=rest.replace(/[.]/g,'').split(/[\s,]+/).filter(Boolean);
+  const last=words.at(-1)?.toUpperCase()||'';
+  if(US_CODES.has(last)&&words.length>2)return true; // "... Cincinnati OH"
+  if([...rest.matchAll(/,\s*([A-Za-z]{2})\b/g)].some(m=>US_CODES.has(m[1].toUpperCase())))return true; // "..., OH ..."
+  const flat=` ${rest.toLowerCase().replace(/[.,]/g,' ').replace(/\s+/g,' ')} `;
+  return US_NAMES.some(n=>flat.includes(` ${n} `));
+}
 const title=s=>s.toLowerCase().replace(/\b([a-z])/g,c=>c.toUpperCase());
 
 // Time zone and elevation for a geocoded address (the snapped grid point only). If the
@@ -117,22 +134,23 @@ export async function refineZone(p){
   return status===200&&validTz(payload?.timezone)?makePlace({...p,timeZone:payload.timezone,elevationM:payload?.elevation??p.elevationM,tzGuess:false}):null;
 }
 
-// Street address -> matches. US Census first (US addresses; skipped when home is
-// clearly elsewhere), then Nominatim: one request per search, never as you type.
+// Street address -> matches: the U.S. Census geocoder for text that looks like a U.S.
+// address (census), then Nominatim where the profile allows it (nominatim); one request
+// per search, never as you type.
 // Results are kept per query for the session (Nominatim's usage policy asks apps to
 // cache); failures are not kept, so Try again asks again.
 const addressCache=new Map();
 export async function searchAddress(query,opts={}){
-  const key=`${clean(query,120).toLowerCase()}|${!!opts.skipCensus}`;
+  const key=`${clean(query,120).toLowerCase()}|${!!opts.census}|${!!opts.nominatim}`;
   if(addressCache.has(key))return addressCache.get(key);
   const found=await searchAddressUncached(query,opts);
   if(found){addressCache.set(key,found);if(addressCache.size>50)addressCache.delete(addressCache.keys().next().value);}
   return found;
 }
-async function searchAddressUncached(query,{skipCensus=false}={}){
+async function searchAddressUncached(query,{census=false,nominatim=false}={}){
   const q=clean(query,120);
   let failed=false;
-  if(!skipCensus){
+  if(census&&looksLikeUSAddress(q)){
     const {status,payload}=await getJson(CENSUS_URL(q),10000);
     const matches=status===200&&Array.isArray(payload?.result?.addressMatches)?payload.result.addressMatches:[];
     if(status!==200)failed=true;
@@ -146,6 +164,7 @@ async function searchAddressUncached(query,{skipCensus=false}={}){
     }
     if(found.length)return found;
   }
+  if(!nominatim)return failed?null:[];
   const {status,payload}=await getJson(NOMINATIM_URL(q),10000);
   if(status!==200||!Array.isArray(payload))return failed||status!==200?null:[];
   const found=[];

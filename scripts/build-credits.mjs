@@ -12,26 +12,31 @@ const root=join(dirname(fileURLToPath(import.meta.url)),'..');
 const read=(...p)=>readFileSync(join(root,...p),'utf8');
 const out=[];const h=t=>out.push('','## '+t,'');const p=t=>out.push(t,'');
 
-// --- Notices.
+// --- Notices. The data credits follow the build profile (WHATSUP_PROFILE, web/profile.mjs):
+// only the services this build contacts are named.
+const {profileFor}=await import('../web/profile.mjs');
+const P=profileFor(process.env.WHATSUP_PROFILE||'personal');
 h('About');
 p('Made by Spacely Digital. Questions, credit corrections or removal requests: spacelydigital@gmail.com.');
 p('For fun and general information only. Positions can be late, incomplete or wrong, and many aircraft are not shown. Not for navigation, air traffic, safety or emergency use.');
-p('Airline, operator and aircraft-manufacturer names are trademarks of their owners, used only to identify aircraft. This app is not affiliated with or endorsed by any airline, manufacturer or data provider.');
+p('Airline, operator and aircraft-manufacturer names are trademarks of their owners, used only to identify aircraft. This app is not affiliated with or endorsed by any airline, manufacturer or data provider. Not affiliated with the FAA.');
 
 // --- Data.
 h('Data');
-p('Aircraft data: adsb.fi, https://adsb.fi (scan the code on this page).');
+if(P.feed==='adsb.fi')p('Aircraft data: adsb.fi, https://adsb.fi (scan the code on this page).');
+else p('Positions: adsb.lol. Contains information from adsb.lol, which is made available here under the Open Database License (ODbL): opendatacommons.org/licenses/odbl/1-0/');
 p('Flight routes: adsb.lol, from Virtual Radar Server standing data (CC0). Routes are community-sourced and may be wrong.');
 p('adsb.lol data is made available under the Open Database License (ODbL): opendatacommons.org/licenses/odbl/1-0/');
 p('Map data © OpenStreetMap contributors, available under the Open Database License (ODbL): openstreetmap.org/copyright');
 p('Vector tile schema © OpenMapTiles (openmaptiles.org), licensed under CC BY 4.0: creativecommons.org/licenses/by/4.0');
 p('Tiles served by OpenFreeMap: openfreemap.org');
-p('Aircraft photos: Planespotters.net. Each photographer is credited beside their photo.');
-p('Satellite imagery in the U.S.: USGS The National Map.');
-p('Satellite imagery elsewhere: Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017).');
-p('Place search and time zones: Open-Meteo (GeoNames data, CC BY 4.0).');
-p('First location guess: GeoJS. This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com.');
-p('U.S. street addresses: U.S. Census Bureau geocoder. Other addresses: Nominatim, © OpenStreetMap contributors.');
+if(P.photos)p('Aircraft photos: Planespotters.net. Each photo is credited "Photo © photographer / Planespotters.net" beside it.');
+p('Satellite imagery in the U.S.: Map services and data available from U.S. Geological Survey, National Geospatial Program.');
+if(P.eox)p('Satellite imagery elsewhere: EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017), licensed under CC BY 4.0: creativecommons.org/licenses/by/4.0. Served from maps.eox.at. The imagery is resized and darkened for this app.');
+p('Place search: GeoNames via Open-Meteo (CC BY 4.0). Time zones for addresses: Open-Meteo.');
+p('Approximate location: GeoJS (geojs.io), using GeoLite2 data created by MaxMind (maxmind.com)');
+p('Address matching: U.S. Census Bureau Geocoder (not endorsed by the Census Bureau)');
+if(P.nominatim)p('Other addresses: Nominatim, © OpenStreetMap contributors.');
 
 // --- Model photos.
 const models=new Function(read('web','models.mjs').replace(/^export const MODELS\s*=/m,'return ').replace(/^export[\s\S]*$/m,''))();
@@ -122,5 +127,6 @@ p(ofl.trim());
 
 const text=out.join('\n').replace(/\n{3,}/g,'\n\n').trim()+'\n';
 if(/…/.test(text))throw new Error('licenses.txt: no "…" in UI text');
-writeFileSync(join(root,'web','licenses.txt'),text);
-console.log(`web/licenses.txt written (${rows.length} framework packages, ${seen.size} photos, ${Math.round(text.length/1024)} KB)`);
+// WHATSUP_LICENSES: write elsewhere (a store-profile build next to the personal one).
+writeFileSync(process.env.WHATSUP_LICENSES||join(root,'web','licenses.txt'),text);
+console.log(`${process.env.WHATSUP_LICENSES||"web/licenses.txt"} written, ${P.id} profile (${rows.length} framework packages, ${seen.size} photos, ${Math.round(text.length/1024)} KB)`);

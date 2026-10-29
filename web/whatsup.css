@@ -50,13 +50,21 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 .caret{display:inline-block;width:3px;height:28px;background:var(--ui-ink);vertical-align:-4px;margin-left:2px;animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:.35}}
 .locate-body{display:grid;grid-template-columns:auto 1fr;gap:22px;margin-top:14px}
-#locate .card{max-width:900px;width:900px}
+#locate .card{max-width:900px;width:900px;padding:18px 30px}
+/* Inside the 5% title-safe area (486 px tall at most). */
+#locate .title{margin-bottom:6px}#locate .locate-body{margin-top:10px}
+#locate .keys{gap:5px}#locate .keys button{height:36px}#locate .results button{padding:6px 12px}
 /* Remote keyboard: big keys, readable from the couch; the focused key fills with the theme accent. */
 .keys{display:grid;grid-template-columns:repeat(7,50px);gap:6px}
 .keys button{height:46px;font-size:21px;font-weight:700;padding:0;color:var(--ui-ink);border-color:var(--ui-faint)}
 .keys button.focus{color:var(--ui-on);border-color:var(--ui-ink)}
 .keys button.w2{grid-column:span 2}.keys button.w3{grid-column:span 3}.keys button.w4{grid-column:span 4}
 .results{display:flex;flex-direction:column;gap:6px;min-width:0}
+.results-col{min-width:0;display:flex;flex-direction:column}
+.results-col #search-src{margin-top:auto;padding-top:8px} /* bottom of the column, level with the keyboard's last row */
+/* Where search text goes, and the place data's source (Settings > Change location). */
+.src-note{margin:8px 0 0;font-size:11.5px;line-height:1.2;color:var(--ui-dim);white-space:nowrap;overflow:hidden}
+.src-note:empty{display:none}
 .results button{text-align:left;padding:8px 12px;font-size:16px;white-space:nowrap;overflow:hidden}
 .results button span,.results button small{display:block;white-space:nowrap;overflow:hidden}
 .results button small{font-size:12px;color:var(--ui-dim)}

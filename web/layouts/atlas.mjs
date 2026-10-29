@@ -6,6 +6,7 @@
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
   airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt} from '../kit.mjs';
+import {PROFILE} from '../profile.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 // ppm 25.5: the map radius fits between home and the bottom edge (264 px), so every plane
@@ -83,8 +84,11 @@ const SAT_BASE=[
   {layer:'roads',classes:['trunk'],stroke:'rgba(255,255,255,.45)',width:1.4},
   {layer:'roads',classes:['motorway'],stroke:'rgba(255,214,120,.6)',width:1.8},
 ];
-// Imagery: USGS The National Map in the US (public domain), else Sentinel-2 cloudless 2016
-// by EOX (Contains modified Copernicus Sentinel data 2016). {z}/{y}/{x} web-mercator tiles.
+// Imagery: USGS The National Map in the US (USGSImageryOnly, public domain), else EOxCloudless
+// 2016 by EOX (CC BY 4.0; Contains modified Copernicus Sentinel data 2016) where the build
+// profile allows it (personal). Without imagery (store build outside the US) Atlas Satellite
+// draws the dark vector map instead. Only the imagery layer is loaded from EOX: no overlay,
+// label or road layer. {z}/{y}/{x} web-mercator tiles.
 const SAT_TILES=48;
 const USGS='https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
 const EOX='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
@@ -96,6 +100,8 @@ const BASE=[
   {layer:'runways',stroke:'#a29bb8',width:4},
 ];
 
+const usPlace=p=>p?.countryCode==='US'||p?.countryCode==='PR';
+const imagery=()=>sat&&(usPlace(ctx?.place?.())||PROFILE.eox);
 let root,demo,ctx,dark=false,sat=false,satToken=0,satKey='',$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
 
 function ui(){
@@ -141,8 +147,9 @@ function ui(){
 // ~40 tiles), drawn as they arrive onto their own canvas; the images are dropped once drawn.
 function drawSatellite(){
   const place=ctx?.place?.();if(!sat||!$.sat||!place)return;
+  if(!imagery()){const g=$.sat.getContext('2d');g.save();g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,$.sat.width,$.sat.height);g.restore();satKey='';satToken++;return;}
   const c=$.sat,k=c._k||1,g=c.getContext('2d');
-  const us=place.countryCode==='US'||place.countryCode==='PR',ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
+  const us=usPlace(place),ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
   // Nothing changed that moves the imagery (place, scale, the water drawn under it): keep
   // what is drawn instead of downloading every tile again on each redraw.
   const key=[place.latitude,place.longitude,ppm,k,maps.base?.built,maps.detail?.built].join();
@@ -180,7 +187,7 @@ function drawSatellite(){
 
 function drawMap(){
   drawSatellite();
-  paintMap($.canvas,maps,VIEW,sat?(maps.detail?SAT_DETAIL:SAT_BASE):maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
+  paintMap($.canvas,maps,VIEW,imagery()?(maps.detail?SAT_DETAIL:SAT_BASE):maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
   setText($.note,maps.detail?'':maps.base?'Drawing detail':'Drawing the map');
   // Labels, set once per map with a halo like print. Up to 15 mi: no place names, just the
   // airports with an official code (IATA/ICAO/FAA), each a ring marker (never a plane
@@ -249,7 +256,7 @@ function showPhoto(a){
     $.img.onerror=()=>{if(picHex!==hex||$.pic.classList.contains('model'))return;if(useModel()){$.credit.textContent=$.credit._alts[0];fitLine($.credit);}};
     if(p&&qr){
       photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
-      $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
+      $.credit._alts=[`Photo © ${p.photographer} / Planespotters.net`,`© ${p.photographer} / Planespotters.net`];
     }else if(!useModel())return;
     $.credit.textContent=$.credit._alts[0];
   });

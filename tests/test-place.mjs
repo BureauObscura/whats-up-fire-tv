@@ -51,7 +51,7 @@ test('address search: Census match first, with its time zone looked up',async()=
       addressComponents:{city:'CINCINNATI',state:'OH'},coordinates:{x:-84.6694,y:39.0550}}]}}]],
     [/api\.open-meteo\.com\/v1\/forecast/,[200,{timezone:'America/New_York',elevation:150}]],
   ]);
-  const [p]=await searchAddress('801 Plum St Cincinnati OH');
+  const [p]=await searchAddress('801 Plum St Cincinnati OH',{census:true,nominatim:true});
   assert.equal(p.street,'801 Plum St');
   assert.equal(placeLabel(p),'Cincinnati, OH');
   assert.equal(p.source,'census');
@@ -64,18 +64,26 @@ test('address search: falls back to Nominatim; both failing is null, no match is
     [/nominatim/,[200,[{lat:'51.5034',lon:'-0.1276',name:'10',address:{house_number:'10',road:'Downing Street',city:'London',state:'England',country:'United Kingdom',country_code:'gb'}}]]],
     [/forecast/,[200,{timezone:'Europe/London'}]],
   ]);
-  const [p]=await searchAddress('10 Downing Street London');
+  const [p]=await searchAddress('10 Downing Street London',{census:true,nominatim:true});
   assert.equal(p.street,'10 Downing Street');
   assert.equal(placeLabel(p),'London, UK');
   assert.equal(p.timeZone,'Europe/London');
   stub([[/census/,[200,{result:{addressMatches:[]}}]],[/nominatim/,[200,[]]]]);
-  assert.deepEqual(await searchAddress('1 Nowhere Lane'),[]);
+  assert.deepEqual(await searchAddress('1 Nowhere Lane Springfield IL',{census:true,nominatim:true}),[]);
   stub([]);
-  assert.equal(await searchAddress('2 Nowhere Lane'),null,'both failing is null (and not cached)');
+  assert.equal(await searchAddress('2 Nowhere Lane Springfield IL',{census:true,nominatim:true}),null,'both failing is null (and not cached)');
   // The same search again in this session is answered from the cache (Nominatim policy).
   const again=stub([]);
-  assert.equal((await searchAddress('10 Downing Street London'))[0].street,'10 Downing Street');
+  assert.equal((await searchAddress('10 Downing Street London',{census:true,nominatim:true}))[0].street,'10 Downing Street');
   assert.equal(again.length,0,'no request for a repeated search');
+});
+test('address search: a non-U.S. address never reaches Census; store profile never asks Nominatim',async()=>{
+  const seen=stub([[/nominatim/,[200,[]]]]);
+  await searchAddress('10 Rue de Rivoli Paris',{census:true,nominatim:true});
+  assert.ok(!seen.some(u=>/census/.test(u)),'Census not asked');
+  const none=stub([]);
+  assert.deepEqual(await searchAddress('5 Elm Street Springfield IL',{census:false,nominatim:false}),[]);
+  assert.equal(none.length,0,'no request at all');
 });
 test('IP location: GeoJS reply becomes an unconfirmed guess with its accuracy',async()=>{
   stub([[/geojs/,[200,{city:'Cincinnati',region:'Ohio',country:'United States',country_code:'US',latitude:'39.05',longitude:'-84.65',timezone:'America/New_York',accuracy:20}]]]);
@@ -170,4 +178,11 @@ test('window view settings: defaults and saved values',()=>{
   const s=loadSettings();
   assert.equal(s.alertZone,'window');assert.equal(s.viewFrom,74);assert.equal(s.viewTo,175);assert.equal(s.viewMiles,25);
   delete globalThis.localStorage;
+});
+
+test('Census gets only text that looks like a U.S. address', async () => {
+  const {looksLikeUSAddress}=await import('../web/place.mjs');
+  for(const q of ['123 Main St, Cincinnati, OH','123 MAIN ST CINCINNATI OH','1600 Pennsylvania Ave NW Washington DC 20500','12 Calle Luna San Juan Puerto Rico',
+    '400 Marine Dr, Tamuning, GU 96913','5 Elm Street Springfield, IL','77 Oak Rd 45202'])assert.ok(looksLikeUSAddress(q),q);
+  for(const q of ['10 Downing Street London','123 Main St','221B Baker Street','45202','Cincinnati','8 Rue de Rivoli Paris','12 Queen St W Toronto ON'])assert.ok(!looksLikeUSAddress(q),q);
 });

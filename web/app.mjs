@@ -3,10 +3,11 @@
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
+import {PROFILE} from './profile.mjs';
 import {chimeGate} from './core.mjs';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius,flushLog} from './model.mjs';
-import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel,refineZone} from './place.mjs';
+import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,looksLikeUSAddress,placeLabel,refineZone} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits,STALE} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit as fitText} from './kit.mjs';
 
@@ -35,7 +36,7 @@ const feedConfig=()=>{
   return {...CONFIG,radiusMiles:alertFor(settings.radiusMiles,r),rangeMiles:r,
     zone:win?{kind:'window',from:settings.viewFrom,to:settings.viewTo,miles:view}:{kind:'circle',radius:alertFor(settings.radiusMiles,r)},
     searchNm:Math.min(MAX_NM,Math.max(CONFIG.searchNm,Math.ceil(reach/1.15078))),
-    pollSeconds:r<=25?CONFIG.pollSeconds:r<=100?10:15};
+    pollSeconds:Math.max(PROFILE.minPollSeconds||0,r<=25?CONFIG.pollSeconds:r<=100?10:15)};
 };
 const maps={base:null,detail:null};
 
@@ -44,19 +45,20 @@ const maps={base:null,detail:null};
 // the full 5 s with nothing over it: while a screen is open it waits, and a screen opened
 // over it puts it back in the queue (syncApp).
 let creditTimer=0,creditDue=false;
-const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
+const MAP_CREDIT='Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 function flashCredits(){
   if(pick||layer||adj){creditDue=true;return;} // shown when the screen closes
   creditDue=false;
   const c=$('credit-flash'),a=$('credit-a'),b=$('credit-b'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
-  // Map and data credits on the first line (shorter wordings keep both map credits); the
-  // satellite credit, exact, on a second line of its own. About has them all.
-  const EOX='Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
+  // Positions, routes and map credits on the first line (shorter wordings keep both map
+  // credits); the satellite credit, exact, on a second line of its own. About has them all.
+  const EOX='EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
   c.classList.add('on');
-  a._alts=[CREDITS,'Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors','© OpenMapTiles © OpenStreetMap contributors'];
+  a._alts=[`${PROFILE.creditFlash} · Routes ADSB.lol · ${MAP_CREDIT}`,`${PROFILE.creditFlash} · ${MAP_CREDIT}`,`${PROFILE.creditFlash} · © OpenMapTiles © OpenStreetMap contributors`];
   a.textContent=a._alts[0];fitLine(a);
-  b._alts=sat?[us?'Imagery USGS The National Map':`Imagery ${EOX}`,...(us?[]:[EOX])]:[''];
-  b.textContent=b._alts[0];if(sat)fitLine(b);
+  const img=sat&&(us?'Imagery: USGS':PROFILE.eox?`Imagery: ${EOX}`:'');
+  b._alts=img?[img,...(us?[]:[EOX])]:[''];
+  b.textContent=b._alts[0];if(img)fitLine(b);
   clearTimeout(creditTimer);creditTimer=setTimeout(()=>c.classList.remove('on'),5000);
 }
 
@@ -531,7 +533,7 @@ const SEARCH_LIMIT_MS=25000;
 async function runSearch(explicit=false){
   clearTimeout(searchTimer);
   const q=entry.trim(),seq=++searchSeq,box=$('results'),searchKey=$('keys').querySelector('[data-key="search"]');
-  const show=(...nodes)=>{box.replaceChildren(...nodes);keepFocus(searchKey);};
+  const show=(...nodes)=>{box.replaceChildren(...nodes);$('results-src').textContent='';fitLine($('search-src'));keepFocus(searchKey);};
   const msg=(text,cls='msg')=>Object.assign(document.createElement('div'),{className:cls,textContent:text});
   const retry=()=>{const b=document.createElement('button');b.dataset.focus='';b.id='search-retry';b.className='retry';b.textContent='Try again';return b;};
   if(q.length<2){
@@ -540,12 +542,15 @@ async function runSearch(explicit=false){
   }
   const address=looksLikeAddress(q);
   if(address&&!explicit)return show(msg('Street address: press Search when done.'));
+  // Street addresses go to the U.S. Census geocoder only when they look like a U.S. address,
+  // and to OpenStreetMap only where the profile allows; never to Open-Meteo.
+  const us=address&&looksLikeUSAddress(q);
+  if(address&&!us&&!PROFILE.nominatim)return show(msg('For a U.S. street address, add the state or ZIP code. Elsewhere, search for the town or postal code.'));
   show(msg(`Searching for “${q}”`,'msg busy'));
-  const elsewhere=settings.place?.countryCode&&settings.place.countryCode!=='US'&&settings.place.source!=='ip';
   const work=(async()=>{
-    let found=address?await searchAddress(q,{skipCensus:elsewhere}):await searchPlaces(q);
-    // Postcodes Open-Meteo doesn't know (e.g. UK "SW1A 2AA"): try the address geocoders once.
-    if(!address&&explicit&&found&&!found.length)found=await searchAddress(q,{skipCensus:elsewhere});
+    let found=address?await searchAddress(q,{census:us,nominatim:PROFILE.nominatim}):await searchPlaces(q);
+    // Postcodes Open-Meteo doesn't know (e.g. UK "SW1A 2AA"): OpenStreetMap once, if allowed.
+    if(!address&&explicit&&found&&!found.length&&PROFILE.nominatim)found=await searchAddress(q,{nominatim:true});
     return found;
   })().catch(e=>{console.error('search',e?.message||e);return null;});
   const found=await Promise.race([work,new Promise(r=>setTimeout(()=>r('timeout'),SEARCH_LIMIT_MS))]);
@@ -557,21 +562,25 @@ async function runSearch(explicit=false){
     return;
   }
   if(!found.length)return show(msg(`No places match “${q}”. Check the spelling, or try a ZIP or postal code.`));
-  show(...found.slice(0,5).map(p=>{
+  show(...found.slice(0,4).map(p=>{ // four fit beside the keyboard with the source lines
     const b=document.createElement('button');b.dataset.focus='';
     b.append(Object.assign(document.createElement('span'),{textContent:p.street||placeLabel(p)}),Object.assign(document.createElement('small'),{textContent:p.street?placeLabel(p):[p.admin,p.country].filter(Boolean).join(', ')}));
     b._place=p;return b;
   }));
   for(const t of box.querySelectorAll('button span,button small'))fitLine(t); // one line each, never "…"
+  // GeoNames (CC BY 4.0) asks for its credit where its places are shown.
+  $('results-src').textContent=found.some(p=>p.source==='search')?'Places: GeoNames via open-meteo.com':'';
   // After Search, go to the first match; while typing, stay on the keyboard.
   if(explicit&&layer?.id==='locate')setFocus(box.firstElementChild);
 }
 let lastQuery='';
 function openLocate(help){
   searchSeq++;clearTimeout(searchTimer); // a search from an earlier visit must not fill this one
+  $('results-src').textContent='';
   entry='';setText('entry-text','');$('results').replaceChildren();
   setText('entry-help',help||'Type a ZIP or postal code, a city, or your street address, then Search.');
   open('locate');
+  {const src=$('search-src');src._alts=PROFILE.searchAlts;src.textContent=src._alts[0];fitLine(src);}
 }
 
 function select(el){
@@ -744,13 +753,14 @@ function showWelcome(place){
 // --- Consent, privacy page and erase.
 // Consent is stored with the version of the text agreed to; a new version asks again
 // (once), and everything else the user set is kept.
-const CONSENT_KEY='whatsup.consent',CONSENT_VERSION=1;
+// Version 2: the text names every service by profile and says where searches go (asked again once).
+const CONSENT_KEY='whatsup.consent',CONSENT_VERSION=2;
 // The hosted policy (shown as a QR on the privacy page when set).
 const PRIVACY_URL='';
 function hasConsent(){try{return JSON.parse(localStorage.getItem(CONSENT_KEY))?.v===CONSENT_VERSION;}catch{return false;}}
 function giveConsent(){store.set(CONSENT_KEY,{v:CONSENT_VERSION,at:new Date().toISOString().slice(0,10)});} // full storage: maps make room
 let consentDone=null;
-function askConsent(){return new Promise(r=>{consentDone=r;open('consent','consent-ok');});}
+function askConsent(){$('consent-body').textContent=PROFILE.consent;return new Promise(r=>{consentDone=r;open('consent','consent-ok');});}
 function agree(){giveConsent();closeAll();const r=consentDone;consentDone=null;r?.();}
 // The chosen layout's colours for the consent screen, without starting the layout (its
 // code may fetch map imagery): only its stylesheets and stage classes.
@@ -772,7 +782,8 @@ function openPrivacy(){
 // About & credits (assets/licenses.txt), with the QR adsb.fi's terms ask for (a cite and a link).
 function openAbout(){
   const doc=$('about-doc');renderDoc(doc,window.__whatsupDocs?.licenses||'');doc.scrollTop=0;
-  $('about-qr').src=themedQr('https://adsb.fi');
+  // adsb.fi's terms ask for a cite and a link (personal profile only; the store build uses adsb.lol).
+  const fi=PROFILE.feed==='adsb.fi';$('about-qr').closest('figure').hidden=!fi;if(fi)$('about-qr').src=themedQr('https://adsb.fi');
   open('about','about-back');
 }
 // Everything the app stored on this TV, then a clean start at the consent screen.

@@ -5,7 +5,7 @@
 //  - Forbidden strings come from a local file OUTSIDE the repo (never committed), one per
 //    line: the home address and coordinates in several formats, people's names, the
 //    macOS user name. Default ~/.spacely-release-forbid; WHATSUP_FORBID overrides.
-//  - Always forbidden: /Users/ paths, "bureau" (other than the U.S. Census Bureau), "obscura",
+//  - Always forbidden: /Users/ paths, "bureau" (other than the (U.S.) Census Bureau), "obscura",
 //    "overhead" (other than the credited MIT project URL), and "What's Up" in text the app
 //    shows (code comments are not shown, but are kept out too).
 import {execFileSync} from 'node:child_process';
@@ -41,7 +41,7 @@ for(const f of files){
   const text=buf.toString('latin1');
   for(const s of local)if(text.toLowerCase().includes(s.toLowerCase())){problems.push(`${f}: contains a forbidden string (#${local.indexOf(s)+1} in ${forbidFile})`);n++;}
   for(const r of ALWAYS){
-    const t=text.replace(/github\.com\/alexlmiller\/overhead/g,'').replace(/U\.S\. Census Bureau/g,'');
+    const t=text.replace(/github\.com\/alexlmiller\/overhead/g,'').replace(/(U\.S\. )?Census Bureau/g,'');
     const m=r.exec(t);if(m)problems.push(`${f}: "${t.slice(Math.max(0,m.index-30),m.index+40).replace(/[^\x20-\x7e]/g,'.')}"`);
   }
 }

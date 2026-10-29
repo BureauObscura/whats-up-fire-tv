@@ -2,13 +2,13 @@
 
 This is a placeholder. The final policy text will replace it before release.
 
-## What stays on this TV
-
-Your exact location, the address you typed, your settings, the planes seen today and the saved maps stay on this TV.
-
 ## What is sent
 
-To show planes near you, the app sends your approximate location, rounded to a few miles, to public flight and map services. Searches go to geocoding services. See the screen shown before first use for the full list.
+{{SERVICES}}
+
+## What is saved on this TV
+
+Your location, the place or address you chose, your settings, the planes seen today and the saved maps. Nothing is sent to the developer.
 
 ## Erase
 

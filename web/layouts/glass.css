@@ -76,6 +76,7 @@
 /* Aircraft photo card, bottom left. */
 .L-glass .gl-photo{position:absolute;left:22px;bottom:18px;padding:10px 12px 8px;max-width:330px}
 .L-glass .gl-photo .ph{justify-content:flex-start;gap:5px 8px}
-.L-glass .gl-photo .ph-img{height:60px;border-radius:8px}
+.L-glass .gl-photo .ph-img{height:60px} /* whole photo: no rounded corners over it */
+.L-glass .gl-photo .ph.model .ph-img{border-radius:8px}
 .L-glass .gl-photo .ph-qr{width:60px;height:60px;border-radius:6px}
 .L-glass .gl-photo .ph-cap{text-align:left;font:500 10.5px Inter;color:var(--gl-dim);opacity:1}
