@@ -50,7 +50,6 @@ export function cargoBrand(callsign,owner){
   return '';
 }
 export const EMERGENCY={'7500':'HIJACK','7600':'RADIO FAILURE','7700':'EMERGENCY'};
-const titleCase=s=>s.toLowerCase().replace(/[,.]?\s+(inc|co|llc|ltd|corp|corporation|company|plc|gmbh|sa|ag)\.?$/,'').replace(/\b(\w)/g,c=>c.toUpperCase());
 export const typeName=code=>code?AIRCRAFT_TYPES[String(code).toUpperCase()]||code:'';
 export const compass=deg=>['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(deg/22.5)%16];
 
@@ -181,10 +180,11 @@ function pruneSamples(now){for(const [k,l] of samples)if(now-l[l.length-1].t>120
 function enrich(a,raw,route,now){
   const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.slice(0,80).trim():''; // capped: remote text through regexes
   const call=(a.callsign||'').toUpperCase();
-  const airline=/^[A-Z]{3}\d/.test(call)?OPERATORS[call.slice(0,3)]:'';
+  const airline=/^[A-Z]{3}\d/.test(call)&&Object.prototype.hasOwnProperty.call(OPERATORS,call.slice(0,3))?OPERATORS[call.slice(0,3)]:'';
   const cargo=cargoBrand(call,owner);
-  const operator=(cargo==='Amazon'?'Amazon Air':'')||airline||
-    (owner&&!/BANK|TRUST|LEAS|FINANCE|CAPITAL|WELLS FARGO|WILMINGTON|HOLDINGS/i.test(owner)?titleCase(owner):'');
+  // The registered owner is never shown: for a private aircraft it can be a person's name
+  // (or a holding company named after one). It only tells Amazon's cargo flights apart.
+  const operator=(cargo==='Amazon'?'Amazon Air':'')||airline;
   const flight=a.callsign||a.registration||a.hex.toUpperCase();
   const squawk=typeof r.squawk==='string'?r.squawk:'';
   // Emergencies: the 7500/7600/7700 squawks, or a declared emergency (lifeguard and minimum
