@@ -150,7 +150,7 @@ function airspace(states,now,connected) {
     if(!a||typeof a.hex!=='string'||!(/^[a-f0-9]{6}$/i.test(a.hex))||
       !coordinates(a.lat,a.lon)||!number(a.alt_baro)||a.alt_baro>60000||a.alt_baro<-1500||!number(a.seen_pos)||a.seen_pos<0||
       age+a.seen_pos<0||age+a.seen_pos>20)continue;
-    const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight),registration:clean(a.r),
+    const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight).slice(0,10),registration:clean(a.r).slice(0,12), // real ones are 8 and ~10
       aircraft_type:clean(a.t),category:clean(a.category),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,
       // Impossible readings are no reading.
       speed_kt:number(a.gs)&&a.gs>=0&&a.gs<=1500?a.gs:null,heading:number(a.track)?((a.track%360)+360)%360:null,
@@ -4806,6 +4806,7 @@ function fitLine(e){
   const alts=e._alts||[e.textContent];
   // Not laid out (hidden): show the full wording and fit again at the next setText.
   if(!e.isConnected||!e.getClientRects().length){e.textContent=alts[0];e.style.fontSize='';e._key=null;return;}
+  e.style.whiteSpace='';e.style.overflowWrap='';
   for(let i=0;i<alts.length;i++){
     const floor=i===alts.length-1?9:11;
     e.textContent=alts[i];e.style.fontSize='';
@@ -4813,12 +4814,9 @@ function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
-  // Still too long at the smallest size (a 400-character name): drop whole words from the
-  // end, never ending in "…", so at least it isn't cut through a word.
-  let t=e.textContent;
-  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
-  // One word longer than the row: cut it at the edge (still no "…").
-  while(e.scrollWidth>e.clientWidth+1&&t.length>1){t=[...t].slice(0,-1).join('');e.textContent=t;}
+  // Still too long at the smallest size (a 400-character name, one unbroken word): it wraps
+  // onto more lines rather than being cut or given "…".
+  e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
@@ -5292,7 +5290,8 @@ function refitSettings(){
   const refit=()=>{if(layer?.id!=='settings')return;for(const r of layer.querySelectorAll('.row'))fitValue(r);showTipJar();};
   refit();document.fonts?.ready.then(refit);setTimeout(refit,700);
 }
-document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();});
+// A layout's font arriving changes text widths: fit the settings and the dashboard again.
+document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();if(lastModel)draw(lastModel);});
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
 function syncApp(){

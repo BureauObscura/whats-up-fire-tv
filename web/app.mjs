@@ -311,7 +311,8 @@ function refitSettings(){
   const refit=()=>{if(layer?.id!=='settings')return;for(const r of layer.querySelectorAll('.row'))fitValue(r);showTipJar();};
   refit();document.fonts?.ready.then(refit);setTimeout(refit,700);
 }
-document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();});
+// A layout's font arriving changes text widths: fit the settings and the dashboard again.
+document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();if(lastModel)draw(lastModel);});
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
 function syncApp(){

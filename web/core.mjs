@@ -97,7 +97,7 @@ export function airspace(states,now,connected) {
     if(!a||typeof a.hex!=='string'||!(/^[a-f0-9]{6}$/i.test(a.hex))||
       !coordinates(a.lat,a.lon)||!number(a.alt_baro)||a.alt_baro>60000||a.alt_baro<-1500||!number(a.seen_pos)||a.seen_pos<0||
       age+a.seen_pos<0||age+a.seen_pos>20)continue;
-    const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight),registration:clean(a.r),
+    const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight).slice(0,10),registration:clean(a.r).slice(0,12), // real ones are 8 and ~10
       aircraft_type:clean(a.t),category:clean(a.category),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,
       // Impossible readings are no reading.
       speed_kt:number(a.gs)&&a.gs>=0&&a.gs<=1500?a.gs:null,heading:number(a.track)?((a.track%360)+360)%360:null,

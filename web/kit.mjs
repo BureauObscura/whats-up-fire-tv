@@ -188,6 +188,7 @@ export function fitLine(e){
   const alts=e._alts||[e.textContent];
   // Not laid out (hidden): show the full wording and fit again at the next setText.
   if(!e.isConnected||!e.getClientRects().length){e.textContent=alts[0];e.style.fontSize='';e._key=null;return;}
+  e.style.whiteSpace='';e.style.overflowWrap='';
   for(let i=0;i<alts.length;i++){
     const floor=i===alts.length-1?9:11;
     e.textContent=alts[i];e.style.fontSize='';
@@ -195,12 +196,9 @@ export function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
-  // Still too long at the smallest size (a 400-character name): drop whole words from the
-  // end, never ending in "…", so at least it isn't cut through a word.
-  let t=e.textContent;
-  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
-  // One word longer than the row: cut it at the edge (still no "…").
-  while(e.scrollWidth>e.clientWidth+1&&t.length>1){t=[...t].slice(0,-1).join('');e.textContent=t;}
+  // Still too long at the smallest size (a 400-character name, one unbroken word): it wraps
+  // onto more lines rather than being cut or given "…".
+  e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
