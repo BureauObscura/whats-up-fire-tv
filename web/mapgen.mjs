@@ -13,7 +13,7 @@ export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap co
 const TILEJSON='https://tiles.openfreemap.org/planet';
 const TILE_URL=/^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\{z\}\/\{x\}\/\{y\}\.pbf$/;
 const KEY='whatsup.map.v2',VERSION=4,MAX_AGE=30*86400000; // v3: airfields, v4: shore
-const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=3; // v2: shore, v3: whole-radius reach
+const DETAIL_KEY='whatsup.detail.v1',DETAIL_VERSION=4; // v2: shore, v3: whole-radius reach, v4: inner side streets
 // z10: one tile is ~19 mi wide at 40° latitude, so a 10-mile scope needs 4-9 tiles,
 // and z10 already carries runways and IATA-coded airport labels. Wider map radii use
 // lower zooms (fewer, coarser tiles: 2-9 at any radius); OpenMapTiles drops minor
@@ -234,11 +234,16 @@ export const DETAIL_RANGE=6.5,BUILDING_RANGE=1.3;
 // detailed zoom that keeps it to ~16-36 tiles: roads by class as far as that zoom
 // carries them, land use, parks and woods, water, streams, rail, towns and villages.
 // Maps show the whole radius top to bottom and ~1.4x it sideways, so each reaches 1.4x.
-const DETAIL_SPECS=[[2,DETAIL_RANGE,12,BUILDING_RANGE],[5,DETAIL_RANGE,12,BUILDING_RANGE],[10,14,11,0],[15,21,11,0],[25,35,10,0],
-  [50,70,9,0],[100,140,8,0],[150,210,7,0],[250,350,7,0]];
+// At 10 and 15 mi the side streets (z12 minor/service) come from an inner area only,
+// INNER_STREETS mi around home, fading out over its last mile (paintMap). Side streets all
+// the way out measured ~6 MB saved at 15 mi in Chicago (vs 2.5 MB for the old street map),
+// too much for the stick's storage; this way it is ~2.3 MB.
+export const INNER_STREETS=8;
+const DETAIL_SPECS=[[2,DETAIL_RANGE,12,BUILDING_RANGE,0],[5,DETAIL_RANGE,12,BUILDING_RANGE,0],[10,14,11,0,INNER_STREETS],
+  [15,21,11,0,INNER_STREETS],[25,35,10,0,0],[50,70,9,0,0],[100,140,8,0,0],[150,210,7,0,0],[250,350,7,0,0]];
 export function detailSpec(mapMiles){
-  const [max,range,zoom,buildings]=DETAIL_SPECS.find(([max])=>mapMiles<=max)||DETAIL_SPECS[DETAIL_SPECS.length-1];
-  return {range,zoom,buildings,key:buildings?'street':`r${max}`};
+  const [max,range,zoom,buildings,inner]=DETAIL_SPECS.find(([max])=>mapMiles<=max)||DETAIL_SPECS[DETAIL_SPECS.length-1];
+  return {range,zoom,buildings,inner,key:buildings?'street':`r${max}`};
 }
 // A built detail map serves a spec when it is the same kind, at least as far, same zoom.
 export const detailFits=(m,spec)=>!!m&&(m.key||'street')===spec.key&&m.range>=spec.range&&(m.zoom||12)===spec.zoom;
@@ -263,10 +268,10 @@ export function decodeDetail(m){
   for(const k of DETAIL_LAYERS)out[k]=m[k].map(f=>f.p?{...f,p:decode(f.p)}:{...f,r:decode(f.r)});
   return out;
 }
-export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,range=DETAIL_RANGE,buildings=BUILDING_RANGE,zoom=12,key='street'}={}){
+export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.window?.WhatsUpMVT,range=DETAIL_RANGE,buildings=BUILDING_RANGE,zoom=12,key='street',inner=0}={}){
   if(!MVT)throw new Error('mvt.js missing');
   const lim=range+.5,template=await tileTemplate(net),per=perMile(range),encode=encoder(per),k=Math.max(1,range/10.5);
-  const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,key,per,buildingRange:buildings,built:Date.now(),
+  const out={v:DETAIL_VERSION,latitude:home.latitude,longitude:home.longitude,range,zoom,key,per,buildingRange:buildings,inner,built:Date.now(),
     water:[],shore:[],waterways:[],roads:[],landuse:[],parks:[],aero:[],buildings:[],places:[]};
   const places=new Map();
   const polys=(geom,f,e,tol,box=lim)=>geom(f,e).filter(r=>r.length>3&&touches(r,box)).map(r=>simplify(r,tol)).filter(r=>r.length>3).map(encode);
@@ -309,6 +314,19 @@ export async function buildDetail(home,{net={getJson,getBytes},MVT=globalThis.wi
     });
   });
   if(!fetched)throw new Error('no tiles');
+  // Side streets near home from z12 (the wide map's own zoom doesn't carry them).
+  if(inner>0){
+    const ilim=inner+.2;
+    try{
+      await eachTile(home,ilim,12,template,net,MVT,({each,geom})=>{
+        each('transportation',(f,e)=>{
+          const c=String(f.properties.class||'');
+          if(f.type!==2||(c!=='minor'&&c!=='service'))return;
+          for(const l of geom(f,e).flatMap(l=>clipLine(l,ilim)))if(l.some(([x,y])=>Math.hypot(x,y)<=ilim))out.roads.push({c,p:encode(simplify(l,.006))});
+        });
+      });
+    }catch(e){/* main roads without side streets are still a map */}
+  }
   const order={city:0,town:1,suburb:2,village:3,quarter:4,neighbourhood:5};
   out.places=[...places.values()].sort((a,b)=>order[a.c]-order[b.c]||a.rank-b.rank).slice(0,80);
   if(buildings>0){

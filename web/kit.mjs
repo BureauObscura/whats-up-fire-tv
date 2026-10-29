@@ -273,7 +273,16 @@ export function paintMap(canvas,maps,view,spec){
         else for(let i=0;i<pts.length;i++){const [x,y]=pts[i];i?g.lineTo(X(x,y),Y(x,y)):g.moveTo(X(x,y),Y(x,y));}
       }
     }
-    if(s.stroke){g.strokeStyle=s.stroke;g.lineWidth=s.width||1;g.setLineDash(s.dash||[]);g.lineCap=s.cap||'round';g.lineJoin=s.join||'round';g.stroke();}
+    // Side streets: thinner as the map zooms out (sized for ~36 px/mi, down to 65%), and on maps whose
+    // side streets stop at `inner` miles they fade out over the last mile.
+    const minor=s.layer==='roads'&&s.classes?.every(c=>c==='minor'||c==='service');
+    let stroke=s.stroke;
+    if(minor&&m.inner>0&&stroke){
+      const ox=view.cx+(sx*cr-sy*sr)*ppm,oy=view.cy-(sx*sr+sy*cr)*ppm,r=m.inner*ppm;
+      const gr=g.createRadialGradient(ox,oy,0,ox,oy,r);gr.addColorStop(0,stroke);gr.addColorStop(Math.max(0,1-1/m.inner),stroke);gr.addColorStop(1,'rgba(0,0,0,0)');
+      stroke=gr;
+    }
+    if(s.stroke){g.strokeStyle=stroke;g.lineWidth=(s.width||1)*(minor?Math.min(1,Math.max(.65,ppm/36)):1);g.setLineDash(s.dash||[]);g.lineCap=s.cap||'round';g.lineJoin=s.join||'round';g.stroke();}
   }
   g.restore();g.globalAlpha=1;g.shadowBlur=0;g.setLineDash([]);
 }
