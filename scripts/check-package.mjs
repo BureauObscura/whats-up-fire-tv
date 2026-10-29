@@ -50,5 +50,13 @@ for(const f of files.filter(f=>/^assets\/.*\.(html|js|txt)$/.test(f))){
   const t=readFileSync(join(dir,f),'utf8').replace(/<title>[^<]*<\/title>/,'');
   const m=/What['’]s Up/.exec(t);if(m)problems.push(`${f}: shows "${t.slice(Math.max(0,m.index-40),m.index+20)}"`);
 }
+// Store build: the privacy policy may not ship with its placeholders ([date], [month year],
+// [web address]): any "[" fails.
+const mainJs=files.includes('assets/whatsup.js')?readFileSync(join(dir,'assets/whatsup.js'),'utf8'):'';
+if(/window\.__whatsupProfile="store"/.test(mainJs)){
+  const policy=files.includes('assets/privacy.txt')?readFileSync(join(dir,'assets/privacy.txt'),'utf8'):'';
+  if(!policy)problems.push('store build: no assets/privacy.txt');
+  const at=policy.indexOf('[');if(at>=0)problems.push(`store build: privacy.txt still has a placeholder: "${policy.slice(at,at+20)}"`);
+}
 if(problems.length){console.error(`package check FAILED (${problems.length}):\n  `+problems.slice(0,40).join('\n  '));process.exit(1);}
 console.log(`package check passed: ${files.length} files, all expected; ${local.length} forbidden strings and the fixed rules absent`);

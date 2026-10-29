@@ -51,7 +51,10 @@ const release=process.env.WHATSUP_RELEASE==='1';
 const profileId=process.env.WHATSUP_PROFILE||'personal';
 if(!['personal','store'].includes(profileId))throw new Error(`unknown WHATSUP_PROFILE ${profileId}`);
 const {profileFor}=await import('../web/profile.mjs');
-docs.privacy=docs.privacy.replace('{{SERVICES}}',profileFor(profileId).consent);
+// Privacy: the store build shows the final policy (web/privacy-store.txt, kept byte for byte);
+// the personal build its short text with this profile's services.
+if(profileId==='store')docs.privacy=readFileSync(join(web,'privacy-store.txt'),'utf8');
+else docs.privacy=docs.privacy.replace('{{SERVICES}}',profileFor(profileId).consent);
 writeFileSync(join(out,'whatsup.js'),`'use strict';\nwindow.__whatsupProfile=${JSON.stringify(profileId)};\n${release?'window.__whatsupRelease=true;\n':''}window.__whatsupDocs=${JSON.stringify(docs)};\n(()=>{\nconst __modules={};\nwindow.__whatsupModules=__modules;\n${parts.join('\n')}\n})();\n`);
 
 // Layouts: `export default {...}` must be the module's last statement.

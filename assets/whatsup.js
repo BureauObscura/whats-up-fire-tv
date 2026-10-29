@@ -3761,10 +3761,24 @@ async function locateByIp(){
     latitude:p.latitude,longitude:p.longitude,timeZone:p.timezone,source:'ip',accuracyKm:p.accuracy});
 }
 
-// ZIP/postcode or place name -> up to 6 places, biggest first.
+// ZIP/postcode or place name -> up to 6 places, biggest first. Open-Meteo matches names
+// only, so "Rosemont, Illinois" or "Rosemont IL" finds nothing: then the leading words are
+// searched as the name and only places whose state, region or country matches the rest kept.
 async function searchPlaces(query){
   const q=clean(query,60);
   if(q.length<2)return [];
+  const found=await searchNames(q);
+  if(!found||found.length)return found;
+  const [name,rest]=q.includes(',')?[q.slice(0,q.indexOf(',')),q.slice(q.indexOf(',')+1)]:[q.replace(/\s+\S+$/,''),(q.match(/\s(\S+)$/)||['',''])[1]];
+  const r=rest.trim().toLowerCase().replace(/[.]/g,'');
+  if(!r||name.trim().length<2||name.trim()===q)return found;
+  const near=await searchNames(name.trim());
+  if(!near)return null;
+  const code=p=>p.countryCode==='US'?US[p.admin]:p.countryCode==='CA'?CA[p.admin]:'';
+  return near.filter(p=>[p.admin,p.country,code(p),p.countryCode,SHORT_COUNTRY[p.countryCode]].some(v=>v&&String(v).toLowerCase().replace(/[.]/g,'')===r)
+    ||String(p.admin).toLowerCase().startsWith(r)&&r.length>=3);
+}
+async function searchNames(q){
   const {status,payload}=await getJson(SEARCH_URL(q),6000);
   if(status!==200||!Array.isArray(payload?.results))return status===200?[]:null;
   return payload.results.slice(0,10).map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
@@ -5748,7 +5762,8 @@ function themeOnly(id){
 // assets/privacy.txt as plain text: a blank line starts a paragraph, "## " a heading.
 function renderDoc(box,text){
   box.replaceChildren(...String(text||'').split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean).map(p=>
-    p.startsWith('## ')?Object.assign(document.createElement('h4'),{textContent:p.slice(3)}):Object.assign(document.createElement('p'),{textContent:p.replace(/\s*\n\s*/g,' ')})));
+    p.startsWith('## ')?Object.assign(document.createElement('h4'),{textContent:p.slice(3)}):
+    Object.assign(document.createElement('p'),{textContent:p.replace(/\s*\n\s*/g,' '),className:p.startsWith('• ')?'bullet':''})));
 }
 function openPrivacy(){
   const doc=$('privacy-doc');renderDoc(doc,window.__whatsupDocs?.privacy||'');doc.scrollTop=0;

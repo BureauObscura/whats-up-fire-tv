@@ -771,7 +771,8 @@ function themeOnly(id){
 // assets/privacy.txt as plain text: a blank line starts a paragraph, "## " a heading.
 function renderDoc(box,text){
   box.replaceChildren(...String(text||'').split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean).map(p=>
-    p.startsWith('## ')?Object.assign(document.createElement('h4'),{textContent:p.slice(3)}):Object.assign(document.createElement('p'),{textContent:p.replace(/\s*\n\s*/g,' ')})));
+    p.startsWith('## ')?Object.assign(document.createElement('h4'),{textContent:p.slice(3)}):
+    Object.assign(document.createElement('p'),{textContent:p.replace(/\s*\n\s*/g,' '),className:p.startsWith('• ')?'bullet':''})));
 }
 function openPrivacy(){
   const doc=$('privacy-doc');renderDoc(doc,window.__whatsupDocs?.privacy||'');doc.scrollTop=0;

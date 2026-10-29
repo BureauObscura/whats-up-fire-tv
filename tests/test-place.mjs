@@ -186,3 +186,13 @@ test('Census gets only text that looks like a U.S. address', async () => {
     '400 Marine Dr, Tamuning, GU 96913','5 Elm Street Springfield, IL','77 Oak Rd 45202'])assert.ok(looksLikeUSAddress(q),q);
   for(const q of ['10 Downing Street London','123 Main St','221B Baker Street','45202','Cincinnati','8 Rue de Rivoli Paris','12 Queen St W Toronto ON'])assert.ok(!looksLikeUSAddress(q),q);
 });
+
+test('place search: "Rosemont, Illinois" and "Rosemont IL" search the name, then match the state',async()=>{
+  const reply={results:[{name:'Rosemont',admin1:'Illinois',country:'United States',country_code:'US',latitude:41.995,longitude:-87.884,timezone:'America/Chicago'},
+    {name:'Rosemont',admin1:'Pennsylvania',country:'United States',country_code:'US',latitude:40.03,longitude:-75.33,timezone:'America/New_York'}]};
+  for(const q of ['Rosemont, Illinois','ROSEMONT IL','Rosemont Illinois']){
+    const seen=stub([[/name=Rosemont&/i,[200,reply]],[/search\?name=/,[200,{}]]]);
+    const found=await searchPlaces(q);
+    assert.deepEqual(found.map(p=>placeLabel(p)),['Rosemont, IL'],q);assert.equal(seen.length,2,q);
+  }
+});
