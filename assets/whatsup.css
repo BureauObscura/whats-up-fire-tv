@@ -119,6 +119,7 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .row{grid-template-columns:minmax(150px,max-content) minmax(0,1fr) auto;column-gap:12px;padding:5px 12px;margin-top:3px;font-size:16px;position:relative}
 #settings .row span{white-space:nowrap}
 #settings .row b{min-width:0}
+#settings .row b.wrap{white-space:normal;overflow-wrap:anywhere;line-height:1.15}
 #settings .row i{font-size:12px;display:none;white-space:nowrap;align-self:center}
 #settings .row.focus i{display:block}
 #settings .row.nohint i{display:none!important}

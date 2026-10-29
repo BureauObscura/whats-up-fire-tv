@@ -5255,8 +5255,11 @@ function fitValue(row){
   const alts=b._alts||[b.textContent],fits=()=>b.scrollWidth<=b.clientWidth+1;
   const attempt=()=>{for(const t of alts){b.textContent=t;b.style.fontSize='';let size=parseFloat(getComputedStyle(b).fontSize);
     while(!fits()&&size>13){size-=.5;b.style.fontSize=`${size}px`;}if(fits())return true;}return false;};
-  row.classList.remove('nohint');
+  row.classList.remove('nohint');b.classList.remove('wrap');
   if(!attempt()&&row.classList.contains('focus')){row.classList.add('nohint');attempt();}
+  // Still too wide at the smallest size (a very long name, one unbroken word): it wraps onto
+  // more lines rather than being cut.
+  if(!fits())b.classList.add('wrap');
 }
 // Focus must always be on something visible in the top screen.
 function keepFocus(fallback){
