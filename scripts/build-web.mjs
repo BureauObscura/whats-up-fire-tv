@@ -41,7 +41,13 @@ const parts=MODULES.map(file=>{
 
 rmSync(out,{recursive:true,force:true});
 mkdirSync(join(out,'layouts'),{recursive:true});
-writeFileSync(join(out,'whatsup.js'),`'use strict';\n(()=>{\nconst __modules={};\nwindow.__whatsupModules=__modules;\n${parts.join('\n')}\n})();\n`);
+// Texts shown in the app (Settings > Privacy, About & credits), bundled into the script:
+// the page is loaded from file:// and does not fetch its own files. Also copied as .txt.
+const DOCS={privacy:'privacy.txt',licenses:'licenses.txt'},docs={};
+for(const [k,f] of Object.entries(DOCS))try{docs[k]=readFileSync(join(web,f),'utf8');}catch{docs[k]='';}
+// WHATSUP_RELEASE=1 (npm run build:release): the developer URL hooks (?demo, ?q, ?screen...) are off.
+const release=process.env.WHATSUP_RELEASE==='1';
+writeFileSync(join(out,'whatsup.js'),`'use strict';\n${release?'window.__whatsupRelease=true;\n':''}window.__whatsupDocs=${JSON.stringify(docs)};\n(()=>{\nconst __modules={};\nwindow.__whatsupModules=__modules;\n${parts.join('\n')}\n})();\n`);
 
 // Layouts: `export default {...}` must be the module's last statement.
 const layouts=readdirSync(join(web,'layouts')).filter(f=>f.endsWith('.mjs'));
@@ -65,6 +71,7 @@ if(!html.includes('whatsup.js'))throw new Error('index.html: script tag not foun
 writeFileSync(join(out,'index.html'),html);
 // media/keep-awake.mp4: the silent loop the app plays to hold off the screensaver (Settings > Keep screen awake).
 for(const item of ['whatsup.css','mvt.js','qr.js','fonts','media','models'])cpSync(join(web,item),join(out,item),{recursive:true});
+for(const [k,f] of Object.entries(DOCS))if(docs[k])writeFileSync(join(out,f),docs[k]);
 // App icon for manifest.toml (@image/whatsup_icon.png): the 1280x720 launcher tile (icon/src/tile.svg).
 mkdirSync(join(out,'image'),{recursive:true});cpSync(join(root,'icon','whatsup_icon.png'),join(out,'image','whatsup_icon.png'));
-console.log(`assets/ written (${MODULES.length} modules, ${layouts.length} layout scripts, ${Math.round(layoutBytes/1024)} KB layout code)`);
+console.log(`assets/ written${release?' (release: no URL hooks)':''} (${MODULES.length} modules, ${layouts.length} layout scripts, ${Math.round(layoutBytes/1024)} KB layout code)`);

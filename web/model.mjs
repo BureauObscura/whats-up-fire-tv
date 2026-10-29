@@ -7,7 +7,8 @@ import {RouteLookup} from './routes.mjs';
 import {startLive,haversine,store} from './live.mjs';
 import {AIRCRAFT_TYPES} from './aircraft-types.mjs';
 
-export const query=new URLSearchParams(typeof location!=='undefined'?location.search:'');
+// Developer/screenshot URL hooks; the release build (window.__whatsupRelease) has none.
+export const query=new URLSearchParams(typeof location!=='undefined'&&!globalThis.window?.__whatsupRelease?location.search:'');
 export const demo=query.get('demo')==='1',scene=query.get('scene')||'';
 let HOME={latitude:0,longitude:0,elevationFt:0},TZ='UTC';
 export const tz=()=>TZ;

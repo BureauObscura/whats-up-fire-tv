@@ -251,6 +251,7 @@ function open(id,first){
 function close(){
   if(!layer)return;
   if(layer.id==='locate'&&!settings.place)return; // nothing to go back to
+  if(layer.id==='consent')return; // Back on it leaves the app (syncApp tells the app not to catch Back)
   if(layer.id==='picker')endPick(false);
   layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;
   if(layer){
@@ -261,7 +262,7 @@ function close(){
 }
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
-function syncApp(){tellApp({type:'ui',overlay:!!adj||!!layer&&!(layer.id==='locate'&&!settings.place&&!layers.length)});}
+function syncApp(){tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}
 
 function move(dir){
   const items=focusables();
@@ -520,6 +521,13 @@ function select(el){
     case 'confirm-again':return close();
     case 'set-done':return close();
     case 'set-about':return open('about','about-back');
+    case 'set-privacy':return openPrivacy();
+    case 'consent-ok':return agree();
+    case 'consent-policy':return openPrivacy();
+    case 'privacy-back':return close();
+    case 'privacy-erase':return open('erase','erase-cancel');
+    case 'erase-cancel':return close();
+    case 'erase-ok':return eraseAll();
     case 'about-back':return close();
     case 'pick-prev':return stepPick(-1);
     case 'pick-next':return stepPick(1);
@@ -628,6 +636,9 @@ document.addEventListener('keydown',e=>{
     if(k==='Enter'||k===' '){endPick(true);return close();}
     return;
   }
+  if(dir&&layer.id==='privacy'&&(dir==='up'||dir==='down')){
+    e.preventDefault();const d=$('privacy-doc');d.scrollTop+=(dir==='down'?1:-1)*d.clientHeight*.6;return;
+  }
   if(dir){
     e.preventDefault();
     return move(dir);
@@ -650,6 +661,42 @@ function showWelcome(place){
   open('welcome','welcome-change');
 }
 
+// --- Consent, privacy page and erase.
+// Consent is stored with the version of the text agreed to; a new version asks again
+// (once), and everything else the user set is kept.
+const CONSENT_KEY='whatsup.consent',CONSENT_VERSION=1;
+// The hosted policy (shown as a QR on the privacy page when set).
+const PRIVACY_URL='';
+function hasConsent(){try{return JSON.parse(localStorage.getItem(CONSENT_KEY))?.v===CONSENT_VERSION;}catch{return false;}}
+function giveConsent(){try{localStorage.setItem(CONSENT_KEY,JSON.stringify({v:CONSENT_VERSION,at:new Date().toISOString().slice(0,10)}));}catch{/* in memory only */}}
+let consentDone=null;
+function askConsent(){return new Promise(r=>{consentDone=r;open('consent','consent-ok');});}
+function agree(){giveConsent();closeAll();const r=consentDone;consentDone=null;r?.();}
+// The chosen layout's colours for the consent screen, without starting the layout (its
+// code may fetch map imagery): only its stylesheets and stage classes.
+function themeOnly(id){
+  for(const sheet of sheetsOf(id))addCss(sheet,()=>{});
+  stage.classList.add(...sheetsOf(id).map(s=>`L-${s}`));
+}
+// assets/privacy.txt as plain text: a blank line starts a paragraph, "## " a heading.
+function renderDoc(box,text){
+  box.replaceChildren(...String(text||'').split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean).map(p=>
+    p.startsWith('## ')?Object.assign(document.createElement('h4'),{textContent:p.slice(3)}):Object.assign(document.createElement('p'),{textContent:p.replace(/\s*\n\s*/g,' ')})));
+}
+function openPrivacy(){
+  const doc=$('privacy-doc');renderDoc(doc,window.__whatsupDocs?.privacy||'');doc.scrollTop=0;
+  const qr=$('privacy-qr');qr.hidden=!PRIVACY_URL;if(PRIVACY_URL)qr.src=themedQr(PRIVACY_URL);
+  $('privacy-erase').hidden=!hasConsent(); // before consent there is nothing to erase
+  open('privacy','privacy-back');
+}
+// Everything the app stored on this TV, then a clean start at the consent screen.
+function eraseAll(){
+  feed?.stop();feed=null;
+  try{for(const k of Object.keys(localStorage))if(k.startsWith('whatsup.'))localStorage.removeItem(k);}catch{/* nothing stored */}
+  try{indexedDB?.deleteDatabase?.('whatsup');}catch{/* none */}
+  location.reload();
+}
+
 // --- Boot
 async function boot(){
   buildKeys();
@@ -665,6 +712,9 @@ async function boot(){
   if(query.get('layout'))settings.layout=validLayout(query.get('layout'));
   settings.layout=validLayout(settings.layout);
   useSettings(settings);
+  // Nothing is fetched until the user has agreed to the current consent text.
+  if(query.get('q'))giveConsent(); // dev/screenshot runs (the release build has no URL hooks)
+  if(!hasConsent()){themeOnly(settings.layout);await askConsent();}
   // Dev/screenshot hook: ?q=London picks the first geocoding result.
   const q=query.get('q');
   if(q){const found=await searchPlaces(q);if(found?.[0]){settings.place=found[0];settings.confirmed=true;useSettings(settings);}}
@@ -685,7 +735,8 @@ async function boot(){
   const place=await locateByIp();
   setText('layout-note','');
   if(!place)return openLocate('We couldn’t find your location automatically. Type a ZIP or postal code, or a city name.');
-  settings={...settings,place,confirmed:false};saveSettings(settings);useSettings(settings);
+  // Not saved until the user confirms it (Confirm, or a place chosen through Change).
+  settings={...settings,place,confirmed:false};useSettings(settings);
   applyPlace(place,{fresh:true});
   showWelcome(place);
   setTimeout(()=>{if(layer?.id==='welcome')close();},60000);

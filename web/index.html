@@ -30,6 +30,41 @@
     <div class="adjust-credit">© OpenFreeMap © OpenMapTiles<br>© OpenStreetMap contributors</div>
   </div>
 
+  <!-- Before anything is fetched (first launch, or a new version of this text): what leaves the TV. -->
+  <div class="overlay" id="consent" hidden role="dialog" aria-modal="true" aria-labelledby="consent-title">
+    <div class="card wide consent">
+      <div class="title" id="consent-title">Before we start</div>
+      <p class="consent-body">To show planes near you, this app sends your approximate location, rounded to a few miles, to public flight and map services (adsb.fi, OpenFreeMap, Open-Meteo, USGS, EOX). It looks up the planes it shows with ADSB.lol and Planespotters. Your first city guess comes from your internet address (GeoJS). An address you search for goes to the U.S. Census Bureau or OpenStreetMap to find it. Your exact location, settings and history stay on this TV. No accounts, ads or analytics. You can erase it all in Settings.</p>
+      <div class="buttons">
+        <button class="btn" id="consent-ok" data-focus>Agree and continue</button>
+        <button class="btn" id="consent-policy" data-focus>Privacy policy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings > Privacy: the policy (assets/privacy.txt), scrolled with Up/Down, and Erase. -->
+  <div class="overlay" id="privacy" hidden role="dialog" aria-modal="true" aria-labelledby="privacy-title">
+    <div class="card wide privacy">
+      <div class="title" id="privacy-title">Privacy</div>
+      <div class="doc-wrap"><div class="doc" id="privacy-doc"></div><img class="doc-qr" id="privacy-qr" alt="" hidden></div>
+      <p class="hint doc-hint">Up and Down scroll · Back closes</p>
+      <div class="buttons">
+        <button class="btn" id="privacy-erase" data-focus>Erase all data</button>
+        <button class="btn" id="privacy-back" data-focus>Back</button>
+      </div>
+    </div>
+  </div>
+  <div class="overlay" id="erase" hidden role="alertdialog" aria-modal="true" aria-labelledby="erase-title">
+    <div class="card">
+      <div class="title" id="erase-title">Erase all data?</div>
+      <p class="note">Erase your location, settings, history and saved maps from this TV? The app restarts at the welcome screen.</p>
+      <div class="buttons">
+        <button class="btn" id="erase-cancel" data-focus>Cancel</button>
+        <button class="btn" id="erase-ok" data-focus>Erase</button>
+      </div>
+    </div>
+  </div>
+
   <!-- First launch: the location found from the connection. -->
   <div class="overlay" id="welcome" hidden>
     <div class="card">
@@ -68,6 +103,7 @@
           <button class="row" id="set-awake" data-focus data-adjust data-edit><span>Keep screen awake</span><b id="set-awake-v"></b><i>OK to change</i></button>
           <button class="row" id="set-chime" data-focus data-adjust data-edit><span>Alert chime</span><b id="set-chime-v"></b><i>OK to change</i></button>
           <button class="row" id="set-about" data-focus><span>About &amp; credits</span><b></b><i>OK to open</i></button>
+          <button class="row" id="set-privacy" data-focus><span>Privacy</span><b>Policy and erase</b><i>OK to open</i></button>
         </div>
       </div>
       <div class="tip-jar" aria-hidden="true"><img id="kofi-qr" alt=""><div><b id="kofi-a">Enjoying it? Buy me a coffee</b><span id="kofi-b">ko-fi.com/spacelydigital</span></div></div>
