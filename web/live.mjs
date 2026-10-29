@@ -69,7 +69,7 @@ export async function getBytes(url,timeoutMs=10000){
 const memory=new Map();
 export const store={
   get(k){try{const v=localStorage.getItem(k);if(v!==null)return JSON.parse(v);}catch{/* memory */}return memory.get(k)??null;},
-  set(k,v){memory.set(k,v);try{localStorage.setItem(k,JSON.stringify(v));}catch{/* memory only */}},
+  set(k,v){memory.set(k,v);try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;/* memory only */}},
   remove(k){memory.delete(k);try{localStorage.removeItem(k);}catch{/* memory only */}},
 };
 

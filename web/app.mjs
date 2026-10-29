@@ -7,7 +7,7 @@ import {chimeGate} from './core.mjs';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius,flushLog} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
-import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
+import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits,STALE} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit as fitText} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
@@ -128,24 +128,31 @@ function mapsChanged(){
 }
 
 // --- Detail map (streets, landuse, buildings) for the layouts that draw it.
-let detailToken=0,detailBusy=false;
+// A build stops as soon as it's no longer wanted (another radius or place: detailToken);
+// a failed one is tried again after 30 s, 60 s... up to 5 min, and an older saved map for
+// this place and radius is shown meanwhile.
+let detailToken=0,detailBusy=false,detailTries=0,detailRetry=null;
 async function ensureDetail(){
   const place=settings.place;
-  if(!place||maps.detail||detailBusy)return;
+  if(!place||maps.detail&&!maps.detail.stale||detailBusy)return;
   const spec=detailSpec(mapMiles()),saved=savedDetail(place,spec);
-  if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
-  const token=++detailToken;detailBusy=true;
+  if(saved){maps.detail=decodeDetail(saved);detailTries=0;return mapsChanged();}
+  if(!maps.detail){const old=savedDetail(place,spec,{stale:true});if(old){maps.detail={...decodeDetail(old),stale:true};mapsChanged();}}
+  const token=++detailToken;detailBusy=true;clearTimeout(detailRetry);
   setText('layout-note',mapMiles()<=15?'Drawing the street map':'Filling in map detail');
   try{
-    const built=await buildDetail(place,spec);
+    const built=await buildDetail(place,{...spec,alive:()=>token===detailToken&&settings.place===place});
     if(token!==detailToken||settings.place!==place)return;
-    saveDetail(built);
+    saveDetail(built);detailTries=0;
     if(active?.mod.map==='detail'){maps.detail=decodeDetail(built);mapsChanged();}
     setText('layout-note','');
   }catch(e){
+    if(e?.message===STALE)return;
     console.error('detail map',e?.message||e);
-    if(token===detailToken)setText('layout-note','Street map unavailable');
-    setTimeout(()=>{if(token===detailToken)setText('layout-note','');},6000);
+    if(token!==detailToken)return;
+    setText('layout-note','Street map unavailable, trying again soon');
+    const wait=Math.min(300000,30000*2**detailTries++);
+    detailRetry=setTimeout(()=>{if(token===detailToken){setText('layout-note','');detailBusy=false;ensureDetail();}},wait);
   }finally{if(token===detailToken)detailBusy=false;}
 }
 
@@ -180,22 +187,23 @@ async function applyPlace(place,{fresh=false}={}){
   // Keep maps already in memory when they still fit this place and radius.
   const same=m=>m&&Math.abs(m.latitude-place.latitude)<.01&&Math.abs(m.longitude-place.longitude)<.01;
   const keepBase=same(maps.base)&&maps.base.range===range,keepDetail=same(maps.detail)&&detailFits(maps.detail,detailSpec(range));
-  if(!keepBase)maps.base=savedMap(place,range);
-  if(!keepDetail){maps.detail=null;detailToken++;detailBusy=false;}
+  if(!keepBase)maps.base=savedMap(place,range)||(()=>{const old=savedMap(place,range,{stale:true});return old&&{...old,stale:true};})();
+  if(!keepDetail){maps.detail=null;detailToken++;detailBusy=false;clearTimeout(detailRetry);detailTries=0;}
   if(!keepBase||!keepDetail)mapsChanged();
   if(active?.mod.map==='detail'&&!keepDetail)ensureDetail();
   const startFeed=()=>{if(token===placeToken&&!feed)feed=start(place,feedConfig(),render,maps.base?.airports);};
   if(!demo)startFeed();
-  if(maps.base){startFeed();return;}
+  if(maps.base&&!maps.base.stale){startFeed();return;}
+  if(maps.base)startFeed(); // an older saved map shows while a new one is built
   for(let attempt=0;token===placeToken;attempt++){
     try{
-      const m=await buildMap(place,range);
+      const m=await buildMap(place,range,{alive:()=>token===placeToken});
       if(token!==placeToken)return;
       maps.base=m;saveMap(m);mapsChanged();setText('layout-note','');flashCredits();
       break;
     }catch(e){
+      if(e?.message===STALE||token!==placeToken)return;
       console.error('map',e?.message||e);
-      if(token!==placeToken)return;
       setText('layout-note',attempt?'Map unavailable, retrying':'Map unavailable');
       if(demo)startFeed();
       await new Promise(r=>setTimeout(r,Math.min(300000,30000*(attempt+1))));

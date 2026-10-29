@@ -34,7 +34,7 @@ test('map: rings survive simplification and the layers we draw are kept',async()
   const {default:Pbf}=await import('../vendor/node_modules/pbf/index.js');
   const {buildMap}=await import('../web/mapgen.mjs');
   const net={getJson:async()=>({status:200,payload:{tiles:['https://tiles.openfreemap.org/planet/test/{z}/{x}/{y}.pbf']}}),
-    getBytes:async url=>url.endsWith('/10/271/391.pbf')?new Uint8Array(tile):null};
+    getBytes:async url=>url.endsWith('/10/271/391.pbf')?new Uint8Array(tile):new Uint8Array(0)}; // other tiles: empty
   const m=await buildMap({latitude:39.10,longitude:-84.41},10,{net,MVT:{VectorTile,Pbf}});
   assert.ok(m.water.length>0&&m.water.every(r=>r.length>=4),'water rings');
   assert.ok(m.runways.length>0,'runways');
@@ -51,13 +51,25 @@ test('map: rings survive simplification and the layers we draw are kept',async()
   assert.ok(m.water.some(r=>r.some((p,i)=>i&&onEdge(r[i-1],p))),'(the water rings themselves do)');
 });
 
+test('map: a tile that fails twice fails the build (no map with a hole); a stale build stops',async()=>{
+  const tile=readFileSync(new URL('./fixtures/cincinnati-10-271-391.pbf',import.meta.url));
+  const {VectorTile}=await import('../vendor/node_modules/@mapbox/vector-tile/index.js');
+  const {default:Pbf}=await import('../vendor/node_modules/pbf/index.js');
+  const {buildMap,STALE}=await import('../web/mapgen.mjs');
+  let asked=0;
+  const net={getJson:async()=>({status:200,payload:{tiles:['https://tiles.openfreemap.org/planet/test/{z}/{x}/{y}.pbf']}}),
+    getBytes:async url=>{asked++;return url.endsWith('/10/271/391.pbf')?null:new Uint8Array(tile);}};
+  await assert.rejects(buildMap({latitude:39.10,longitude:-84.41},10,{net,MVT:{VectorTile,Pbf}}),/unavailable/);
+  let n=0;
+  await assert.rejects(buildMap({latitude:39.10,longitude:-84.41},10,{net:{...net,getBytes:async()=>new Uint8Array(tile)},MVT:{VectorTile,Pbf},alive:()=>++n<3}),new RegExp(STALE));
+});
 test('map: place names, and the detail map round-trips through its saved form',async()=>{
   const tile=readFileSync(new URL('./fixtures/cincinnati-10-271-391.pbf',import.meta.url));
   const {VectorTile}=await import('../vendor/node_modules/@mapbox/vector-tile/index.js');
   const {default:Pbf}=await import('../vendor/node_modules/pbf/index.js');
   const {buildMap,buildDetail,decodeDetail}=await import('../web/mapgen.mjs');
   const net={getJson:async()=>({status:200,payload:{tiles:['https://tiles.openfreemap.org/planet/test/{z}/{x}/{y}.pbf']}}),
-    getBytes:async url=>url.endsWith('/10/271/391.pbf')?new Uint8Array(tile):null};
+    getBytes:async url=>url.endsWith('/10/271/391.pbf')?new Uint8Array(tile):new Uint8Array(0)}; // other tiles: empty
   const home={latitude:39.10,longitude:-84.41};
   const m=await buildMap(home,10,{net,MVT:{VectorTile,Pbf}});
   assert.ok(m.places.some(p=>p.name==='Cincinnati'),'town names');

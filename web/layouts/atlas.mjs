@@ -96,12 +96,12 @@ const BASE=[
   {layer:'runways',stroke:'#a29bb8',width:4},
 ];
 
-let root,demo,ctx,dark=false,sat=false,satToken=0,$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
+let root,demo,ctx,dark=false,sat=false,satToken=0,satKey='',$={},maps={},trails=new TrailBook(360000,4000),staticBoxes=[];
 
 function ui(){
   const map=el('div','at-map'),side=el('aside','at-side');
   $.canvas=makeCanvas(W,H,'at-canvas');
-  if(sat)$.sat=makeCanvas(W,H,'at-canvas at-sat');
+  if(sat){$.sat=makeCanvas(W,H,'at-canvas at-sat');satKey='';}
   $.labels=svg('svg',{class:'at-svg',viewBox:`0 0 ${W} ${H}`});
   $.over=svg('svg',{class:'at-svg',viewBox:`0 0 ${W} ${H}`});
   for(const k of ['ring','trails','marks','tags'])$.over.append($[k]=svg('g',{class:`at-${k}`}));
@@ -141,9 +141,15 @@ function ui(){
 // ~40 tiles), drawn as they arrive onto their own canvas; the images are dropped once drawn.
 function drawSatellite(){
   const place=ctx?.place?.();if(!sat||!$.sat||!place)return;
-  const token=++satToken,c=$.sat,k=c._k||1,g=c.getContext('2d');
-  paintMap(c,maps,VIEW,SAT_UNDER);g.setTransform(k,0,0,k,0,0);
+  const c=$.sat,k=c._k||1,g=c.getContext('2d');
   const us=place.countryCode==='US'||place.countryCode==='PR',ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
+  // Nothing changed that moves the imagery (place, scale, the water drawn under it): keep
+  // what is drawn instead of downloading every tile again on each redraw.
+  const key=[place.latitude,place.longitude,ppm,k,maps.base?.built,maps.detail?.built].join();
+  if(key===satKey)return;
+  satKey=key;
+  const token=++satToken;
+  paintMap(c,maps,VIEW,SAT_UNDER);g.setTransform(k,0,0,k,0,0);
   const metresPerPx=1609.344/ppm/k;
   // The tile set is chosen around the snapped grid point (core.mjs), widened to still cover
   // the view around the true home, so imagery requests only reveal the grid cell. At most

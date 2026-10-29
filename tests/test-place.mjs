@@ -122,13 +122,17 @@ test('map radius: view zoom, round ring/scale steps, tile zoom per radius',()=>{
   assert.equal(niceDistance({ppm:54},60).label,'0.5 km');
   assert.deepEqual([2,10,15,25,50,100,150,250].map(zoomFor),[10,10,10,9,8,7,6,6]);
 });
-test('map radius: one saved map per radius, the 3 most recent kept',()=>{
+test('map radius: one saved map per radius, the current and the one before kept',()=>{
   const data=new Map();
   globalThis.localStorage={getItem:k=>data.has(k)?data.get(k):null,setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k)};
   const home={latitude:39.05,longitude:-84.65};
   for(const range of [10,50,250,2])saveMap({v:4,latitude:39.05,longitude:-84.65,range,built:Date.now()});
-  assert.equal(savedMap(home,10),null,'oldest dropped');
-  for(const r of [50,250,2])assert.equal(savedMap(home,r)?.range,r);
+  for(const r of [10,50])assert.equal(savedMap(home,r),null,'older radii dropped');
+  for(const r of [250,2])assert.equal(savedMap(home,r)?.range,r);
+  // Past 30 days: not used as is, but available as a stand-in while a new one is built.
+  saveMap({v:4,latitude:39.05,longitude:-84.65,range:2,built:Date.now()-31*86400000});
+  assert.equal(savedMap(home,2),null);
+  assert.equal(savedMap(home,2,{stale:true})?.range,2);
   assert.equal(savedMap({latitude:40,longitude:-84.65},2),null,'another place');
   delete globalThis.localStorage;
 });
