@@ -196,9 +196,12 @@ export function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
-  // Still too long at the smallest size (a 400-character name, one unbroken word): it wraps
-  // onto more lines rather than being cut or given "…".
-  e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';
+  // Still too long at the smallest size (a 400-character name): drop whole words from the
+  // end, never ending in "…", so at least it isn't cut through a word.
+  let t=e.textContent;
+  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
+  // One unbroken word longer than the row: it wraps rather than being cut.
+  if(e.scrollWidth>e.clientWidth+1){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
