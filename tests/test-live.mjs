@@ -93,7 +93,7 @@ test('selection keeps fresh in-boundary aircraft; history keeps the last 20 dist
   assert.equal(h.length,20);assert.equal(h[0].hex,'a00024');assert.equal(new Set(h.map(a=>a.hex)).size,20);
 });
 
-test('enricher: one request per 5 s, 1 h hit / 30 min miss cache, routes kept 6 h',async()=>{
+test('enricher: one request per 5 s, hits and 404s cached 24 h, routes kept 6 h',async()=>{
   const ledger=new Ledger(),calls=[];
   const payload={callsign:'UAL2202',number:'2202',_airports:[{iata:'BZN',lat:45.7775,lon:-111.153,name:'x'},{iata:'ORD',lat:41.9786,lon:-87.9048}]};
   const enricher=new Enricher(ledger,async url=>{calls.push(url);return url.includes('UAL2202')?{status:200,payload}:{status:404,payload:null};});
@@ -103,14 +103,14 @@ test('enricher: one request per 5 s, 1 h hit / 30 min miss cache, routes kept 6 
   assert.equal(routes.length,2);assert.ok(routes.some(r=>r.historical));
   await enricher.tick([a,b],1003);assert.equal(calls.length,1);
   await enricher.tick([a,b],1006);assert.equal(calls.length,2);assert.match(calls[1],/routes\/DA\/DAL9\.json$/);
-  await enricher.tick([a,b],1006+1799);assert.equal(calls.length,2);
-  await enricher.tick([a,b],1006+1801);assert.equal(calls.length,3);
-  await enricher.tick([a],1000+3599);assert.equal(calls.length,3);
-  await enricher.tick([a],1000+3601);assert.equal(calls.length,4);
+  await enricher.tick([b],1006+86399);assert.equal(calls.length,2); // the 404, a day later
+  await enricher.tick([b],1006+86401);assert.equal(calls.length,3);
+  await enricher.tick([a],1000+86399);assert.equal(calls.length,3);
+  await enricher.tick([a],1000+86413);assert.equal(calls.length,4);
   const restored=new Ledger(JSON.parse(JSON.stringify(ledger)));
-  assert.equal(restored.get('lol:UAL2202',1000).name,undefined);
-  assert.ok(restored.routes(1000+3601+6*3600-1).length>=1);
-  assert.equal(restored.routes(1000+3601+6*3600+1).length,0);
+  assert.equal(restored.get('lol:UAL2202',1000+86413).name,undefined);
+  assert.ok(restored.routes(1000+86413+6*3600-1).length>=1);
+  assert.equal(restored.routes(1000+86413+6*3600+1).length,0);
 });
 test('selection: in Window view only planes inside the wedge (or overhead) count as inside',()=>{
   const now=1700000000,home={latitude:39.05,longitude:-84.65};

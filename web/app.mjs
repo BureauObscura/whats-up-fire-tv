@@ -40,19 +40,23 @@ const feedConfig=()=>{
 const maps={base:null,detail:null};
 
 // --- Credits: always in Settings; on the dashboard one line that fades out ~5 s after
-// the app opens, the layout changes or a new location's map is drawn.
-let creditTimer=0;
+// the app opens, the layout changes or a new location's map is drawn. It is always shown for
+// the full 5 s with nothing over it: while a screen is open it waits, and a screen opened
+// over it puts it back in the queue (syncApp).
+let creditTimer=0,creditDue=false;
 const CREDITS='Aircraft adsb.fi · Routes ADSB.lol · Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 function flashCredits(){
-  if(pick)return; // the picker bar sits where the line would
-  const c=$('credit-flash'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
-  // One line: shorter wordings keep the map and imagery credits exact (About has them all).
+  if(pick||layer||adj){creditDue=true;return;} // shown when the screen closes
+  creditDue=false;
+  const c=$('credit-flash'),a=$('credit-a'),b=$('credit-b'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
+  // Map and data credits on the first line (shorter wordings keep both map credits); the
+  // satellite credit, exact, on a second line of its own. About has them all.
   const EOX='Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
-  const img=sat?(us?'Imagery USGS':`Imagery ${EOX}`):'';
-  c._alts=[[CREDITS,img].filter(Boolean).join(' · '),['Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',img].filter(Boolean).join(' · '),
-    ['© OpenMapTiles © OpenStreetMap contributors',img].filter(Boolean).join(' · ')];
-  c.textContent=c._alts[0];fitLine(c);
   c.classList.add('on');
+  a._alts=[CREDITS,'Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors','© OpenMapTiles © OpenStreetMap contributors'];
+  a.textContent=a._alts[0];fitLine(a);
+  b._alts=sat?[us?'Imagery USGS The National Map':`Imagery ${EOX}`,...(us?[]:[EOX])]:[''];
+  b.textContent=b._alts[0];if(sat)fitLine(b);
   clearTimeout(creditTimer);creditTimer=setTimeout(()=>c.classList.remove('on'),5000);
 }
 
@@ -303,7 +307,11 @@ function refitSettings(){
 document.fonts?.addEventListener?.('loadingdone',()=>{if(layer?.id==='settings')refitSettings();});
 function closeAll(){while(layer){if(layer.id==='picker')endPick(false);layer.hidden=true;layer.style.zIndex='';layer=layers.pop()||null;}setFocus(null);syncApp();}
 // The app swallows Back only while a screen is open (and there's somewhere to go).
-function syncApp(){hideBehind();tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}
+function syncApp(){
+  const c=$('credit-flash');
+  if(layer||adj||pick){if(c.classList.contains('on')){c.classList.remove('on');clearTimeout(creditTimer);creditDue=true;}}
+  else if(creditDue)flashCredits();
+  hideBehind();tellApp({type:'ui',overlay:!!adj||!!layer&&!((layer.id==='locate'&&!settings.place||layer.id==='consent')&&!layers.length)});}
 
 function move(dir){
   const items=focusables();

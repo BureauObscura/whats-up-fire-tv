@@ -75,10 +75,14 @@ const touches=(pts,lim)=>{
   return x1>=-lim&&x0<=lim&&y1>=-lim&&y0<=lim;
 };
 
+// The tile URL (it names the current planet build) is asked for once an hour, not per build.
+const templates=new WeakMap();
 async function tileTemplate(net){
+  const known=templates.get(net);if(known&&Date.now()-known.at<3600000)return known.url;
   const {status,payload}=await net.getJson(TILEJSON,8000);
   const url=status===200&&Array.isArray(payload?.tiles)?payload.tiles[0]:'';
   if(!TILE_URL.test(url))throw new Error(`tilejson ${status}`);
+  templates.set(net,{url,at:Date.now()});
   return url;
 }
 

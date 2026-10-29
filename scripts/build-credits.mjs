@@ -21,8 +21,11 @@ p('Airline, operator and aircraft-manufacturer names are trademarks of their own
 // --- Data.
 h('Data');
 p('Aircraft data: adsb.fi, https://adsb.fi (scan the code on this page).');
-p('Flight routes: ADSB.lol (Open Database License).');
-p('Maps: OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors (Open Database License).');
+p('Flight routes: adsb.lol, from Virtual Radar Server standing data (CC0). Routes are community-sourced and may be wrong.');
+p('adsb.lol data is made available under the Open Database License (ODbL): opendatacommons.org/licenses/odbl/1-0/');
+p('Map data © OpenStreetMap contributors, available under the Open Database License (ODbL): openstreetmap.org/copyright');
+p('Vector tile schema © OpenMapTiles (openmaptiles.org), licensed under CC BY 4.0: creativecommons.org/licenses/by/4.0');
+p('Tiles served by OpenFreeMap: openfreemap.org');
 p('Aircraft photos: Planespotters.net. Each photographer is credited beside their photo.');
 p('Satellite imagery in the U.S.: USGS The National Map.');
 p('Satellite imagery elsewhere: Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017).');

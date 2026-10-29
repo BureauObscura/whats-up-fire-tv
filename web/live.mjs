@@ -4,7 +4,7 @@
 // and the free (ADSB.lol) part of custom_components/office_aircraft_routes/model.py.
 import {IDS,number,coordinates,inZone,snapped,GRID_PAD_NM} from './core.mjs';
 
-const HOUR=3600,SIX_HOURS=6*HOUR;
+const HOUR=3600,SIX_HOURS=6*HOUR,DAY=24*HOUR;
 export const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
 // adsb.fi serves at most 250 NM around a point.
 export const MAX_NM=250;
@@ -26,7 +26,12 @@ const pending=new Map();let nextRequest=0;
 if(typeof window!=='undefined')window.__whatsupReply=(id,status,text)=>{
   const done=pending.get(id);if(done){pending.delete(id);done(status,text);}
 };
+// OpenFreeMap requests (TileJSON too) share the tile slots below.
 export function getJson(url,timeoutMs=8000){
+  if(/^https:\/\/[\w.-]*openfreemap\.org\//.test(url))return tileSlot().then(()=>rawGetJson(url,timeoutMs)).finally(tileFree);
+  return rawGetJson(url,timeoutMs);
+}
+function rawGetJson(url,timeoutMs){
   const bridge=typeof window!=='undefined'&&window.ReactNativeWebView;
   // Non-200: `retryAfter` is the service's Retry-After in seconds, when it sent one.
   const parse=(status,text)=>{
@@ -45,24 +50,44 @@ export function getJson(url,timeoutMs=8000){
     .finally(()=>clearTimeout(timer));
 }
 
-// Binary GET for map tiles: plain fetch first (OpenFreeMap sends CORS headers),
-// then the app bridge, which returns the body base64-encoded. Resolves bytes or null.
+// Binary GET for map tiles. On the TV through the app bridge, so every request carries the
+// app's own User-Agent (OpenFreeMap's terms); the page's fetch (CORS) only where there is no
+// bridge (desktop tests). At most TILE_PARALLEL in flight across the whole app, and after a
+// 429, 403 or 5xx every tile request waits out a shared cooldown (1 min, doubling to 10 min);
+// the maps then keep what's saved. Resolves bytes or null.
+const TILE_PARALLEL=4;
+let tileSlots=TILE_PARALLEL,tileCooldown=0,tileStrikes=0;const tileQueue=[];
+const tileSlot=()=>tileSlots>0?(tileSlots--,Promise.resolve()):new Promise(r=>tileQueue.push(r));
+const tileFree=()=>{const next=tileQueue.shift();if(next)next();else tileSlots++;};
+export const tileStats={inFlight:0,peak:0,requests:0,bytes:0};
+function tileStatus(status){
+  if(status===200){tileStrikes=0;return;}
+  if(status===429||status===403||(typeof status==='number'&&status>=500)){
+    tileCooldown=Date.now()+Math.min(600000,60000*2**tileStrikes++);
+  }
+}
 export async function getBytes(url,timeoutMs=10000){
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  if(Date.now()<tileCooldown)return null;
+  await tileSlot();
+  tileStats.inFlight++;tileStats.peak=Math.max(tileStats.peak,tileStats.inFlight);tileStats.requests++;
   try{
-    const r=await fetch(url,{credentials:'omit',signal:controller.signal});
-    if(r.status===200)return new Uint8Array(await r.arrayBuffer());
-  }catch{/* try the bridge */}finally{clearTimeout(timer);}
-  const bridge=typeof window!=='undefined'&&window.ReactNativeWebView;
-  if(!bridge)return null;
-  return new Promise(resolve=>{
-    const id=++nextRequest,timer=setTimeout(()=>{pending.delete(id);resolve(null);},timeoutMs+2000);
-    pending.set(id,(status,text)=>{
-      clearTimeout(timer);
-      try{resolve(status===200?Uint8Array.from(atob(text),c=>c.charCodeAt(0)):null);}catch{resolve(null);}
+    if(Date.now()<tileCooldown)return null;
+    const bridge=typeof window!=='undefined'&&window.ReactNativeWebView;
+    if(bridge)return await new Promise(resolve=>{
+      const id=++nextRequest,timer=setTimeout(()=>{pending.delete(id);resolve(null);},timeoutMs+2000);
+      pending.set(id,(status,text)=>{
+        clearTimeout(timer);tileStatus(status);
+        try{const b=status===200?Uint8Array.from(atob(text),c=>c.charCodeAt(0)):null;if(b)tileStats.bytes+=b.length;resolve(b);}catch{resolve(null);}
+      });
+      try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));}catch{pending.delete(id);clearTimeout(timer);resolve(null);}
     });
-    try{bridge.postMessage(JSON.stringify({type:'get',id,url,timeoutMs,binary:true}));}catch{pending.delete(id);clearTimeout(timer);resolve(null);}
-  });
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const r=await fetch(url,{credentials:'omit',signal:controller.signal});tileStatus(r.status);
+      if(r.status!==200)return null;
+      const b=new Uint8Array(await r.arrayBuffer());tileStats.bytes+=b.length;return b;
+    }catch{return null;}finally{clearTimeout(timer);}
+  }finally{tileStats.inFlight--;tileFree();}
 }
 
 // --- Storage: localStorage when available, else memory for this launch only.
@@ -208,12 +233,17 @@ export function commercialRoute(payload,a,previous=null){
 
 // Keep only what route selection reads, bounded: a route reply is remote data that is
 // cached for hours and saved, so every field is typed and length-capped.
-const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';
+// Community-sourced text: control, formatting and invisible characters (bidi overrides,
+// zero-width) are dropped, spaces collapsed, then capped. Airport codes are 3-4 of A-Z, 0-9.
+const INVISIBLE=/[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g;
+export const text=(v,n)=>typeof v==='string'?v.replace(INVISIBLE,'').replace(/\s+/g,' ').trim().slice(0,n).trim():'';
+const code=v=>{const s=String(v||'').trim().toUpperCase();return /^[A-Z0-9]{3,4}$/.test(s)?s:'';};
 const slim=p=>({callsign:text(p.callsign,10),_airports:Array.isArray(p._airports)?p._airports.slice(0,12).map(x=>
-  ({iata:ident(x?.iata),icao:ident(x?.icao),name:text(x?.name,80),location:text(x?.location,40),
+  ({iata:code(x?.iata),icao:code(x?.icao),name:text(x?.name,60),location:text(x?.location,40),
     lat:finite(x?.lat)?x.lat:null,lon:finite(x?.lon)?x.lon:null})):[]});
 
 // The integration's SQLite cache, as an expiring key/value map in localStorage.
+const LOL_MAX=800;
 export class Ledger {
   constructor(saved=null){
     this.rows=new Map(Object.entries(saved&&typeof saved==='object'?saved:{}));this.dirty=false;
@@ -222,7 +252,12 @@ export class Ledger {
   put(k,value,expires,now){
     this.rows.set(k,{expires,value});this.dirty=true;
     // Expired rows go at most once a minute (a busy feed puts hundreds of rows a poll).
-    if(!(now-this.pruned<60)){this.pruned=now;for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);}
+    if(!(now-this.pruned<60)){
+      this.pruned=now;for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);
+      // Route lookups are kept a day; past LOL_MAX the ones expiring soonest go.
+      const lol=[...this.rows].filter(([key])=>key.startsWith('lol:'));
+      if(lol.length>LOL_MAX)for(const [key] of lol.sort((a,b)=>a[1].expires-b[1].expires).slice(0,lol.length-LOL_MAX))this.rows.delete(key);
+    }
   }
   delete(k){if(this.rows.delete(k))this.dirty=true;}
   // Live routes and past routes (for 'Recently above') each have their own quota, so a
@@ -267,9 +302,10 @@ export class Enricher {
     for(const a of free){
       const cached=L.get('lol:'+ident(a.callsign),now);
       if(cached===undefined)missing.push(a);
-      else if(cached._airports)this.publish(a,commercialRoute(cached,a,this.previous(a,now)),now);
+      else if(cached._airports)this.publish(a,commercialRoute(slim(cached),a,this.previous(a,now)),now); // older caches were checked less
     }
-    // At most one ADSB.lol request every 5 seconds; hits cached 1 h, misses 30 min. The
+    // At most one ADSB.lol request every 5 seconds; answers, misses and 404s cached 24 h; 15 min
+    // pause after a 429, 1 min after other errors. The
     // one asked for: inside the zone first, then the nearest (the plane on the card).
     if(missing.length&&!L.get('cooldown:adsblol',now)){
       L.put('cooldown:adsblol',true,now+5,now);
@@ -278,7 +314,7 @@ export class Enricher {
       this.status=String(status);
       if((status===200&&payload&&typeof payload==='object')||status===404){
         const data=payload&&typeof payload==='object'&&payload.callsign===call?slim(payload):{};
-        L.put('lol:'+call,data,now+(data._airports?HOUR:1800),now);
+        L.put('lol:'+call,data,now+DAY,now);
         this.publish(a,commercialRoute(data,a,this.previous(a,now)),now);
       }else L.put('cooldown:adsblol',true,now+(status===429?900:60),now);
     }

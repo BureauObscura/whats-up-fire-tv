@@ -229,3 +229,29 @@ test('logbook: the 4000-plane cap drops the oldest, all-digit hexes included',as
   log=updateLog(log,[{hex:'654321',distance_mi:5,aircraft_type:'B738'}],now);
   assert.equal(log.typesAll.B738,2,'and is not counted again while kept');
 });
+
+test('route lookups: text cleaned, codes checked, cached a day, capped', async () => {
+  const {Ledger,text}=await import('../web/live.mjs');
+  assert.equal(text('Cin‮cy​ \u0007Nor\nthern﻿',80),'Cincy Northern');
+  assert.equal(text('x'.repeat(200),60).length,60);
+  const L=new Ledger();
+  for(let i=0;i<900;i++)L.put('lol:C'+i,{},1000+i,0);
+  L.pruned=-100;L.put('x',1,5000,0);
+  assert.equal([...L.rows.keys()].filter(k=>k.startsWith('lol:')).length,800);
+  assert.equal(L.get('lol:C899',0)!==undefined,true); // the latest-expiring are kept
+});
+
+test('map tiles: at most 4 requests at once, and a 429 pauses them all', async () => {
+  const {getBytes,tileStats}=await import('../web/live.mjs');
+  const real=globalThis.fetch;let now=0,peak=0,calls=0,status=200;
+  globalThis.fetch=async()=>{calls++;now++;peak=Math.max(peak,now);await new Promise(r=>setTimeout(r,20));now--;
+    return {status,arrayBuffer:async()=>new ArrayBuffer(8)};};
+  try{
+    const got=await Promise.all(Array.from({length:12},(_,i)=>getBytes('https://tiles.openfreemap.org/planet/x/1/1/'+i+'.pbf')));
+    assert.equal(peak,4);assert.ok(got.every(b=>b&&b.length===8));assert.ok(tileStats.peak<=4);
+    status=429;assert.equal(await getBytes('https://tiles.openfreemap.org/planet/x/1/1/1.pbf'),null);
+    const before=calls;status=200;
+    assert.equal(await getBytes('https://tiles.openfreemap.org/planet/x/1/1/2.pbf'),null); // cooling down
+    assert.equal(calls,before);
+  }finally{globalThis.fetch=real;}
+});

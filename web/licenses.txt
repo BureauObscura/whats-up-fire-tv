@@ -10,9 +10,15 @@ Airline, operator and aircraft-manufacturer names are trademarks of their owners
 
 Aircraft data: adsb.fi, https://adsb.fi (scan the code on this page).
 
-Flight routes: ADSB.lol (Open Database License).
+Flight routes: adsb.lol, from Virtual Radar Server standing data (CC0). Routes are community-sourced and may be wrong.
 
-Maps: OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors (Open Database License).
+adsb.lol data is made available under the Open Database License (ODbL): opendatacommons.org/licenses/odbl/1-0/
+
+Map data © OpenStreetMap contributors, available under the Open Database License (ODbL): openstreetmap.org/copyright
+
+Vector tile schema © OpenMapTiles (openmaptiles.org), licensed under CC BY 4.0: creativecommons.org/licenses/by/4.0
+
+Tiles served by OpenFreeMap: openfreemap.org
 
 Aircraft photos: Planespotters.net. Each photographer is credited beside their photo.
 
