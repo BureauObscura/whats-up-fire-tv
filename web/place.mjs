@@ -3,7 +3,7 @@
 // "Change location": a ZIP/postcode or city name (Open-Meteo geocoding), or a street
 // address (US Census geocoder for US addresses, else Nominatim). Exact coordinates stay
 // on the device; the time-zone lookup and adsb.fi only see them rounded to 2 decimals.
-import {getJson,store} from './live.mjs';
+import {getJson,store,text} from './live.mjs';
 import {number,snapped} from './core.mjs';
 import {CONFIG} from './config.js';
 
@@ -26,7 +26,8 @@ const CA={Alberta:'AB','British Columbia':'BC',Manitoba:'MB','New Brunswick':'NB
   'Northwest Territories':'NT',Nunavut:'NU',Yukon:'YT'};
 const SHORT_COUNTRY={GB:'UK',US:'USA',AE:'UAE'};
 const STATE_NAME=Object.fromEntries(Object.entries(US).map(([name,code])=>[code,name]));
-const clean=(v,n=60)=>typeof v==='string'?v.trim().slice(0,n):'';
+// Service text: control and invisible characters (bidi overrides, zero-width) dropped, capped.
+const clean=(v,n=60)=>text(v,n);
 
 // "Cincinnati, OH", "Toronto, ON", "London, UK", "Lyon, France".
 export function placeLabel(p){

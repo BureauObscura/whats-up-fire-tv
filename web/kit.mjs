@@ -198,6 +198,8 @@ export function fitLine(e){
   // end, never ending in "…", so at least it isn't cut through a word.
   let t=e.textContent;
   while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
+  // One word longer than the row: cut it at the edge (still no "…").
+  while(e.scrollWidth>e.clientWidth+1&&t.length>1){t=[...t].slice(0,-1).join('');e.textContent=t;}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];

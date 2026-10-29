@@ -46,7 +46,7 @@ export function mapGeometry(home,radius,width,height) {
     radiusPx:radius*1609.344/mpp,outerPx:(radius+2)*1609.344/mpp};
 }
 
-const clean = v => typeof v==='string' ? v.trim().slice(0,24) : '';
+const clean = v => typeof v==='string' ? v.replace(/[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF]/g,'').trim().slice(0,24) : '';
 export const flightLabel = a => clean(a.callsign)||clean(a.registration)||clean(a.hex).toUpperCase();
 // Airline callsigns read as published flight numbers ("UAL0696" -> "UA 696");
 // registrations, charter and military callsigns stay as broadcast.

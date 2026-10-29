@@ -119,8 +119,8 @@ export function selection(ac,stamp,home,radius,now){
       !number(a.alt_baro)||!number(a.seen_pos)||a.seen_pos<0||a.seen_pos+age<0||a.seen_pos+age>20)continue;
     const x=(a.lon-home.longitude)*radians*Math.cos((home.latitude+a.lat)/2*radians),y=(a.lat-home.latitude)*radians;
     const miles=Math.sqrt(x*x+y*y)*3958.7613;
-    const record={hex:a.hex,callsign:typeof a.flight==='string'?a.flight.trim():'',registration:a.r??'',
-      aircraft_type:a.t??'',latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,speed_kt:a.gs??null,
+    const record={hex:a.hex,callsign:text(a.flight,10),registration:text(a.r,12),
+      aircraft_type:text(a.t,6),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,speed_kt:a.gs??null,
       heading:a.track??null,distance_mi:Math.round(miles*100)/100,position_timestamp:stamp-a.seen_pos};
     const inAlert=typeof radius==='object'?inZone(radius,x*3958.7613,y*3958.7613):miles<=radius;
     if(inAlert){inside.push(record);if(miles<best){nearest=record;best=miles;}}

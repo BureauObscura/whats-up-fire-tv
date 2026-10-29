@@ -68,7 +68,7 @@ function mapGeometry(home,radius,width,height) {
     radiusPx:radius*1609.344/mpp,outerPx:(radius+2)*1609.344/mpp};
 }
 
-const clean = v => typeof v==='string' ? v.trim().slice(0,24) : '';
+const clean = v => typeof v==='string' ? v.replace(/[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF]/g,'').trim().slice(0,24) : '';
 const flightLabel = a => clean(a.callsign)||clean(a.registration)||clean(a.hex).toUpperCase();
 // Airline callsigns read as published flight numbers ("UAL0696" -> "UA 696");
 // registrations, charter and military callsigns stay as broadcast.
@@ -3102,8 +3102,8 @@ function selection(ac,stamp,home,radius,now){
       !number(a.alt_baro)||!number(a.seen_pos)||a.seen_pos<0||a.seen_pos+age<0||a.seen_pos+age>20)continue;
     const x=(a.lon-home.longitude)*radians*Math.cos((home.latitude+a.lat)/2*radians),y=(a.lat-home.latitude)*radians;
     const miles=Math.sqrt(x*x+y*y)*3958.7613;
-    const record={hex:a.hex,callsign:typeof a.flight==='string'?a.flight.trim():'',registration:a.r??'',
-      aircraft_type:a.t??'',latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,speed_kt:a.gs??null,
+    const record={hex:a.hex,callsign:text(a.flight,10),registration:text(a.r,12),
+      aircraft_type:text(a.t,6),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,speed_kt:a.gs??null,
       heading:a.track??null,distance_mi:Math.round(miles*100)/100,position_timestamp:stamp-a.seen_pos};
     const inAlert=typeof radius==='object'?inZone(radius,x*3958.7613,y*3958.7613):miles<=radius;
     if(inAlert){inside.push(record);if(miles<best){nearest=record;best=miles;}}
@@ -3588,7 +3588,7 @@ return {PHOTO_URL,parsePhoto,photoFor,qrColours,qrFor,modelPhoto};
 })();
 // ---- place.mjs
 __modules["place.mjs"]=(()=>{
-const {getJson,store}=__modules["live.mjs"];
+const {getJson,store,text}=__modules["live.mjs"];
 const {number,snapped}=__modules["core.mjs"];
 const {CONFIG}=__modules["config.js"];
 // Where the user is and how they like it shown. Saved on the device (localStorage).
@@ -3618,7 +3618,8 @@ const CA={Alberta:'AB','British Columbia':'BC',Manitoba:'MB','New Brunswick':'NB
   'Northwest Territories':'NT',Nunavut:'NU',Yukon:'YT'};
 const SHORT_COUNTRY={GB:'UK',US:'USA',AE:'UAE'};
 const STATE_NAME=Object.fromEntries(Object.entries(US).map(([name,code])=>[code,name]));
-const clean=(v,n=60)=>typeof v==='string'?v.trim().slice(0,n):'';
+// Service text: control and invisible characters (bidi overrides, zero-width) dropped, capped.
+const clean=(v,n=60)=>text(v,n);
 
 // "Cincinnati, OH", "Toronto, ON", "London, UK", "Lyon, France".
 function placeLabel(p){
@@ -4700,6 +4701,8 @@ function fitLine(e){
   // end, never ending in "…", so at least it isn't cut through a word.
   let t=e.textContent;
   while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
+  // One word longer than the row: cut it at the edge (still no "…").
+  while(e.scrollWidth>e.clientWidth+1&&t.length>1){t=[...t].slice(0,-1).join('');e.textContent=t;}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
