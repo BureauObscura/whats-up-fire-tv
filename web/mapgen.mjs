@@ -76,13 +76,13 @@ const touches=(pts,lim)=>{
 };
 
 // The tile URL (it names the current planet build) is asked for once an hour, not per build.
-const templates=new WeakMap();
+const templates=new Map(); // keyed by the fetch function (the app's is always the same)
 async function tileTemplate(net){
-  const known=templates.get(net);if(known&&Date.now()-known.at<3600000)return known.url;
+  const known=templates.get(net.getJson);if(known&&Date.now()-known.at<3600000)return known.url;
   const {status,payload}=await net.getJson(TILEJSON,8000);
   const url=status===200&&Array.isArray(payload?.tiles)?payload.tiles[0]:'';
   if(!TILE_URL.test(url))throw new Error(`tilejson ${status}`);
-  templates.set(net,{url,at:Date.now()});
+  templates.set(net.getJson,{url,at:Date.now()});
   return url;
 }
 
@@ -117,7 +117,7 @@ async function eachTile(home,lim,zoom,template,net,MVT,fn,alive=()=>true){
     const url=template.replace('{z}',zoom).replace('{x}',((tx%n)+n)%n).replace('{y}',ty);
     let bytes=await net.getBytes(url);
     if(!bytes){await new Promise(r=>setTimeout(r,1500));if(!alive())throw new Error(STALE);bytes=await net.getBytes(url);}
-    if(!bytes)throw new Error(`tile ${zoom}/${tx}/${ty} unavailable`);
+    if(!bytes)throw new Error('map tile unavailable'); // no tile numbers: they place the home
     fetched++;
     const tile=new MVT.VectorTile(new MVT.Pbf(bytes));
     const each=(name,f)=>{const layer=tile.layers[name];if(layer)for(let i=0;i<layer.length;i++)f(layer.feature(i),layer.extent);};
@@ -252,6 +252,9 @@ export function saveMap(m){
 }
 // Frees saved maps, oldest kinds first: wide detail, then the other detail slots, then
 // base maps for other radii.
+// Any other save that finds storage full (logbook, settings) frees the saved maps but the
+// newest base map.
+store.onFull=()=>evictMaps({keepBase:(store.get(RECENT_KEY)||[])[0]??null});
 export function evictMaps({keepBase=null,keepDetail=null}={}){
   for(const k of [`${DETAIL_KEY}.wide`,`${DETAIL_KEY}.r10`,DETAIL_KEY])if(k!==keepDetail)try{localStorage.removeItem(k);}catch{/* none */}
   for(const r of store.get(RECENT_KEY)||[])if(r!==keepBase)store.remove(keyFor(r));
@@ -392,6 +395,7 @@ export function savedDetail(home,spec=detailSpec(10),{stale=false}={}){
   }catch{return null;}
 }
 export function saveDetail(m){
+  if(store.sealed)return false;
   const key=detailKey({key:m.key||'street'}),json=JSON.stringify(m);
   try{localStorage.setItem(key,json);return true;}catch{/* full: make room */}
   evictMaps({keepDetail:key,keepBase:(store.get(RECENT_KEY)||[])[0]??null});

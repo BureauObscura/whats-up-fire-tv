@@ -224,7 +224,7 @@ function pickHero(planes,config){
 // --- Live
 const MAX_PLANES=300,LOG_MILES=17.3; // 15 NM
 function liveSource(config,onModel){
-  const routes=new RouteLookup(),started=Date.now();let log=store.get(LOG_KEY),lastOk=0,lastGood=null;
+  const routes=new RouteLookup(),started=Date.now();let log=pendingLog||store.get(LOG_KEY),lastOk=0,lastGood=null;
   return startLive((states,ok)=>{
     if(ok)lastOk=Date.now();
     const now=Date.now(),retryIn=states.retryAt?Math.max(0,Math.round((states.retryAt-now)/1000)):0;

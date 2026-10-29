@@ -238,18 +238,22 @@ function showPhoto(a){
   photoFor(a).then(p=>{
     if(!root||picHex!==hex)return;
     const qr=p&&themedQr(p.link);
-    if(p&&qr){
-      photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
-      $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
-    }else{
-      // No photo of this aircraft: a typical one of its type, labelled so, if bundled.
-      const m=modelPhoto(a);if(!m)return;
-      photo=m;$.img.src=m.src;$.img.alt=`Typical ${m.model}`;$.qr.alt='';$.pic.classList.add('model');
+    // No photo of this aircraft, or its image fails to load: a typical one of its type,
+    // labelled so, if bundled.
+    const useModel=()=>{
+      const m=modelPhoto(a);if(!m){photo=null;$.pic.hidden=true;return false;}
+      photo=m;$.img.src=m.src;$.img.alt=`Typical ${m.model}`;$.qr.removeAttribute('src');$.qr.alt='';$.pic.classList.add('model');
       // CC BY: the author stays in every wording; long names shorten to an initial.
       const short=shortAuthor(m.author);
       $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,
         `${m.author} · ${m.license}`,`Model photo · ${short} · ${m.license}`,`${short} · ${m.license}`];
-    }
+      return true;
+    };
+    $.img.onerror=()=>{if(picHex!==hex||$.pic.classList.contains('model'))return;if(useModel()){$.credit.textContent=$.credit._alts[0];fitLine($.credit);}};
+    if(p&&qr){
+      photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
+      $.credit._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];
+    }else if(!useModel())return;
     $.credit.textContent=$.credit._alts[0];
   });
 }

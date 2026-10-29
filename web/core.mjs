@@ -99,7 +99,8 @@ export function airspace(states,now,connected) {
       age+a.seen_pos<0||age+a.seen_pos>20)continue;
     const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight),registration:clean(a.r),
       aircraft_type:clean(a.t),category:clean(a.category),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,
-      speed_kt:number(a.gs)&&a.gs>=0&&a.gs<=1500?a.gs:null, // impossible readings are no readingheading:number(a.track)?((a.track%360)+360)%360:null,
+      // Impossible readings are no reading.
+      speed_kt:number(a.gs)&&a.gs>=0&&a.gs<=1500?a.gs:null,heading:number(a.track)?((a.track%360)+360)%360:null,
       position_timestamp:stamp-a.seen_pos};
     record.distance_mi=distanceMiles(home,record);
     record.inside=record.distance_mi<=radius;

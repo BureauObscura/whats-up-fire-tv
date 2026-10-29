@@ -51,7 +51,7 @@ function flashCredits(){
   const c=$('credit-flash'),a=$('credit-a'),b=$('credit-b'),sat=active?.id==='atlas-satellite',us=['US','PR'].includes(settings.place?.countryCode);
   // Map and data credits on the first line (shorter wordings keep both map credits); the
   // satellite credit, exact, on a second line of its own. About has them all.
-  const EOX='Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
+  const EOX='Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
   c.classList.add('on');
   a._alts=[CREDITS,'Map © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors','© OpenMapTiles © OpenStreetMap contributors'];
   a.textContent=a._alts[0];fitLine(a);
@@ -126,6 +126,7 @@ async function useLayout(id){
     if(lastModel&&!adj)mod.render(lastModel);
   }catch(e){console.error(`layout ${id}`,e);}
   if(mod.map==='detail')ensureDetail();
+  else if(/street map|map detail/i.test($('layout-note').textContent))setText('layout-note',''); // not this layout's
   flashCredits();done();
 }
 function draw(m){
@@ -161,7 +162,7 @@ async function ensureDetail(){
     if(token!==detailToken)return;
     setText('layout-note','Street map unavailable, trying again soon');
     const wait=Math.min(300000,30000*2**detailTries++);
-    detailRetry=setTimeout(()=>{if(token===detailToken){setText('layout-note','');detailBusy=false;ensureDetail();}},wait);
+    detailRetry=setTimeout(()=>{if(token===detailToken){setText('layout-note','');detailBusy=false;if(active?.mod.map==='detail')ensureDetail();}},wait);
   }finally{if(token===detailToken)detailBusy=false;}
 }
 
@@ -176,6 +177,7 @@ function listen(m){
 // Screen readers: one polite announcement when the closest plane changes.
 let spoken='';
 function announce(m){
+  if(layer||adj){spoken=null;return;} // not over a screen; the nearest plane is read again after
   const h=m.hero,key=h?h.hex:'';
   if(key===spoken)return;spoken=key;
   $('sr-live').textContent=h?[h.status,h.flight,h.type||h.aircraft_type,fmt.dist(h.ground)].filter(Boolean).join(', '):'';
@@ -365,7 +367,11 @@ function showSettings(){
   setText('set-view-v',view<settings.viewMiles?`${fmt.dist(view,0)} (the map radius)`:fmt.dist(settings.viewMiles,0));
   for(const r of document.querySelectorAll('#settings .win'))r.hidden=!win;
   $('set-radius').hidden=win;
-  for(const r of document.querySelectorAll('#settings .row'))fitValue(r);
+  // Spoken labels follow the values; a changed value on the focused row is read out.
+  for(const r of document.querySelectorAll('#settings .row')){
+    fitValue(r);const before=r.getAttribute('aria-label');labelRow(r);
+    if(r===focused&&before&&before!==r.getAttribute('aria-label'))$('sr-live').textContent=r.querySelector(':scope > b')?.textContent||'';
+  }
 }
 function adjustSetting(el,dir){
   if(el.id==='set-layout')return startPick(dir);
@@ -742,7 +748,7 @@ const CONSENT_KEY='whatsup.consent',CONSENT_VERSION=1;
 // The hosted policy (shown as a QR on the privacy page when set).
 const PRIVACY_URL='';
 function hasConsent(){try{return JSON.parse(localStorage.getItem(CONSENT_KEY))?.v===CONSENT_VERSION;}catch{return false;}}
-function giveConsent(){try{localStorage.setItem(CONSENT_KEY,JSON.stringify({v:CONSENT_VERSION,at:new Date().toISOString().slice(0,10)}));}catch{/* in memory only */}}
+function giveConsent(){store.set(CONSENT_KEY,{v:CONSENT_VERSION,at:new Date().toISOString().slice(0,10)});} // full storage: maps make room
 let consentDone=null;
 function askConsent(){return new Promise(r=>{consentDone=r;open('consent','consent-ok');});}
 function agree(){giveConsent();closeAll();const r=consentDone;consentDone=null;r?.();}
@@ -771,7 +777,7 @@ function openAbout(){
 }
 // Everything the app stored on this TV, then a clean start at the consent screen.
 function eraseAll(){
-  feed?.stop();feed=null;
+  feed?.stop();feed=null;store.seal();placeToken++;detailToken++;clearTimeout(detailRetry);
   try{for(const k of Object.keys(localStorage))if(k.startsWith('whatsup.'))localStorage.removeItem(k);}catch{/* nothing stored */}
   try{indexedDB?.deleteDatabase?.('whatsup');}catch{/* none */}
   location.reload();
@@ -808,7 +814,9 @@ async function boot(){
     applyPlace(settings.place);
     // A time zone that was only a stand-in: look it up again (once per launch).
     refineZone(settings.place).then(p=>{if(p&&settings.place?.latitude===p.latitude&&settings.place?.longitude===p.longitude){
-      settings={...settings,place:p};saveSettings(settings);useSettings(settings);restartFeed();refreshLayout();}});
+      settings={...settings,place:p};saveSettings(settings);useSettings(settings);restartFeed();refreshLayout();
+      // A street map being drawn for the old object stopped as stale: start it again.
+      if(detailBusy){detailToken++;detailBusy=false;ensureDetail();}}});
     if(!settings.confirmed)showWelcome(settings.place);
     // Screenshot hooks: ?screen=settings|picker|welcome|adjust, ?screen=locate&typed=CHICAGO
     const screen=query.get('screen');

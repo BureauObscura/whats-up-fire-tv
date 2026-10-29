@@ -28,7 +28,7 @@ p('Vector tile schema © OpenMapTiles (openmaptiles.org), licensed under CC BY 4
 p('Tiles served by OpenFreeMap: openfreemap.org');
 p('Aircraft photos: Planespotters.net. Each photographer is credited beside their photo.');
 p('Satellite imagery in the U.S.: USGS The National Map.');
-p('Satellite imagery elsewhere: Sentinel-2 cloudless – https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017).');
+p('Satellite imagery elsewhere: Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017).');
 p('Place search and time zones: Open-Meteo (GeoNames data, CC BY 4.0).');
 p('First location guess: GeoJS. This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com.');
 p('U.S. street addresses: U.S. Census Bureau geocoder. Other addresses: Nominatim, © OpenStreetMap contributors.');
@@ -70,13 +70,13 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`;
 p('qrcode-generator 2.0.4 (MIT):');
 p(MIT('2009 Kazuhiko Arase'));
-p('Parts of this app (the feed selection and route matching, aircraft types and silhouettes) are adapted from https://github.com/alexlmiller/overhead (MIT):');
+p('Parts of this app (the feed selection and route matching, aircraft types and silhouettes) are adapted from an open-source aircraft display by Alex Miller (MIT):');
 p(MIT('2026 Alex Miller'));
 
 // --- Native shell packages (production, transitive), one line each; texts once per license.
 const lock=JSON.parse(read('package-lock.json'));
 const ALLOWED=new Set(['MIT','ISC','BSD-2-Clause','BSD-3-Clause','Apache-2.0','0BSD','CC-BY-4.0','(MIT OR Apache-2.0)','(MIT OR CC0-1.0)','Python-2.0','BlueOak-1.0.0','CC0-1.0','Unlicense']);
-const rows=[],notices=[];
+const rows=[],notices=[],fullText={}; // fullText: one license file per license that needs its own text
 for(const [path,pkg] of Object.entries(lock.packages)){
   if(!path||pkg.dev||pkg.devOptional||pkg.link)continue;
   const name=path.replace(/^.*node_modules\//,'');
@@ -88,7 +88,9 @@ for(const [path,pkg] of Object.entries(lock.packages)){
   if(/GPL|MPL/i.test(lic))throw new Error(`${name}: ${lic} is not allowed`);
   if(name.startsWith('@amazon-devices/')&&(/Program Materials/.test(text)||lic==='See license in LICENSE'||!lic))lic='Amazon Program Materials License';
   else if(!ALLOWED.has(lic))throw new Error(`${name} ${pkg.version}: unclassified license "${lic}"`);
-  const copyright=(text.match(/^\s*Copyright[^\n]{0,160}/im)||[''])[0].trim();
+  // A real notice line ("Copyright 2019 Jane Doe"), not license prose or an Apache template.
+  const copyright=(text.match(/^\s*Copyright\b[^\n]{0,160}/m)||[''])[0].trim().replace(/^.*\[yyyy\].*$|^.*\{yyyy\}.*$/,'');
+  if(['Apache-2.0','CC-BY-4.0','Python-2.0','BlueOak-1.0.0','Unlicense','CC0-1.0'].includes(lic)&&text.length>400&&!fullText[lic])fullText[lic]=text.trim();
   rows.push(`${name} ${pkg.version}: ${lic}${copyright&&!/^Copyright\s*$/i.test(copyright)?'. '+copyright:''}`);
   const notice=files.find(f=>/^notice/i.test(f));
   if(notice&&/^Apache/.test(lic))notices.push(`${name}: ${readFileSync(join(dir,notice),'utf8').trim().replace(/\n{2,}/g,'\n')}`);
@@ -100,7 +102,8 @@ for(const n of notices)p(n);
 h('MIT License');p(MIT('the copyright holders named above').replace(/^Copyright \(c\) the copyright holders named above\n\n/,''));
 h('ISC License');p('Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.');
 h('BSD-2-Clause and BSD-3-Clause');p(vendorLicense('@mapbox/vector-tile','LICENSE.txt').replace(/^Copyright[^\n]*\n+(All rights reserved\.\n+)?/,''));
-h('Apache License 2.0');p('Licensed under the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0. Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.');
+for(const [lic,t] of Object.entries(fullText).sort()){h(`${lic} license text`);p(t.replace(/\r/g,'').replace(/\n{3,}/g,'\n\n'));}
+for(const lic of ['Apache-2.0','CC-BY-4.0'])if(rows.some(r=>r.includes(`: ${lic}`))&&!fullText[lic])throw new Error(`no ${lic} text found`);
 
 // --- Fonts.
 h('Fonts');
@@ -110,7 +113,8 @@ for(const f of readdirSync(fontDir).filter(f=>/-OFL\.txt$/.test(f)).sort()){
   const t=readFileSync(join(fontDir,f),'utf8');
   const first=t.split('\n').find(l=>/Copyright/i.test(l)).trim();
   if(/with Reserved Font Name/i.test(t))throw new Error(`${f}: declares a Reserved Font Name; check the converted font`);
-  p(`${f.replace(/-OFL\.txt$/,'').replace(/([a-z])([A-Z0-9])/g,'$1 $2')}: ${first}`);
+  const FONT={B612Mono:'B612 Mono',BarlowCondensed:'Barlow Condensed',EBGaramond:'EB Garamond',JetBrainsMono:'JetBrains Mono'};
+  const name=f.replace(/-OFL\.txt$/,'');p(`${FONT[name]||name}: ${first}`);
   ofl=ofl||t.slice(t.indexOf('SIL OPEN FONT LICENSE'));
 }
 p('These fonts are licensed under the SIL Open Font License, Version 1.1:');

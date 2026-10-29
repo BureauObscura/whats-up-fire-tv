@@ -198,7 +198,11 @@ test('feed etiquette: back-off on errors, 429 at least 60 s, other 4xx 5 min, pa
     live.pause();const before=calls;await tick();
     assert.equal(calls,before,'nothing is polled while paused');
     live.resume();await new Promise(r=>realSet(r,20));
-    assert.ok(calls>before,'resume polls at once');
+    assert.equal(waits.at(-1),0,'after a good reply, resume polls at once');
+    await tick();assert.ok(calls>before);
+    replies.push({status:429,retry:'120'});await tick();
+    live.pause();live.resume();
+    assert.ok(waits.at(-1)>115000,`resume keeps the 429 pause (${waits.at(-1)})`);
     live.stop();
   }finally{globalThis.setTimeout=realSet;globalThis.clearTimeout=realClear;delete globalThis.fetch;}
 });
@@ -254,4 +258,13 @@ test('map tiles: at most 4 requests at once, and a 429 pauses them all', async (
     assert.equal(await getBytes('https://tiles.openfreemap.org/planet/x/1/1/2.pbf'),null); // cooling down
     assert.equal(calls,before);
   }finally{globalThis.fetch=real;}
+});
+
+test('airspace keeps the heading (a comment once swallowed it)', async () => {
+  const {airspace,IDS}=await import('../web/core.mjs');
+  const now=1700000000;
+  const states={[IDS.feed]:{state:String(now),attributes:{ac:[{hex:'abc123',lat:39.06,lon:-84.65,alt_baro:5000,seen_pos:0,gs:200,track:450}]}},
+    [IDS.home]:{attributes:{latitude:39.05,longitude:-84.65}},[IDS.radius]:{state:'3'}};
+  const [a]=airspace(states,now*1000,true).all;
+  assert.equal(a.heading,90);assert.equal(a.speed_kt,200);
 });

@@ -72,7 +72,8 @@ export function loadSettings(){
     viewMiles:VIEW_MILES.includes(Number(s.viewMiles))?Number(s.viewMiles):25,
     layout:typeof s.layout==='string'&&/^[a-z-]{2,20}$/.test(s.layout)?s.layout:'atlas-dark'};
 }
-export const saveSettings=s=>store.set(KEY,s);
+// An unconfirmed location guess (from the IP address) is never stored; the rest is.
+export const saveSettings=s=>store.set(KEY,s.confirmed?s:{...s,place:null});
 
 // Approximate place from the IP address. Null when the lookup fails.
 export async function locateByIp(){

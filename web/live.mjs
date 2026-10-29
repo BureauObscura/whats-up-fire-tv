@@ -22,7 +22,9 @@ const HEX=/^[0-9a-f]{6}$/;
 
 // --- Network: through the Vega app when present (adsb.fi sends no CORS header),
 // otherwise the browser's own fetch. Resolves {status, payload}; never throws.
-const pending=new Map();let nextRequest=0;
+// Ids start at a random point: a late reply meant for the page before a reload (Erase) must
+// not answer this page's requests.
+const pending=new Map();let nextRequest=Math.floor(Math.random()*1e9);
 if(typeof window!=='undefined')window.__whatsupReply=(id,status,text)=>{
   const done=pending.get(id);if(done){pending.delete(id);done(status,text);}
 };
@@ -92,9 +94,21 @@ export async function getBytes(url,timeoutMs=10000){
 
 // --- Storage: localStorage when available, else memory for this launch only.
 const memory=new Map();
+// seal(): after Erase nothing may be written again (the reload's pagehide flush, a map
+// build finishing during unload).
+let sealed=false,freeing=false;
 export const store={
+  seal(){sealed=true;memory.clear();},
+  get sealed(){return sealed;},
   get(k){try{const v=localStorage.getItem(k);if(v!==null)return JSON.parse(v);}catch{/* memory */}return memory.get(k)??null;},
-  set(k,v){memory.set(k,v);try{localStorage.setItem(k,JSON.stringify(v));return true;}catch{return false;/* memory only */}},
+  // Full: the saved maps make room (mapgen sets onFull), then one more try.
+  set(k,v){
+    if(sealed)return false;memory.set(k,v);const json=JSON.stringify(v);
+    try{localStorage.setItem(k,json);return true;}catch{/* full */}
+    if(!this.onFull||freeing)return false;
+    freeing=true;try{this.onFull();}catch{/* nothing to free */}finally{freeing=false;}
+    try{localStorage.setItem(k,json);return true;}catch{console.error('not saved: storage full');return false;}
+  },
   remove(k){memory.delete(k);try{localStorage.removeItem(k);}catch{/* memory only */}},
 };
 
@@ -369,7 +383,7 @@ export function startLive(onUpdate,config){
   // Back-off (adsb.fi etiquette): network errors and 5xx double the wait (with jitter) up
   // to 5 min; a 429 waits at least 60 s and its Retry-After; any other 4xx waits 5 min.
   // Polling (and with it routes and the coverage probe) pauses while the app is hidden.
-  let fails=0,paused=false;
+  let fails=0,paused=false,gen=0; // gen: a poll started before a pause/resume is dropped
   const backoff=(status,retryAfter)=>{
     fails++;
     const jitter=t=>Math.round(t*(.8+Math.random()*.4));
@@ -379,11 +393,11 @@ export function startLive(onUpdate,config){
   };
   async function poll(){
     if(stopped||paused)return;
-    const started=Date.now();
+    const my=gen,started=Date.now();
     const url=feedUrlFor(home,config.searchNm);
     // Wide areas are big replies: more time to arrive (4 s up to 25 NM, 12 s at 250).
     const {status,payload,retryAfter}=url?await getJson(url,Math.min(12000,4000+config.searchNm*32)):{status:0};
-    if(stopped||paused)return;
+    if(stopped||paused||my!==gen)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
       // The TV's clock can be off by seconds or minutes: positions are judged against the
@@ -408,6 +422,7 @@ export function startLive(onUpdate,config){
   onUpdate(states,false);
   poll();
   return {stop(){stopped=true;clearTimeout(timer);},
-    pause(){paused=true;clearTimeout(timer);},
-    resume(){if(!paused)return;paused=false;fails=0;clearTimeout(timer);poll();}};
+    pause(){paused=true;gen++;clearTimeout(timer);},
+    // Back on screen: poll now, unless the service asked to wait (back-off kept).
+    resume(){if(!paused)return;paused=false;gen++;clearTimeout(timer);timer=setTimeout(poll,Math.max(0,(states.retryAt||0)-Date.now()));}};
 }

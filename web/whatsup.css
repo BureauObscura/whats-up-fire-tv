@@ -107,7 +107,7 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .cols{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;align-items:start}
 #settings h3{margin:0 0 2px;font:700 12px var(--ui-font);letter-spacing:.14em;text-transform:uppercase;color:var(--ui-dim)}
 /* label | value | hint (the hint column exists only on the focused row) */
-#settings .row{grid-template-columns:minmax(150px,max-content) minmax(0,1fr) auto;column-gap:12px;padding:7px 12px;margin-top:5px;font-size:16px;position:relative}
+#settings .row{grid-template-columns:minmax(150px,max-content) minmax(0,1fr) auto;column-gap:12px;padding:5px 12px;margin-top:3px;font-size:16px;position:relative}
 #settings .row span{white-space:nowrap}
 #settings .row b{min-width:0}
 #settings .row i{font-size:12px;display:none;white-space:nowrap;align-self:center}
@@ -117,7 +117,7 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .row.editing i::before{content:'‹ › change  ·  OK keep  ·  Back undo';}
 #settings .row.editing[data-big] i::before{content:'‹ › 1°  ▲▼ 10°  ·  OK keep';}
 #settings .row.editing i{font-size:0}#settings .row.editing i::before{font-size:12px}
-#settings .row.done{width:220px;margin:14px auto 0;display:block}
+#settings .row.done{width:220px;margin:10px auto 0;display:block}
 
 /* Busy cog (theme accent): fades in only if the work lasts more than ~250 ms. */
 .busy{position:absolute;right:18px;bottom:16px;z-index:30;width:30px;height:30px;opacity:0;pointer-events:none}
