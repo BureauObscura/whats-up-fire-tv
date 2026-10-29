@@ -196,3 +196,13 @@ test('place search: "Rosemont, Illinois" and "Rosemont IL" search the name, then
     assert.deepEqual(found.map(p=>placeLabel(p)),['Rosemont, IL'],q);assert.equal(seen.length,2,q);
   }
 });
+
+test('window view: no saved window shows the example ENE 74° to S 175°, 25 mi; a saved one is kept',()=>{
+  globalThis.localStorage={getItem:()=>JSON.stringify({alertZone:'circle'}),setItem(){},removeItem(){}};
+  let s=loadSettings();
+  assert.equal(s.viewFrom,74);assert.equal(s.viewTo,175);assert.equal(s.viewMiles,25);
+  globalThis.localStorage={getItem:()=>JSON.stringify({alertZone:'window',viewFrom:300,viewTo:40,viewMiles:10}),setItem(){},removeItem(){}};
+  s=loadSettings();
+  assert.equal(s.viewFrom,300);assert.equal(s.viewTo,40);assert.equal(s.viewMiles,10);
+  delete globalThis.localStorage;
+});
