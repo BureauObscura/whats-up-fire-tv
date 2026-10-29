@@ -220,7 +220,7 @@ function liveSource(config,onModel){
     // One failed check (or a few) doesn't blank the sky: the last good picture stays up to
     // 60 s old (wide maps poll every 15 s), then "No live data, reconnecting in N s".
     if(!ok&&lastGood&&now-lastOk<60000)return onModel({...lastGood,now,retryIn});
-    const {fresh,all}=airspace(states,now,now-lastOk<15000);
+    const {fresh,all}=airspace(states,now+(states.skew||0)*1000,now-lastOk<15000); // on the feed's clock
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES

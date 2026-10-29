@@ -202,3 +202,17 @@ test('feed etiquette: back-off on errors, 429 at least 60 s, other 4xx 5 min, pa
     live.stop();
   }finally{globalThis.setTimeout=realSet;globalThis.clearTimeout=realClear;delete globalThis.fetch;}
 });
+
+test('clock skew: a TV clock a minute off the feed still shows the planes',async()=>{
+  const {startLive}=await import('../web/live.mjs');
+  for(const off of [-60000,60000]){
+    globalThis.fetch=async url=>({status:200,headers:{get:()=>null},url,
+      text:async()=>JSON.stringify({now:Date.now()+off,ac:[{hex:'abc123',lat:39.05,lon:-84.67,alt_baro:3000,seen_pos:0.5,flight:'TST1'}]})});
+    const got=await new Promise(resolve=>{
+      const live=startLive((states,ok)=>{if(ok){live?.stop?.();resolve(states);}},{latitude:39.05,longitude:-84.67,radiusMiles:3,pollSeconds:5,searchNm:15});
+    });
+    assert.ok(Math.abs(got.skew*1000-off)<2000,`skew measured (${got.skew})`);
+    assert.equal(got['sensor.aircraft_candidate']?.state??got[Object.keys(got).find(k=>/candidate/.test(k))].state,'abc123',`plane kept with the feed ${off>0?'ahead':'behind'}`);
+  }
+  delete globalThis.fetch;
+});

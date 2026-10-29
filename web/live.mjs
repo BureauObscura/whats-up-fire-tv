@@ -125,6 +125,7 @@ export function provider(a){
 }
 const key=a=>`${a.hex}:${ident(a.callsign)||ident(a.registration)}`;
 
+// `radius`: miles (the circle) or a Window view zone {kind:'window',...} as in selection().
 export function observations(raw,stamp,home,radius,history,now){
   if(!(now-stamp>=0&&now-stamp<=15)||!position(home.latitude,home.longitude))return [];
   const found=new Map();
@@ -136,9 +137,11 @@ export function observations(raw,stamp,home,radius,history,now){
     const {lat,lon}=a,seen=a.seen_pos??999,hex=String(a.hex??'').toLowerCase();
     if(!HEX.test(hex)||!position(lat,lon)||!number(seen)||now-stamp+seen<0||now-stamp+seen>20||!number(a.alt_baro))continue;
     const rate=finite(a.baro_rate)?a.baro_rate:a.geom_rate;
+    const miles=haversine(home.latitude,home.longitude,lat,lon),r=0.017453292519943295;
+    const x=(lon-home.longitude)*r*Math.cos((home.latitude+lat)/2*r)*3958.7613,y=(lat-home.latitude)*r*3958.7613;
     found.set(hex,{hex,callsign:ident(a.flight),registration:ident(a.r),latitude:lat,longitude:lon,
       heading:a.track,speed_kt:a.gs,altitude_ft:a.alt_baro,vertical_rate:finite(rate)?rate:null,
-      observed:stamp-seen,live:true,inside:haversine(home.latitude,home.longitude,lat,lon)<=radius});
+      observed:stamp-seen,live:true,miles,inside:typeof radius==='object'?inZone(radius,x,y):miles<=radius});
   }
   const rank=a=>Number(!(a.live&&a.inside));
   return [...found.values()].sort((a,b)=>rank(a)-rank(b)||b.observed-a.observed);
@@ -203,9 +206,12 @@ export function commercialRoute(payload,a,previous=null){
     from:place(selected.start,selected.origin),to:place(selected.end,selected.destination)};
 }
 
-// Keep only what route selection reads; standing-data payloads carry airport names etc.
-const slim=p=>({callsign:p.callsign,_airports:Array.isArray(p._airports)?p._airports.slice(0,12).map(x=>
-  ({iata:x?.iata,icao:x?.icao,name:x?.name,location:x?.location,lat:x?.lat,lon:x?.lon})):[]});
+// Keep only what route selection reads, bounded: a route reply is remote data that is
+// cached for hours and saved, so every field is typed and length-capped.
+const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';
+const slim=p=>({callsign:text(p.callsign,10),_airports:Array.isArray(p._airports)?p._airports.slice(0,12).map(x=>
+  ({iata:ident(x?.iata),icao:ident(x?.icao),name:text(x?.name,80),location:text(x?.location,40),
+    lat:finite(x?.lat)?x.lat:null,lon:finite(x?.lon)?x.lon:null})):[]});
 
 // The integration's SQLite cache, as an expiring key/value map in localStorage.
 export class Ledger {
@@ -215,12 +221,15 @@ export class Ledger {
   get(k,now){const row=this.rows.get(k);return row&&row.expires>now?row.value:undefined;}
   put(k,value,expires,now){
     this.rows.set(k,{expires,value});this.dirty=true;
-    for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);
+    // Expired rows go at most once a minute (a busy feed puts hundreds of rows a poll).
+    if(!(now-this.pruned<60)){this.pruned=now;for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);}
   }
   delete(k){if(this.rows.delete(k))this.dirty=true;}
+  // Live routes and past routes (for 'Recently above') each have their own quota, so a
+  // busy wide map can't push the past ones out.
   routes(now){
-    return [...this.rows].filter(([k,row])=>(k.startsWith('route:')||k.startsWith('past-route:'))&&row.expires>now)
-      .sort((a,b)=>b[1].expires-a[1].expires).slice(0,100).map(([,row])=>row.value);
+    const pick=prefix=>[...this.rows].filter(([k,row])=>k.startsWith(prefix)&&row.expires>now).sort((a,b)=>b[1].expires-a[1].expires);
+    return [...pick('past-route:').slice(0,40),...pick('route:').slice(0,100)].map(([,row])=>row.value);
   }
   toJSON(){return Object.fromEntries(this.rows);}
 }
@@ -260,10 +269,11 @@ export class Enricher {
       if(cached===undefined)missing.push(a);
       else if(cached._airports)this.publish(a,commercialRoute(cached,a,this.previous(a,now)),now);
     }
-    // At most one ADSB.lol request every 5 seconds; hits cached 1 h, misses 30 min.
+    // At most one ADSB.lol request every 5 seconds; hits cached 1 h, misses 30 min. The
+    // one asked for: inside the zone first, then the nearest (the plane on the card).
     if(missing.length&&!L.get('cooldown:adsblol',now)){
       L.put('cooldown:adsblol',true,now+5,now);
-      const a=missing[0],call=ident(a.callsign);
+      const a=missing.sort((x,y)=>Number(!x.inside)-Number(!y.inside)||(x.miles??1e9)-(y.miles??1e9))[0],call=ident(a.callsign);
       const {status,payload}=await this.request(ROUTE_URL(call));
       this.status=String(status);
       if((status===200&&payload&&typeof payload==='object')||status===404){
@@ -298,11 +308,12 @@ export function startLive(onUpdate,config){
       [IDS.routes]:{state:String(routes.length),attributes:{routes}},
     };
   }
-  async function enrich(ac,stamp,now){
-    if(enriching)return;
+  async function enrich(ac,stamp,now,feedNow=now){
+    if(enriching||stopped)return;
     enriching=true;
     try{
-      routes=await enricher.tick(observations(ac,stamp,home,radius,history,now),now);
+      routes=await enricher.tick(observations(ac,stamp,home,zone,history,feedNow),now);
+      if(stopped)return; // a stopped feed (place or zone changed) must not render or save
       states={...states,[IDS.routes]:{state:String(routes.length),attributes:{routes}}};
       if(ledger.dirty){ledger.dirty=false;store.set(LEDGER_KEY,ledger);}
       onUpdate(states,true);
@@ -338,14 +349,17 @@ export function startLive(onUpdate,config){
     if(stopped||paused)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
-      const sel=selection(ac,stamp,home,zone,now);
+      // The TV's clock can be off by seconds or minutes: positions are judged against the
+      // feed's own clock (it was just received), and the offset goes to the display.
+      const skew=Math.abs(stamp-now)<86400?stamp-now:0,feedNow=now+skew;
+      const sel=selection(ac,stamp,home,zone,feedNow);
       if(sel.inside.length){history=mergeHistory(history,sel.inside);store.set(HISTORY_KEY,history);}
       if(ac.length)coverage.none=false;else await checkCoverage(Date.now());
       if(stopped)return;
-      states={...build(ac,stamp,sel),coverage:{none:coverage.none}};
+      states={...build(ac,stamp,sel),coverage:{none:coverage.none},skew};
       fails=0;
       onUpdate(states,true);
-      enrich(ac,stamp,now);
+      enrich(ac,stamp,now,feedNow);
       timer=setTimeout(poll,Math.max(1000,config.pollSeconds*1000-(Date.now()-started)));
     }else{
       const wait=backoff(status,retryAfter||0);

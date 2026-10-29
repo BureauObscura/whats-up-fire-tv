@@ -224,11 +224,17 @@ function confirmPlace(place){
 }
 let pending=null;
 
+// A new home more than 2 mi away starts today's logbook and 'Recently above' afresh;
+// a closer one (Adjust position, a nearby address) keeps them, restarts the feed for the
+// new point (and its time zone) and redraws the map around it.
 function choosePlace(place){
-  const changed=!settings.place||Math.abs(settings.place.latitude-place.latitude)>.001||Math.abs(settings.place.longitude-place.longitude)>.001;
+  const old=settings.place,cos=Math.cos(place.latitude*Math.PI/180);
+  const miles=old?Math.hypot((place.longitude-old.longitude)*69.172*cos,(place.latitude-old.latitude)*69):Infinity;
   settings={...settings,place,confirmed:true};saveSettings(settings);useSettings(settings);
   closeAll();
-  if(changed)applyPlace(place,{fresh:true});else refreshLayout();
+  if(miles>2)return applyPlace(place,{fresh:true});
+  if(miles>.01)applyPlace(place);else restartFeed();
+  mapsChanged();refreshLayout();
 }
 function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);}if(lastModel)draw(lastModel);}
 
@@ -348,7 +354,7 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
-  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
+  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';return zoneChanged();} // the list is cleared when the change is kept (stopEdit)
   else if(el.id==='set-from'||el.id==='set-to'){
     const k=el.id==='set-from'?'viewFrom':'viewTo',other=settings[k==='viewFrom'?'viewTo':'viewFrom'];
     let v=((settings[k]+dir)%360+360)%360;
@@ -390,9 +396,13 @@ let zoneDraw=0;
 // Slow work (map repaints, layout switches): a cog in the theme accent shows if it takes
 // more than ~250 ms, and remote presses are dropped until it's done so mashing can't stack it.
 let busyNow=false;
+// Keys are ignored while the cog shows. It clears after the next paint, or after 1.5 s at
+// the latest: animation frames pause on a hidden or starved page (fuzz seed 281).
+let busyToken=0;
 function busy(fn){
-  busyNow=true;$('busy').classList.add('on');
-  setTimeout(()=>{try{fn();}finally{requestAnimationFrame(()=>requestAnimationFrame(()=>{busyNow=false;$('busy').classList.remove('on');}));}},20);
+  const token=++busyToken;busyNow=true;$('busy').classList.add('on');
+  const done=()=>{if(token!==busyToken)return;busyNow=false;$('busy').classList.remove('on');};
+  setTimeout(()=>{try{fn();}finally{requestAnimationFrame(()=>requestAnimationFrame(done));setTimeout(done,1500);}},20);
 }
 // Window bearings: OK on the row to edit, then Left/Right 1°, Up/Down 10°, OK or Back to finish.
 let editing=null;
@@ -401,10 +411,15 @@ function editKey(e){
   e.preventDefault();
   // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
   if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
-  if(k==='Enter'||k===' ')return stopEdit();
+  if(k==='Enter'||k===' ')return stopEdit(true);
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
-function stopEdit(){editing?.classList.remove('editing');editing=null;editSnap=null;}
+// commit: the edit is kept. A kept change of Alert zone starts 'Recently above' afresh (the
+// old list was for the other zone shape); a cancelled or no-net-change edit keeps it.
+function stopEdit(commit=false){
+  const before=editSnap;editing?.classList.remove('editing');editing=null;editSnap=null;
+  if(commit&&before&&before.alertZone!==settings.alertZone){feed?.stop();feed=null;store.remove(HISTORY_KEY);clearTimeout(zoneTimer);restartFeed();}
+}
 // Back while editing puts the value back as it was when OK was pressed.
 let editSnap=null;
 function cancelEdit(){
@@ -544,7 +559,7 @@ function select(el){
     case 'set-location':return openLocate();
     case 'set-adjust':return startAdjust(settings.place);
     case 'confirm-ok':return choosePlace(pending);
-    case 'confirm-adjust':return startAdjust(pending);
+    case 'confirm-adjust':return startAdjust(pending,{from:'confirm'});
     case 'confirm-again':return close();
     case 'set-done':return close();
     case 'set-about':return openAbout();
@@ -586,10 +601,12 @@ function adjMap(){
     {layer:'runways',stroke:c(.85),width:2.4}];
 }
 let adj=null;
-async function startAdjust(place){
+// from: 'confirm' when opened on a search result (Back returns to it, not to an empty
+// dashboard on a first run).
+async function startAdjust(place,{from=''}={}){
   if(!place)return;
   closeAll();
-  adj={place,latitude:place.latitude,longitude:place.longitude,map:null,held:0,canvas:makeCanvas(540,540)};
+  adj={place,from,latitude:place.latitude,longitude:place.longitude,map:null,held:0,canvas:makeCanvas(540,540)};
   $('adjust-map').replaceChildren(adj.canvas);
   stage.classList.add('adjusting');
   drawAdjust();syncApp();
@@ -626,8 +643,13 @@ function endAdjust(save=false){
   const a=adj;adj=null;stage.classList.remove('adjusting');setText('adjust-note','');$('adjust-map').replaceChildren();
   if(save){
     const moved=Math.abs(a.latitude-a.place.latitude)+Math.abs(a.longitude-a.place.longitude)>1e-7;
-    choosePlace({...a.place,latitude:a.latitude,longitude:a.longitude,accuracyKm:moved?.05:a.place.accuracyKm,
+    // Longitude stays within ±180 (nudging across the date line), or the next launch drops it.
+    const longitude=((a.longitude+540)%360)-180;
+    choosePlace({...a.place,latitude:Math.max(-85,Math.min(85,a.latitude)),longitude,accuracyKm:moved?.05:a.place.accuracyKm,
       source:moved?'adjusted':a.place.source});
+  }else if(a.from==='confirm'){
+    if(!settings.place)openLocate();
+    confirmPlace(a.place);
   }
   if(lastModel)draw(lastModel);syncApp();
 }

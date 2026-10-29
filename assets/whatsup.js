@@ -3108,6 +3108,7 @@ function provider(a){
 }
 const key=a=>`${a.hex}:${ident(a.callsign)||ident(a.registration)}`;
 
+// `radius`: miles (the circle) or a Window view zone {kind:'window',...} as in selection().
 function observations(raw,stamp,home,radius,history,now){
   if(!(now-stamp>=0&&now-stamp<=15)||!position(home.latitude,home.longitude))return [];
   const found=new Map();
@@ -3119,9 +3120,11 @@ function observations(raw,stamp,home,radius,history,now){
     const {lat,lon}=a,seen=a.seen_pos??999,hex=String(a.hex??'').toLowerCase();
     if(!HEX.test(hex)||!position(lat,lon)||!number(seen)||now-stamp+seen<0||now-stamp+seen>20||!number(a.alt_baro))continue;
     const rate=finite(a.baro_rate)?a.baro_rate:a.geom_rate;
+    const miles=haversine(home.latitude,home.longitude,lat,lon),r=0.017453292519943295;
+    const x=(lon-home.longitude)*r*Math.cos((home.latitude+lat)/2*r)*3958.7613,y=(lat-home.latitude)*r*3958.7613;
     found.set(hex,{hex,callsign:ident(a.flight),registration:ident(a.r),latitude:lat,longitude:lon,
       heading:a.track,speed_kt:a.gs,altitude_ft:a.alt_baro,vertical_rate:finite(rate)?rate:null,
-      observed:stamp-seen,live:true,inside:haversine(home.latitude,home.longitude,lat,lon)<=radius});
+      observed:stamp-seen,live:true,miles,inside:typeof radius==='object'?inZone(radius,x,y):miles<=radius});
   }
   const rank=a=>Number(!(a.live&&a.inside));
   return [...found.values()].sort((a,b)=>rank(a)-rank(b)||b.observed-a.observed);
@@ -3186,9 +3189,12 @@ function commercialRoute(payload,a,previous=null){
     from:place(selected.start,selected.origin),to:place(selected.end,selected.destination)};
 }
 
-// Keep only what route selection reads; standing-data payloads carry airport names etc.
-const slim=p=>({callsign:p.callsign,_airports:Array.isArray(p._airports)?p._airports.slice(0,12).map(x=>
-  ({iata:x?.iata,icao:x?.icao,name:x?.name,location:x?.location,lat:x?.lat,lon:x?.lon})):[]});
+// Keep only what route selection reads, bounded: a route reply is remote data that is
+// cached for hours and saved, so every field is typed and length-capped.
+const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';
+const slim=p=>({callsign:text(p.callsign,10),_airports:Array.isArray(p._airports)?p._airports.slice(0,12).map(x=>
+  ({iata:ident(x?.iata),icao:ident(x?.icao),name:text(x?.name,80),location:text(x?.location,40),
+    lat:finite(x?.lat)?x.lat:null,lon:finite(x?.lon)?x.lon:null})):[]});
 
 // The integration's SQLite cache, as an expiring key/value map in localStorage.
 class Ledger {
@@ -3198,12 +3204,15 @@ class Ledger {
   get(k,now){const row=this.rows.get(k);return row&&row.expires>now?row.value:undefined;}
   put(k,value,expires,now){
     this.rows.set(k,{expires,value});this.dirty=true;
-    for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);
+    // Expired rows go at most once a minute (a busy feed puts hundreds of rows a poll).
+    if(!(now-this.pruned<60)){this.pruned=now;for(const [key,row] of this.rows)if(!row||!(row.expires>now))this.rows.delete(key);}
   }
   delete(k){if(this.rows.delete(k))this.dirty=true;}
+  // Live routes and past routes (for 'Recently above') each have their own quota, so a
+  // busy wide map can't push the past ones out.
   routes(now){
-    return [...this.rows].filter(([k,row])=>(k.startsWith('route:')||k.startsWith('past-route:'))&&row.expires>now)
-      .sort((a,b)=>b[1].expires-a[1].expires).slice(0,100).map(([,row])=>row.value);
+    const pick=prefix=>[...this.rows].filter(([k,row])=>k.startsWith(prefix)&&row.expires>now).sort((a,b)=>b[1].expires-a[1].expires);
+    return [...pick('past-route:').slice(0,40),...pick('route:').slice(0,100)].map(([,row])=>row.value);
   }
   toJSON(){return Object.fromEntries(this.rows);}
 }
@@ -3243,10 +3252,11 @@ class Enricher {
       if(cached===undefined)missing.push(a);
       else if(cached._airports)this.publish(a,commercialRoute(cached,a,this.previous(a,now)),now);
     }
-    // At most one ADSB.lol request every 5 seconds; hits cached 1 h, misses 30 min.
+    // At most one ADSB.lol request every 5 seconds; hits cached 1 h, misses 30 min. The
+    // one asked for: inside the zone first, then the nearest (the plane on the card).
     if(missing.length&&!L.get('cooldown:adsblol',now)){
       L.put('cooldown:adsblol',true,now+5,now);
-      const a=missing[0],call=ident(a.callsign);
+      const a=missing.sort((x,y)=>Number(!x.inside)-Number(!y.inside)||(x.miles??1e9)-(y.miles??1e9))[0],call=ident(a.callsign);
       const {status,payload}=await this.request(ROUTE_URL(call));
       this.status=String(status);
       if((status===200&&payload&&typeof payload==='object')||status===404){
@@ -3281,11 +3291,12 @@ function startLive(onUpdate,config){
       [IDS.routes]:{state:String(routes.length),attributes:{routes}},
     };
   }
-  async function enrich(ac,stamp,now){
-    if(enriching)return;
+  async function enrich(ac,stamp,now,feedNow=now){
+    if(enriching||stopped)return;
     enriching=true;
     try{
-      routes=await enricher.tick(observations(ac,stamp,home,radius,history,now),now);
+      routes=await enricher.tick(observations(ac,stamp,home,zone,history,feedNow),now);
+      if(stopped)return; // a stopped feed (place or zone changed) must not render or save
       states={...states,[IDS.routes]:{state:String(routes.length),attributes:{routes}}};
       if(ledger.dirty){ledger.dirty=false;store.set(LEDGER_KEY,ledger);}
       onUpdate(states,true);
@@ -3321,14 +3332,17 @@ function startLive(onUpdate,config){
     if(stopped||paused)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
-      const sel=selection(ac,stamp,home,zone,now);
+      // The TV's clock can be off by seconds or minutes: positions are judged against the
+      // feed's own clock (it was just received), and the offset goes to the display.
+      const skew=Math.abs(stamp-now)<86400?stamp-now:0,feedNow=now+skew;
+      const sel=selection(ac,stamp,home,zone,feedNow);
       if(sel.inside.length){history=mergeHistory(history,sel.inside);store.set(HISTORY_KEY,history);}
       if(ac.length)coverage.none=false;else await checkCoverage(Date.now());
       if(stopped)return;
-      states={...build(ac,stamp,sel),coverage:{none:coverage.none}};
+      states={...build(ac,stamp,sel),coverage:{none:coverage.none},skew};
       fails=0;
       onUpdate(states,true);
-      enrich(ac,stamp,now);
+      enrich(ac,stamp,now,feedNow);
       timer=setTimeout(poll,Math.max(1000,config.pollSeconds*1000-(Date.now()-started)));
     }else{
       const wait=backoff(status,retryAfter||0);
@@ -4307,7 +4321,7 @@ function liveSource(config,onModel){
     // One failed check (or a few) doesn't blank the sky: the last good picture stays up to
     // 60 s old (wide maps poll every 15 s), then "No live data, reconnecting in N s".
     if(!ok&&lastGood&&now-lastOk<60000)return onModel({...lastGood,now,retryIn});
-    const {fresh,all}=airspace(states,now,now-lastOk<15000);
+    const {fresh,all}=airspace(states,now+(states.skew||0)*1000,now-lastOk<15000); // on the feed's clock
     routes.update(states[IDS.routes]?.attributes?.routes);
     const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
@@ -4985,11 +4999,17 @@ function confirmPlace(place){
 }
 let pending=null;
 
+// A new home more than 2 mi away starts today's logbook and 'Recently above' afresh;
+// a closer one (Adjust position, a nearby address) keeps them, restarts the feed for the
+// new point (and its time zone) and redraws the map around it.
 function choosePlace(place){
-  const changed=!settings.place||Math.abs(settings.place.latitude-place.latitude)>.001||Math.abs(settings.place.longitude-place.longitude)>.001;
+  const old=settings.place,cos=Math.cos(place.latitude*Math.PI/180);
+  const miles=old?Math.hypot((place.longitude-old.longitude)*69.172*cos,(place.latitude-old.latitude)*69):Infinity;
   settings={...settings,place,confirmed:true};saveSettings(settings);useSettings(settings);
   closeAll();
-  if(changed)applyPlace(place,{fresh:true});else refreshLayout();
+  if(miles>2)return applyPlace(place,{fresh:true});
+  if(miles>.01)applyPlace(place);else restartFeed();
+  mapsChanged();refreshLayout();
 }
 function refreshLayout(){try{active?.mod.refresh?.();}catch(e){console.error(e);}if(lastModel)draw(lastModel);}
 
@@ -5109,7 +5129,7 @@ function adjustSetting(el,dir){
   else if(el.id==='set-map')return stepMap(dir);
   else if(el.id==='set-distance')settings.distance=settings.distance==='km'?'mi':'km';
   else if(el.id==='set-altitude')settings.altitude=settings.altitude==='m'?'ft':'m';
-  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';store.remove(HISTORY_KEY);return zoneChanged();} // the old list was the other shape
+  else if(el.id==='set-zone'){settings.alertZone=settings.alertZone==='window'?'circle':'window';return zoneChanged();} // the list is cleared when the change is kept (stopEdit)
   else if(el.id==='set-from'||el.id==='set-to'){
     const k=el.id==='set-from'?'viewFrom':'viewTo',other=settings[k==='viewFrom'?'viewTo':'viewFrom'];
     let v=((settings[k]+dir)%360+360)%360;
@@ -5151,9 +5171,13 @@ let zoneDraw=0;
 // Slow work (map repaints, layout switches): a cog in the theme accent shows if it takes
 // more than ~250 ms, and remote presses are dropped until it's done so mashing can't stack it.
 let busyNow=false;
+// Keys are ignored while the cog shows. It clears after the next paint, or after 1.5 s at
+// the latest: animation frames pause on a hidden or starved page (fuzz seed 281).
+let busyToken=0;
 function busy(fn){
-  busyNow=true;$('busy').classList.add('on');
-  setTimeout(()=>{try{fn();}finally{requestAnimationFrame(()=>requestAnimationFrame(()=>{busyNow=false;$('busy').classList.remove('on');}));}},20);
+  const token=++busyToken;busyNow=true;$('busy').classList.add('on');
+  const done=()=>{if(token!==busyToken)return;busyNow=false;$('busy').classList.remove('on');};
+  setTimeout(()=>{try{fn();}finally{requestAnimationFrame(()=>requestAnimationFrame(done));setTimeout(done,1500);}},20);
 }
 // Window bearings: OK on the row to edit, then Left/Right 1°, Up/Down 10°, OK or Back to finish.
 let editing=null;
@@ -5162,10 +5186,15 @@ function editKey(e){
   e.preventDefault();
   // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
   if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
-  if(k==='Enter'||k===' ')return stopEdit();
+  if(k==='Enter'||k===' ')return stopEdit(true);
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
-function stopEdit(){editing?.classList.remove('editing');editing=null;editSnap=null;}
+// commit: the edit is kept. A kept change of Alert zone starts 'Recently above' afresh (the
+// old list was for the other zone shape); a cancelled or no-net-change edit keeps it.
+function stopEdit(commit=false){
+  const before=editSnap;editing?.classList.remove('editing');editing=null;editSnap=null;
+  if(commit&&before&&before.alertZone!==settings.alertZone){feed?.stop();feed=null;store.remove(HISTORY_KEY);clearTimeout(zoneTimer);restartFeed();}
+}
 // Back while editing puts the value back as it was when OK was pressed.
 let editSnap=null;
 function cancelEdit(){
@@ -5305,7 +5334,7 @@ function select(el){
     case 'set-location':return openLocate();
     case 'set-adjust':return startAdjust(settings.place);
     case 'confirm-ok':return choosePlace(pending);
-    case 'confirm-adjust':return startAdjust(pending);
+    case 'confirm-adjust':return startAdjust(pending,{from:'confirm'});
     case 'confirm-again':return close();
     case 'set-done':return close();
     case 'set-about':return openAbout();
@@ -5347,10 +5376,12 @@ function adjMap(){
     {layer:'runways',stroke:c(.85),width:2.4}];
 }
 let adj=null;
-async function startAdjust(place){
+// from: 'confirm' when opened on a search result (Back returns to it, not to an empty
+// dashboard on a first run).
+async function startAdjust(place,{from=''}={}){
   if(!place)return;
   closeAll();
-  adj={place,latitude:place.latitude,longitude:place.longitude,map:null,held:0,canvas:makeCanvas(540,540)};
+  adj={place,from,latitude:place.latitude,longitude:place.longitude,map:null,held:0,canvas:makeCanvas(540,540)};
   $('adjust-map').replaceChildren(adj.canvas);
   stage.classList.add('adjusting');
   drawAdjust();syncApp();
@@ -5387,8 +5418,13 @@ function endAdjust(save=false){
   const a=adj;adj=null;stage.classList.remove('adjusting');setText('adjust-note','');$('adjust-map').replaceChildren();
   if(save){
     const moved=Math.abs(a.latitude-a.place.latitude)+Math.abs(a.longitude-a.place.longitude)>1e-7;
-    choosePlace({...a.place,latitude:a.latitude,longitude:a.longitude,accuracyKm:moved?.05:a.place.accuracyKm,
+    // Longitude stays within ±180 (nudging across the date line), or the next launch drops it.
+    const longitude=((a.longitude+540)%360)-180;
+    choosePlace({...a.place,latitude:Math.max(-85,Math.min(85,a.latitude)),longitude,accuracyKm:moved?.05:a.place.accuracyKm,
       source:moved?'adjusted':a.place.source});
+  }else if(a.from==='confirm'){
+    if(!settings.place)openLocate();
+    confirmPlace(a.place);
   }
   if(lastModel)draw(lastModel);syncApp();
 }
