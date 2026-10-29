@@ -63,7 +63,7 @@ resized to 240 px; author and license are also shown on screen with each photo.
 | A359 | Airbus A350-900 | Julian Herzog (Website) | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Airbus_A350-941_F-WWCF_MSN002_ILA_Berlin_2016_17.jpg |
 | A35K | Airbus A350-1000 | Clemens Vasters from Viersen, Germany,… | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Airbus_A350-1000_(34598951684).jpg |
 | A388 | Airbus A380 | Julian Herzog (Website) | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Emirates_Airbus_A380-861_A6-EER_MUC_2015_01.jpg |
-| A306 | Airbus A300-600F | self made | CC BY 3.0 | https://commons.wikimedia.org/wiki/File:MU_A300B4-605RPtoF_B-2306_1.jpg |
+| A306 | Airbus A300-600F | N.C (Wikimedia Commons user; file page says "self made") | CC BY 3.0 | https://commons.wikimedia.org/wiki/File:MU_A300B4-605RPtoF_B-2306_1.jpg |
 | B712 | Boeing 717 | Alf van Beem | CC0 | https://commons.wikimedia.org/wiki/File:OH-BLG_Blue1_Boeing_717-2CM_-_cn_55059_taxiing,_25august2013_pic-005.JPG |
 | B737 | Boeing 737-700 | 4300streetcar | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Southwest_Airlines_Boeing_737-700_N953WN_departing_Boston_June_2025.jpg |
 | B738 | Boeing 737-800 | Alf van Beem | Public domain | https://commons.wikimedia.org/wiki/File:Boeing_737-800_PH-BCA_KLM_takeoff_at_Schiphol.JPG |

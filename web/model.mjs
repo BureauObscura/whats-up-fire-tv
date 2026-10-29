@@ -207,7 +207,7 @@ function liveSource(config,onModel){
     const now=Date.now();
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
-    const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).map(r=>[String(r.hex).toLowerCase(),r]));
+    const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
     // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
     const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));

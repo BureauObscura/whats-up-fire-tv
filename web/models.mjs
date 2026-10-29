@@ -14,7 +14,7 @@ export const MODELS={
   "A359":{model:"Airbus A350-900",author:"Julian Herzog",license:"CC BY 4.0"},
   "A35K":{model:"Airbus A350-1000",author:"Clemens Vasters",license:"CC BY 2.0"},
   "A388":{model:"Airbus A380",author:"Julian Herzog",license:"CC BY 4.0"},
-  "A306":{model:"Airbus A300-600F",author:"self made",license:"CC BY 3.0"},
+  "A306":{model:"Airbus A300-600F",author:"N.C (Wikimedia Commons)",license:"CC BY 3.0"},
   "B712":{model:"Boeing 717",author:"Alf van Beem",license:"CC0"},
   "B737":{model:"Boeing 737-700",author:"4300streetcar",license:"CC BY 4.0"},
   "B738":{model:"Boeing 737-800",author:"Alf van Beem",license:"Public domain"},

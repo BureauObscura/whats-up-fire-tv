@@ -3322,7 +3322,7 @@ const MODELS={
   "A359":{model:"Airbus A350-900",author:"Julian Herzog",license:"CC BY 4.0"},
   "A35K":{model:"Airbus A350-1000",author:"Clemens Vasters",license:"CC BY 2.0"},
   "A388":{model:"Airbus A380",author:"Julian Herzog",license:"CC BY 4.0"},
-  "A306":{model:"Airbus A300-600F",author:"self made",license:"CC BY 3.0"},
+  "A306":{model:"Airbus A300-600F",author:"N.C (Wikimedia Commons)",license:"CC BY 3.0"},
   "B712":{model:"Boeing 717",author:"Alf van Beem",license:"CC0"},
   "B737":{model:"Boeing 737-700",author:"4300streetcar",license:"CC BY 4.0"},
   "B738":{model:"Boeing 737-800",author:"Alf van Beem",license:"Public domain"},
@@ -4219,7 +4219,7 @@ function liveSource(config,onModel){
     const now=Date.now();
     const {fresh,all}=airspace(states,now,now-lastOk<15000);
     routes.update(states[IDS.routes]?.attributes?.routes);
-    const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).map(r=>[String(r.hex).toLowerCase(),r]));
+    const raw=new Map((states[IDS.feed]?.attributes?.ac||[]).filter(r=>r&&typeof r==='object').map(r=>[String(r.hex).toLowerCase(),r])); // one bad entry must not drop the update
     // A 250-mile map over a busy region can hold 500+ aircraft: draw the nearest MAX_PLANES
     // (the feed is sorted by distance) to keep the stick's memory and frame rate in hand.
     const planes=all.slice(0,MAX_PLANES).map(a=>enrich(a,raw.get(a.hex),routes.get(a),now));
