@@ -1,7 +1,7 @@
 /* Layout 8, Swiss: International Typographic Style poster. Inter, off-white, one red. */
 @font-face{font-family:'Inter';src:url(../fonts/Inter.woff2) format('woff2');font-weight:300 900;font-display:block}
 .L-swiss{--paper:#f1eee6;--ink:#111;--grey:#7d7a72;--red:#e2231a;
-  --ui-ink:#111;--ui-dim:#5f5c55;--ui-faint:#b9b5ab;--ui-bg:#f1eee6;--ui-shade:rgba(241,238,230,.9);--ui-on:#f1eee6;
+  --ui-ink:#111111;--ui-dim:#5f5c55;--ui-faint:#b9b5ab;--ui-bg:#f1eee6;--ui-shade:rgba(241,238,230,.9);--ui-on:#f1eee6;
   --ui-glow:rgba(0,0,0,.08);--ui-alert:#e2231a;--ui-font:'Inter',sans-serif;--ui-radius:0px}
 .L-swiss .layout{background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;font-feature-settings:'tnum'}
 .L-swiss .top{position:absolute;left:36px;right:36px;top:22px;display:flex;justify-content:space-between;align-items:baseline;font:700 24px/1 'Inter';letter-spacing:-.01em}

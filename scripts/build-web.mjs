@@ -55,6 +55,7 @@ const {profileFor}=await import('../web/profile.mjs');
 // the personal build its short text with this profile's services.
 if(profileId==='store')docs.privacy=readFileSync(join(web,'privacy-store.txt'),'utf8');
 else docs.privacy=docs.privacy.replace('{{SERVICES}}',profileFor(profileId).consent);
+
 writeFileSync(join(out,'whatsup.js'),`'use strict';\nwindow.__whatsupProfile=${JSON.stringify(profileId)};\n${release?'window.__whatsupRelease=true;\n':''}window.__whatsupDocs=${JSON.stringify(docs)};\n(()=>{\nconst __modules={};\nwindow.__whatsupModules=__modules;\n${parts.join('\n')}\n})();\n`);
 
 // Layouts: `export default {...}` must be the module's last statement.
@@ -75,12 +76,11 @@ for(const file of layouts){
 for(const file of readdirSync(join(web,'layouts')).filter(f=>f.endsWith('.css')))cpSync(join(web,'layouts',file),join(out,'layouts',file));
 let html=readFileSync(join(web,'index.html'),'utf8')
   .replace('<script type="module" src="app.mjs"></script>','<script src="whatsup.js" defer></script>');
-// The store build's page may only reach the store profile's services (Content-Security-Policy).
-if(profileId==='store'){
-  const csp=html;
-  html=html.replace(' https://opendata.adsb.fi',' https://api.adsb.lol').replace(' https://tiles.maps.eox.at','')
-    .replace(' https://cdn.planespotters.net https://*.plnspttrs.net','');
-  if(html===csp||/adsb\.fi|eox|plnspttrs/.test(html.match(/Content-Security-Policy" content="[^"]*"/)[0]))throw new Error('store CSP not rewritten');
+// A build whose profile turns a service off can't reach it (Content-Security-Policy).
+{
+  const P=profileFor(profileId);
+  if(!P.eox)html=html.replace(' https://tiles.maps.eox.at','');
+  if(!P.photos)html=html.replace(' https://cdn.planespotters.net https://*.plnspttrs.net','');
 }
 if(!html.includes('whatsup.js'))throw new Error('index.html: script tag not found');
 writeFileSync(join(out,'index.html'),html);

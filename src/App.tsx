@@ -21,8 +21,6 @@ import {
 // these read-only GETs are reachable through the bridge.
 const ALLOWED = [
   /^https:\/\/opendata\.adsb\.fi\/api\/v3\/lat\/-?\d{1,2}\.\d{2}\/lon\/-?\d{1,3}\.\d{2}\/dist\/\d{1,3}$/,
-  // Store profile positions (web/profile.mjs).
-  /^https:\/\/api\.adsb\.lol\/v2\/lat\/-?\d{1,2}\.\d{2}\/lon\/-?\d{1,3}\.\d{2}\/dist\/\d{1,3}$/,
   /^https:\/\/vrs-standing-data\.adsb\.lol\/routes\/[A-Z0-9-]{2}\/[A-Z0-9-]{2,10}\.json$/,
   /^https:\/\/get\.geojs\.io\/v1\/ip\/geo\.json$/,
   /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?name=[^&#]{1,200}&count=\d{1,2}&language=en&format=json$/,
@@ -33,6 +31,7 @@ const ALLOWED = [
   /^https:\/\/tiles\.openfreemap\.org\/planet\/[\w.-]+\/\d{1,2}\/\d{1,6}\/\d{1,6}\.pbf$/,
   /^https:\/\/api\.planespotters\.net\/pub\/photos\/(hex\/[0-9a-f]{6}|reg\/[A-Z0-9-]{2,10})$/,
 ];
+const isAllowed = (url: string) => ALLOWED.some(p => p.test(url));
 const MAX_BYTES = 2 * 1024 * 1024;
 // Names the app and a contact, as Nominatim's and Planespotters' API terms ask.
 const USER_AGENT = 'WhatsUp-FireTV/0.1 (Spacely Digital; spacelydigital@gmail.com)';
@@ -79,7 +78,7 @@ async function get(
       signal: controller.signal,
     });
     // A redirect may only land on another allowed URL (P2-1).
-    if (response.url && response.url !== url && !ALLOWED.some(p => p.test(response.url))) {
+    if (response.url && response.url !== url && !isAllowed(response.url)) {
       return ['blocked', ''];
     }
     if (response.status !== 200) {
@@ -220,7 +219,7 @@ export const App = () => {
       return;
     }
     // Answer a refused URL at once, so the page never waits out its timeout.
-    if (!ALLOWED.some(pattern => pattern.test(request.url))) {
+    if (!isAllowed(request.url)) {
       // The host only: a refused geocoder URL could carry a typed address (P2-4).
       console.error(`[bridge] refused ${(/^https?:\/\/([^/?#]+)/.exec(request.url) || [])[1] || 'non-http URL'}`);
       webRef.current?.injectJavaScript(

@@ -95,11 +95,11 @@ function drawMap(){
     const fmtDeg=(v,pos,neg)=>{const a=Math.abs(v),d=Math.floor(a+1e-9),m=Math.round((a-d)*60);return `${d}°${String(m).padStart(2,'0')}′${v>=0?pos:neg}`;};
     for(let la=Math.ceil((lat0-span)/step)*step;la<lat0+span;la+=step){
       const y=CY-(la-lat0)*69*PPM;if(y<8||y>H-8)continue;
-      g.push(svg('line',{class:'grat',x1:0,y1:y,x2:W,y2:y}));if(y<H-60)g.push(svg('text',{class:'grat-t',x:6,y:y-4},fmtDeg(la,'N','S')));
+      g.push(svg('line',{class:'grat',x1:0,y1:y,x2:W,y2:y}));if(y<H-60&&y>24)g.push(svg('text',{class:'grat-t',x:6,y:y-4},fmtDeg(la,'N','S'))); // labels whole on the map
     }
     for(let lo=Math.ceil((lon0-span*1.5)/step)*step;lo<lon0+span*1.5;lo+=step){
       const x=CX+(lo-lon0)*69.172*cos*PPM;if(x<8||x>W-8)continue;
-      g.push(svg('line',{class:'grat',x1:x,y1:0,x2:x,y2:H}),svg('text',{class:'grat-t',x:x+4,y:H-8},fmtDeg(lo,'E','W')));
+      g.push(svg('line',{class:'grat',x1:x,y1:0,x2:x,y2:H}));if(x<W-70)g.push(svg('text',{class:'grat-t',x:x+4,y:H-8},fmtDeg(lo,'E','W')));
     }
   }
   $.grat.replaceChildren(...g);

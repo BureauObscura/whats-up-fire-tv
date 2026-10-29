@@ -24,6 +24,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#000}
 .credit-flash.on{opacity:1;transition:opacity .3s ease}
 .credit-flash .cl{display:block;white-space:nowrap;overflow:hidden;line-height:1.35;text-align:center}
 .credit-flash .cl:empty{display:none}
+#credit-b{white-space:normal} /* the exact satellite credit may take two lines rather than clip */
 kbd{font:inherit;border:1px solid var(--ui-faint);padding:0 4px;border-radius:3px}
 
 /* Overlays (D-pad: arrows move, Select chooses, Back closes) */
