@@ -1,5 +1,5 @@
 {
- "note": "Public source backup. History rewritten: authorship under this account, personal details replaced with neutral placeholders, test locations moved to public places. The main branch has one extra commit on top of its rewritten tip that adds README.md, docs/DEVELOPMENT.md (the earlier README), licenses/overhead-MIT.txt (moved from LICENSE), qa/, tools/ and this file; its file list below is that final tree, excluding this file.",
+ "note": "Public source backup. History rewritten: authorship under this account, personal details replaced with neutral placeholders, test locations moved to public places. The main branch has one extra commit on top of its rewritten tip that adds README.md, docs/DEVELOPMENT.md (the earlier README), licenses/overhead-MIT.txt (moved from LICENSE), qa/, tools/ and this file; its file list below is that final tree, excluding this file. Later edits are ordinary commits on top; the file lists are updated with them.",
  "branches": {
   "main": {
    "original_tip": "57607c72f21d346ed1f7d20a749fdc92382cc210",
@@ -9,7 +9,7 @@
     ".gitignore": "bd2eb4d9caf599504d5b3e70434a3a4a434deefefe468a1dae64acd5cb69f663",
     ".prettierrc": "89e900b102bf49b5c768cc796ea8b3bae9aab4f20bea0b2c739234e263feea37",
     "README.md": "d5428bdc34b6d484d933377a033ddbd3f582b1940b0f80f1f8b70defcbc9acb8",
-    "TESTING.md": "2d62baaf4974dc115a51fca207b2fb0fab8dddd8ca104c1fcc8d9b99a1609be6",
+    "TESTING.md": "14ff220154882a570e99f0ef927f72a9f879ab0140262006c179fdf1a2602184",
     "THIRD_PARTY_NOTICES.md": "1b77494909180f3042e65820e6ff68289554802626e06f76fb6a9674c6baf3f8",
     "app.json": "bfc8b3a9240c9917309da28bb205338bad48f9d2f5d2c334c95df148b77020b7",
     "assets/fonts/B612Mono-Bold.woff2": "4244b8728568bba2f3f5875c65d6dbb5dbb6162bf0fe343201810d2a748c9782",
@@ -392,7 +392,7 @@
     ".prettierrc": "89e900b102bf49b5c768cc796ea8b3bae9aab4f20bea0b2c739234e263feea37",
     "LICENSE": "b281869263fe57abdf2f15fc78f9717771c25bcd50367dfd1801c13dcdfdb579",
     "README.md": "03274f031176dee43e50ea1d71055ce3177fdae5aba47de6f11884e439e9be27",
-    "TESTING.md": "2d62baaf4974dc115a51fca207b2fb0fab8dddd8ca104c1fcc8d9b99a1609be6",
+    "TESTING.md": "14ff220154882a570e99f0ef927f72a9f879ab0140262006c179fdf1a2602184",
     "THIRD_PARTY_NOTICES.md": "1b77494909180f3042e65820e6ff68289554802626e06f76fb6a9674c6baf3f8",
     "app.json": "bfc8b3a9240c9917309da28bb205338bad48f9d2f5d2c334c95df148b77020b7",
     "assets/fonts/B612Mono-Bold.woff2": "4244b8728568bba2f3f5875c65d6dbb5dbb6162bf0fe343201810d2a748c9782",
