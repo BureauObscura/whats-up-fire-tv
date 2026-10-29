@@ -52,7 +52,7 @@ line runs across the title block and the revisions table; at 15 mi the outer rin
 "R 15 MI" and the "N" sit off-screen. Shot: `p2-blueprint-ring-offstage.png`. Fix: clip the
 zone and construction rings to the drawing frame; cap ring labels inside it.
 
-**P2-5. Window from = Window to makes a useless zone.** Setting both to ENE 74° draws a single
+**P2-5. Window from = Window to makes a useless zone.** Setting both to ENE 74° (the example window's start) draws a single
 line and almost nothing counts as "in your window"; there's no warning. Shot:
 `p2-window-from-equals-to.png`. Fix: block equal values (step past them), or treat equal as
 "all around".
