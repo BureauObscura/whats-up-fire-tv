@@ -8,7 +8,7 @@ import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
-import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr} from './kit.mjs';
+import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit as fitText} from './kit.mjs';
 
 const $=id=>document.getElementById(id);
 const setText=(id,v)=>{const el=$(id);v=v??'';if(el&&el.textContent!==String(v))el.textContent=v;};
@@ -291,7 +291,9 @@ let kofiFor='';
 function showTipJar(){
   const cs=getComputedStyle(stage),key=cs.getPropertyValue('--ui-ink')+cs.getPropertyValue('--ui-bg');
   if(kofiFor!==key){const qr=themedQr(KOFI);if(qr){kofiFor=key;$('kofi-qr').src=qr;}}
-  for(const id of ['kofi-a','kofi-b'])fitLine($(id));
+  // One line each: shorter wordings for the narrow monospace layouts (Cockpit, Radar).
+  const alts={'kofi-a':['Enjoying it? Tip the developer','Enjoying it? Tip the dev'],'kofi-b':['Optional. The app stays free either way.','Optional. Free either way.']};
+  for(const id of ['kofi-a','kofi-b']){const e=$(id);e._alts=alts[id];fitLine(e);}
 }
 function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
@@ -709,6 +711,7 @@ window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
 // --- Boot
 async function boot(){
   buildKeys();
+  fitText($('kofi-a'),$('kofi-b')); // the tip lines re-fit when a layout's font arrives (P3-2)
   tellAwake();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}

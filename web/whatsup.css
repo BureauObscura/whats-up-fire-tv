@@ -135,7 +135,7 @@ button.focus{border-color:var(--ui-ink);background:var(--ui-ink);color:var(--ui-
 #settings .card.settings{position:relative}
 #settings .tip-jar{position:absolute;left:26px;bottom:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
 #settings .tip-jar img{width:76px;height:76px;image-rendering:pixelated;display:block}
-#settings .tip-jar div{display:flex;flex-direction:column;gap:2px;width:210px}
+#settings .tip-jar div{display:flex;flex-direction:column;gap:2px;width:212px}
 #settings .tip-jar b,#settings .tip-jar span{white-space:nowrap;overflow:hidden;font-size:13px;color:var(--ui-dim)}
 #settings .tip-jar b{font-weight:600;color:var(--ui-ink)}
 /* Consent (before anything is fetched): body at least 28 px on a 1080p TV (14 px on the 960 stage). */

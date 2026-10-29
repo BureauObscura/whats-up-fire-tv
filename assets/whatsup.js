@@ -4721,7 +4721,7 @@ const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog,setLogRadius}=__modules["model.mjs"];
 const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
 const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits}=__modules["mapgen.mjs"];
-const {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr}=__modules["kit.mjs"];
+const {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit:fitText}=__modules["kit.mjs"];
 // What's Up: the page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
@@ -5014,7 +5014,9 @@ let kofiFor='';
 function showTipJar(){
   const cs=getComputedStyle(stage),key=cs.getPropertyValue('--ui-ink')+cs.getPropertyValue('--ui-bg');
   if(kofiFor!==key){const qr=themedQr(KOFI);if(qr){kofiFor=key;$('kofi-qr').src=qr;}}
-  for(const id of ['kofi-a','kofi-b'])fitLine($(id));
+  // One line each: shorter wordings for the narrow monospace layouts (Cockpit, Radar).
+  const alts={'kofi-a':['Enjoying it? Tip the developer','Enjoying it? Tip the dev'],'kofi-b':['Optional. The app stays free either way.','Optional. Free either way.']};
+  for(const id of ['kofi-a','kofi-b']){const e=$(id);e._alts=alts[id];fitLine(e);}
 }
 function showSettings(){
   const i=LAYOUTS.findIndex(([k])=>k===settings.layout);
@@ -5432,6 +5434,7 @@ window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
 // --- Boot
 async function boot(){
   buildKeys();
+  fitText($('kofi-a'),$('kofi-b')); // the tip lines re-fit when a layout's font arrives (P3-2)
   tellAwake();
   if(query.get('reset')==='1'){saveSettings({});settings=loadSettings();}
   if(query.get('units')==='metric'){settings.distance='km';settings.altitude='m';}
