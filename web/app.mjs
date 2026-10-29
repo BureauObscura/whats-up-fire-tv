@@ -520,7 +520,7 @@ function select(el){
     case 'confirm-adjust':return startAdjust(pending);
     case 'confirm-again':return close();
     case 'set-done':return close();
-    case 'set-about':return open('about','about-back');
+    case 'set-about':return openAbout();
     case 'set-privacy':return openPrivacy();
     case 'consent-ok':return agree();
     case 'consent-policy':return openPrivacy();
@@ -636,8 +636,8 @@ document.addEventListener('keydown',e=>{
     if(k==='Enter'||k===' '){endPick(true);return close();}
     return;
   }
-  if(dir&&layer.id==='privacy'&&(dir==='up'||dir==='down')){
-    e.preventDefault();const d=$('privacy-doc');d.scrollTop+=(dir==='down'?1:-1)*d.clientHeight*.6;return;
+  if(dir&&(layer.id==='privacy'||layer.id==='about')&&(dir==='up'||dir==='down')){
+    e.preventDefault();const d=$(`${layer.id}-doc`);d.scrollTop+=(dir==='down'?1:-1)*d.clientHeight*.6;return;
   }
   if(dir){
     e.preventDefault();
@@ -688,6 +688,12 @@ function openPrivacy(){
   const qr=$('privacy-qr');qr.hidden=!PRIVACY_URL;if(PRIVACY_URL)qr.src=themedQr(PRIVACY_URL);
   $('privacy-erase').hidden=!hasConsent(); // before consent there is nothing to erase
   open('privacy','privacy-back');
+}
+// About & credits (assets/licenses.txt), with the QR adsb.fi's terms ask for (a cite and a link).
+function openAbout(){
+  const doc=$('about-doc');renderDoc(doc,window.__whatsupDocs?.licenses||'');doc.scrollTop=0;
+  $('about-qr').src=themedQr('https://adsb.fi');
+  open('about','about-back');
 }
 // Everything the app stored on this TV, then a clean start at the consent screen.
 function eraseAll(){

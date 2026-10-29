@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor}=__modules["kit.mjs"];
 // Layout 2, Atlas Light: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -240,7 +240,7 @@ function showPhoto(a){
       const m=modelPhoto(a);if(!m)return;
       photo=m;$.img.src=m.src;$.pic.classList.add('model');
       // CC BY: the author stays in every wording; long names shorten to an initial.
-      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      const short=shortAuthor(m.author);
       $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,
         `${m.author} · ${m.license}`,`Model photo · ${short} · ${m.license}`,`${short} · ${m.license}`];
     }

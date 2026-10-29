@@ -5,7 +5,7 @@
 // Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor} from '../kit.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
 // ppm 25.5: the map radius fits between home and the bottom edge (264 px), so every plane
@@ -237,7 +237,7 @@ function showPhoto(a){
       const m=modelPhoto(a);if(!m)return;
       photo=m;$.img.src=m.src;$.pic.classList.add('model');
       // CC BY: the author stays in every wording; long names shorten to an initial.
-      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      const short=shortAuthor(m.author);
       $.credit._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,
         `${m.author} · ${m.license}`,`Model photo · ${short} · ${m.license}`,`${short} · ${m.license}`];
     }

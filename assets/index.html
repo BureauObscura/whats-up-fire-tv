@@ -112,17 +112,13 @@
   </div>
 
   <!-- Settings > About & credits. -->
-  <div class="overlay" id="about" hidden>
+  <!-- About & credits: assets/licenses.txt (scripts/build-credits.mjs), scrolled with Up/Down. -->
+  <div class="overlay" id="about" hidden role="dialog" aria-modal="true" aria-labelledby="about-title">
     <div class="card wide about">
-      <div class="title">About &amp; credits</div>
-      <p><b>What's Up</b> by Spacely Digital · spacelydigital@gmail.com</p>
-      <p>Free, no ads. If you enjoy it, you can buy me a coffee: ko-fi.com/spacelydigital</p>
-      <p>Aircraft positions: adsb.fi (personal, non-commercial use). Routes: ADSB.lol.</p>
-      <p>Map: © OpenFreeMap © OpenMapTiles © OpenStreetMap contributors.</p>
-      <p>Place search: Open-Meteo (GeoNames data, CC BY 4.0). IP location: GeoJS, using GeoLite2 data from MaxMind.</p>
-      <p>Satellite imagery (Atlas Satellite): USGS The National Map (US, public domain); elsewhere Sentinel-2 cloudless 2016 by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2016.</p>
-      <p>Aircraft photos: Planespotters.net (photographer credited with each photo). Model photos: Wikimedia Commons contributors (credited with each photo).</p>
-      <button class="row done" id="about-back" data-focus><span>Back</span></button>
+      <div class="title" id="about-title">About &amp; credits</div>
+      <div class="doc-wrap"><div class="doc" id="about-doc"></div><figure class="doc-qr-box"><img class="doc-qr" id="about-qr" alt="QR code for adsb.fi"><figcaption>adsb.fi</figcaption></figure></div>
+      <p class="hint doc-hint">Up and Down scroll · Back closes</p>
+      <div class="buttons"><button class="btn" id="about-back" data-focus>Back</button></div>
     </div>
   </div>
 

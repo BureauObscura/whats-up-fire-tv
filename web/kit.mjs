@@ -30,6 +30,9 @@ export function themedQr(link){
 // The aircraft picture block shared by the non-Atlas layouts: photo of this aircraft
 // (Planespotters, credit + QR, per their terms) -> bundled model photo -> nothing (the
 // layout keeps its own text). Styled per layout via .ph / .ph-img / .ph-qr / .ph-cap.
+// A model photo's author, shortened for a tight caption: an agency credit keeps the
+// agency ("U.S. Air Force photo"), a person becomes "J. Herzog".
+export const shortAuthor=a=>/^Author unknown$/.test(a)?a:/ photo( by |$)/.test(a)?a.replace(/ by .*$/,''):a.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
 export function photoSlot(cls=''){
   const s=el('div',`ph ${cls}`);s.hidden=true;
   s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
@@ -47,7 +50,7 @@ export function showPhotoIn(s,a,relayout=()=>{}){
     if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
     else{
       const m=modelPhoto(a);if(!m)return;
-      const short=m.author.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
+      const short=shortAuthor(m.author);
       s.classList.add('model');s._img.src=m.src;
       s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`Model photo · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${short} · ${m.license}`];
     }
