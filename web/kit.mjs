@@ -49,6 +49,11 @@ export function showPhotoIn(s,a,relayout=()=>{}){
   photoFor(a).then(p=>{
     if(s._hex!==hex||!s.isConnected)return;
     const qr=p&&themedQr(p.link);
+    // A Planespotters image that fails to load: the bundled model photo instead (or none).
+    s._img.onerror=()=>{if(s._hex!==hex||s.classList.contains('model'))return;const m=modelPhoto(a);
+      if(!m){s.hidden=true;relayout();return;}
+      s.classList.add('model');s._qr.removeAttribute('src');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;
+      s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${shortAuthor(m.author)} · ${m.license}`];fitLine(s._cap);};
     if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
     else{
       const m=modelPhoto(a);if(!m)return;
@@ -133,7 +138,9 @@ export const fmt={
   speedNum:kt=>!number(kt)?'—':S.distance==='km'?fmt.int(kt*1.852):fmt.int(kt),
   speedUnit:()=>S.distance==='km'?'km/h':'kt',
   distUnit:()=>S.distance==='km'?'km':'mi',
-  vs:fpm=>!number(fpm)||Math.abs(fpm)<100?'level':S.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
+  // Hundreds of feet for tags ("045"), never negative ("0-1" below sea level).
+  hundreds:ft=>String(Math.max(0,Math.round((ft||0)/100))).padStart(3,'0'),
+  vs:fpm=>!number(fpm)?'—':Math.abs(fpm)<100?'level':S.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
     `${fpm>0?'↑':'↓'}${fmt.int(Math.abs(Math.round(fpm/50)*50))}`,
   mmss:s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`,
   ago:(stamp,now)=>{const m=Math.max(0,Math.floor((now/1000-stamp)/60));return m<1?'now':m<60?`${m}m`:`${Math.floor(m/60)}h`;},

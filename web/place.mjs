@@ -32,8 +32,9 @@ const clean=(v,n=60)=>typeof v==='string'?v.trim().slice(0,n):'';
 export function placeLabel(p){
   if(!p)return '';
   const cc=clean(p.countryCode,2).toUpperCase(),admin=clean(p.admin);
-  const region=cc==='US'?US[admin]:cc==='CA'?CA[admin]:'';
-  const country=SHORT_COUNTRY[cc]||(clean(p.country).length<=12?clean(p.country):cc);
+  const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k)?o[k]:''; // a region called 'constructor' is no state
+  const region=cc==='US'?own(US,admin):cc==='CA'?own(CA,admin):'';
+  const country=own(SHORT_COUNTRY,cc)||(clean(p.country).length<=12?clean(p.country):cc);
   return [clean(p.name),region||country].filter(Boolean).join(', ');
 }
 const validTz=tz=>{try{new Intl.DateTimeFormat('en-US',{timeZone:tz});return true;}catch{return false;}};

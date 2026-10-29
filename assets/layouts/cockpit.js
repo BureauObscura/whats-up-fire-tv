@@ -182,7 +182,7 @@ function render(m){
     tape($['spd-tape'],null,{step:10,label:20,span:120,w:74});
     tape($['alt-tape'],null,{step:100,label:500,span:1000,w:84,right:true});
   }else{
-    const spd=metric()?hero.speed_kt*1.852:hero.speed_kt,altv=fmt.altUnit()==='m'?hero.altitude_ft*.3048:hero.altitude_ft;
+    const spd=!number(hero.speed_kt)?null:metric()?hero.speed_kt*1.852:hero.speed_kt,altv=fmt.altUnit()==='m'?hero.altitude_ft*.3048:hero.altitude_ft;
     tape($['spd-tape'],number(spd)?spd:null,{step:10,label:20,span:120,w:74});
     tape($['alt-tape'],number(altv)?altv:null,fmt.altUnit()==='m'?{step:20,label:100,span:300,w:84,right:true}:{step:100,label:200,span:1000,w:84,right:true});
     setText($.gs,fmt.speedNum(hero.speed_kt));setText($['nd-alt'],fmt.alt(hero.altitude_ft));

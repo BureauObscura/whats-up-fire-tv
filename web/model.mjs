@@ -244,7 +244,8 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);saveLogSoon(log,now);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};
+    // Today's tallies are today's: after midnight with no fresh feed yet, yesterday's don't show.
+    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log?.day===localDay(now)?log:null),retryIn};
     if(ok&&fresh)lastGood=model;
     onModel(model);
   },config);

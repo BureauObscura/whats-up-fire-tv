@@ -107,9 +107,9 @@ function drawMap(){
 
 function blockText(a){
   const ft=a.altitude_ft,vs=a.vertical>300?'↑':a.vertical<-300?'↓':'';
-  const alt=fmt.altUnit()==='m'?`${(ft*.3048/1000).toFixed(1)}k`:String(Math.round(ft/100)).padStart(3,'0');
+  const alt=fmt.altUnit()==='m'?`${(Math.max(0,ft)*.3048/1000).toFixed(1)}k`:fmt.hundreds(ft);
   const spd=metric()?Math.round((a.speed_kt||0)*1.852):Math.round(a.speed_kt||0);
-  return [a.flight,`${alt}${vs} ${String(spd).padStart(3,'0')}`,`${a.aircraft_type||'----'} ${a.route?.destination||''}`.trim()];
+  return [a.flight,`${alt}${vs} ${number(a.speed_kt)?String(spd).padStart(3,'0'):'---'}`,`${a.aircraft_type||'----'} ${a.route?.destination||''}`.trim()];
 }
 
 function render(m){

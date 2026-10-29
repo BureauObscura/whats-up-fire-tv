@@ -345,7 +345,8 @@ export function startLive(onUpdate,config){
     if(stopped||paused)return;
     const started=Date.now();
     const url=feedUrlFor(home,config.searchNm);
-    const {status,payload,retryAfter}=url?await getJson(url,4000):{status:0};
+    // Wide areas are big replies: more time to arrive (4 s up to 25 NM, 12 s at 250).
+    const {status,payload,retryAfter}=url?await getJson(url,Math.min(12000,4000+config.searchNm*32)):{status:0};
     if(stopped||paused)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];

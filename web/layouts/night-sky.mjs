@@ -59,7 +59,11 @@ function drawHome(){
   $.home.replaceChildren(svg('path',{class:'ring',d:zonePath((x,y)=>({x:cx+x*ppm,y:cy-y*ppm}))}),svg('circle',{class:'me',cx,cy,r:3.2}));
 }
 
+// Trails are in miles from home: a new home starts them afresh (they stayed up to 8 min).
+let trailHome='';
 function render(m){
+  const p=ctx?.place(),key=p?`${p.latitude},${p.longitude}`:'';
+  if(key!==trailHome){trailHome=key;trails.clear();}
   const {now,hero}=m;
   fit($.city);setText($.city,placeName(),placeAlts());
   setText($.clock,fmt.clock(now));

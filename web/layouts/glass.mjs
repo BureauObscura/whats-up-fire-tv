@@ -118,7 +118,7 @@ function render(m){
     setText($.look,`${Math.max(0,Math.round(hero.elevation))}° ${compass(hero.bearing)}`);
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'Passed':fmt.mmss(c.seconds));
   }
-  const others=m.planes.filter(a=>a!==hero).slice(0,hero?.emergency?2:3);
+  const others=m.planes.filter(a=>a!==hero&&a.ground<=range()).slice(0,hero?.emergency?2:3); // on the map only
   $.list.replaceChildren(...(others.length?others.map(a=>{
     const r=el('div','gl-row');
     const arrow=el('i','gl-arrow','▲');arrow.style.transform=`rotate(${Math.round(a.heading||0)}deg)`;

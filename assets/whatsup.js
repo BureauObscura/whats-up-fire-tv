@@ -3328,7 +3328,8 @@ function startLive(onUpdate,config){
     if(stopped||paused)return;
     const started=Date.now();
     const url=feedUrlFor(home,config.searchNm);
-    const {status,payload,retryAfter}=url?await getJson(url,4000):{status:0};
+    // Wide areas are big replies: more time to arrive (4 s up to 25 NM, 12 s at 250).
+    const {status,payload,retryAfter}=url?await getJson(url,Math.min(12000,4000+config.searchNm*32)):{status:0};
     if(stopped||paused)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
@@ -3587,8 +3588,9 @@ const clean=(v,n=60)=>typeof v==='string'?v.trim().slice(0,n):'';
 function placeLabel(p){
   if(!p)return '';
   const cc=clean(p.countryCode,2).toUpperCase(),admin=clean(p.admin);
-  const region=cc==='US'?US[admin]:cc==='CA'?CA[admin]:'';
-  const country=SHORT_COUNTRY[cc]||(clean(p.country).length<=12?clean(p.country):cc);
+  const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k)?o[k]:''; // a region called 'constructor' is no state
+  const region=cc==='US'?own(US,admin):cc==='CA'?own(CA,admin):'';
+  const country=own(SHORT_COUNTRY,cc)||(clean(p.country).length<=12?clean(p.country):cc);
   return [clean(p.name),region||country].filter(Boolean).join(', ');
 }
 const validTz=tz=>{try{new Intl.DateTimeFormat('en-US',{timeZone:tz});return true;}catch{return false;}};
@@ -4366,7 +4368,8 @@ function liveSource(config,onModel){
     if(fresh){log=updateLog(log,planes,now);saveLogSoon(log,now);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
-    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};
+    // Today's tallies are today's: after midnight with no fresh feed yet, yesterday's don't show.
+    const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log?.day===localDay(now)?log:null),retryIn};
     if(ok&&fresh)lastGood=model;
     onModel(model);
   },config);
@@ -4509,6 +4512,11 @@ function showPhotoIn(s,a,relayout=()=>{}){
   photoFor(a).then(p=>{
     if(s._hex!==hex||!s.isConnected)return;
     const qr=p&&themedQr(p.link);
+    // A Planespotters image that fails to load: the bundled model photo instead (or none).
+    s._img.onerror=()=>{if(s._hex!==hex||s.classList.contains('model'))return;const m=modelPhoto(a);
+      if(!m){s.hidden=true;relayout();return;}
+      s.classList.add('model');s._qr.removeAttribute('src');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;
+      s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${shortAuthor(m.author)} · ${m.license}`];fitLine(s._cap);};
     if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`© ${p.photographer} · Planespotters.net`,`© ${p.photographer}`];}
     else{
       const m=modelPhoto(a);if(!m)return;
@@ -4592,7 +4600,9 @@ const fmt={
   speedNum:kt=>!number(kt)?'—':S.distance==='km'?fmt.int(kt*1.852):fmt.int(kt),
   speedUnit:()=>S.distance==='km'?'km/h':'kt',
   distUnit:()=>S.distance==='km'?'km':'mi',
-  vs:fpm=>!number(fpm)||Math.abs(fpm)<100?'level':S.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
+  // Hundreds of feet for tags ("045"), never negative ("0-1" below sea level).
+  hundreds:ft=>String(Math.max(0,Math.round((ft||0)/100))).padStart(3,'0'),
+  vs:fpm=>!number(fpm)?'—':Math.abs(fpm)<100?'level':S.altitude==='m'?`${fpm>0?'↑':'↓'}${(Math.abs(fpm)*.00508).toFixed(1)} m/s`:
     `${fpm>0?'↑':'↓'}${fmt.int(Math.abs(Math.round(fpm/50)*50))}`,
   mmss:s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`,
   ago:(stamp,now)=>{const m=Math.max(0,Math.floor((now/1000-stamp)/60));return m<1?'now':m<60?`${m}m`:`${Math.floor(m/60)}h`;},
@@ -5003,7 +5013,9 @@ async function applyPlace(place,{fresh=false}={}){
   // Keep maps already in memory when they still fit this place and radius.
   const same=m=>m&&Math.abs(m.latitude-place.latitude)<.01&&Math.abs(m.longitude-place.longitude)<.01;
   const keepBase=same(maps.base)&&maps.base.range===range,keepDetail=same(maps.detail)&&detailFits(maps.detail,detailSpec(range));
-  if(!keepBase)maps.base=savedMap(place,range)||(()=>{const old=savedMap(place,range,{stale:true});return old&&{...old,stale:true};})();
+  // No saved map for this radius yet: an older one, or the map already on screen (another
+  // radius, same place: it's in miles, so it still draws), shows while the new one is built.
+  if(!keepBase)maps.base=savedMap(place,range)||(()=>{const old=savedMap(place,range,{stale:true})||(same(maps.base)?maps.base:null);return old&&{...old,stale:true};})();
   if(!keepDetail){maps.detail=null;detailToken++;detailBusy=false;clearTimeout(detailRetry);detailTries=0;}
   if(!keepBase||!keepDetail)mapsChanged();
   if(active?.mod.map==='detail'&&!keepDetail)ensureDetail();

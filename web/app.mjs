@@ -192,7 +192,9 @@ async function applyPlace(place,{fresh=false}={}){
   // Keep maps already in memory when they still fit this place and radius.
   const same=m=>m&&Math.abs(m.latitude-place.latitude)<.01&&Math.abs(m.longitude-place.longitude)<.01;
   const keepBase=same(maps.base)&&maps.base.range===range,keepDetail=same(maps.detail)&&detailFits(maps.detail,detailSpec(range));
-  if(!keepBase)maps.base=savedMap(place,range)||(()=>{const old=savedMap(place,range,{stale:true});return old&&{...old,stale:true};})();
+  // No saved map for this radius yet: an older one, or the map already on screen (another
+  // radius, same place: it's in miles, so it still draws), shows while the new one is built.
+  if(!keepBase)maps.base=savedMap(place,range)||(()=>{const old=savedMap(place,range,{stale:true})||(same(maps.base)?maps.base:null);return old&&{...old,stale:true};})();
   if(!keepDetail){maps.detail=null;detailToken++;detailBusy=false;clearTimeout(detailRetry);detailTries=0;}
   if(!keepBase||!keepDetail)mapsChanged();
   if(active?.mod.map==='detail'&&!keepDetail)ensureDetail();

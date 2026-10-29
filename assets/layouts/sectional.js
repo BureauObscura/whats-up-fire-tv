@@ -190,7 +190,7 @@ function render(m){
   }
   for(const a of tagged){
     const p=P(a.x,a.y),isHero=a===hero;
-    const l1=a.flight,l2=`${fmt.altUnit()==='m'?fmt.altNum(a.altitude_ft):String(Math.round((a.altitude_ft||0)/100)).padStart(3,'0')} · ${a.aircraft_type||''}`;
+    const l1=a.flight,l2=`${fmt.altUnit()==='m'?fmt.altNum(a.altitude_ft):fmt.hundreds(a.altitude_ft)} · ${a.aircraft_type||''}`;
     const w=Math.max(l1.length*8.6,l2.length*7)+6,h=30;
     const b=[[16,-h-4],[16,6],[-w-16,-h-4],[-w-16,6]].map(([dx,dy])=>({x:p.x+dx,y:p.y+dy,w,h}))
       .find(b=>b.x>2&&b.x+w<W-2&&b.y>2&&b.y+h<H-40&&!tb.some(o=>overlap(o,b)));
