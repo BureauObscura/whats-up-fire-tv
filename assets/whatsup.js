@@ -3599,7 +3599,7 @@ function makePlace(o){
   return {name:clean(o.name)||'Unknown place',admin:clean(o.admin),country:clean(o.country),
     countryCode:clean(o.countryCode,2).toUpperCase(),latitude,longitude,timeZone,source:o.source,
     elevationM:number(Number(o.elevationM))?Number(o.elevationM):0,street:clean(o.street,80),
-    accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
+    accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null,...(o.tzGuess===true?{tzGuess:true}:{})};
 }
 
 // Window view reach (Settings > Window distance) and whole-degree bearings.
@@ -3651,11 +3651,22 @@ async function searchPlaces(query){
 const looksLikeAddress=q=>/^\d+[A-Z]?\s+[A-Z]/i.test(clean(q))&&!/^\d{5}(-\d{4})?$/.test(clean(q));
 const title=s=>s.toLowerCase().replace(/\b([a-z])/g,c=>c.toUpperCase());
 
-// Time zone and elevation for a geocoded address (rounded coordinates only).
+// Time zone and elevation for a geocoded address (the snapped grid point only). If the
+// lookup fails, the TV's own time zone stands in, marked tzGuess, and the app looks it up
+// again later (refineZone): a geocoder's default (New York, UTC) was saved for good.
+const deviceTz=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch{return '';}};
 async function addZone(p){
   const g=snapped(p);
   const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
-  return makePlace({...p,timeZone:status===200?payload?.timezone:p.timeZone,elevationM:payload?.elevation});
+  if(status===200&&validTz(payload?.timezone))return makePlace({...p,timeZone:payload.timezone,elevationM:payload?.elevation,tzGuess:false});
+  return makePlace({...p,timeZone:validTz(deviceTz())?deviceTz():p.timeZone,tzGuess:true});
+}
+// A saved place whose time zone was a stand-in: the looked-up one, or null.
+async function refineZone(p){
+  if(!p?.tzGuess)return null;
+  const g=snapped(p);
+  const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
+  return status===200&&validTz(payload?.timezone)?makePlace({...p,timeZone:payload.timezone,elevationM:payload?.elevation??p.elevationM,tzGuess:false}):null;
 }
 
 // Street address -> matches. US Census first (US addresses; skipped when home is
@@ -3700,7 +3711,7 @@ async function searchAddressUncached(query,{skipCensus=false}={}){
   return found;
 }
 
-return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,VIEW_MILES,MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,searchAddress};
+return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,VIEW_MILES,MAP_RADII,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,looksLikeAddress,refineZone,searchAddress};
 })();
 // ---- mapgen.mjs
 __modules["mapgen.mjs"]=(()=>{
@@ -3797,17 +3808,27 @@ async function tileTemplate(net){
 // A tile that fails twice fails the whole build (a map with a hole was saved for 30 days);
 // `alive()` false (the user moved on) stops it between tiles.
 const STALE='stale';
+const MAX_TILES=90;
 async function eachTile(home,lim,zoom,template,net,MVT,fn,alive=()=>true){
   const cos=Math.cos(home.latitude*DEG);
   const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
   const c=snapped(home),wide=lim+GRID_PAD_MI,ccos=Math.cos(c.latitude*DEG);
   const dLat=wide/69,dLon=wide/(69.172*ccos);
-  const x0=Math.floor(tileX(c.longitude-dLon,zoom)),x1=Math.floor(tileX(c.longitude+dLon,zoom));
-  const y0=Math.floor(tileY(c.latitude+dLat,zoom)),y1=Math.floor(tileY(c.latitude-dLat,zoom));
+  // Far north or south a mile spans more tiles: step down up to two zooms to stay within
+  // MAX_TILES (Alaska and Nordic homes asked for hundreds).
+  let x0,x1,y0,y1;
+  for(let z=zoom;;z--){
+    x0=Math.floor(tileX(c.longitude-dLon,z));x1=Math.floor(tileX(c.longitude+dLon,z));
+    y0=Math.floor(tileY(c.latitude+dLat,z));y1=Math.floor(tileY(c.latitude-dLat,z));
+    if((x1-x0+1)*(y1-y0+1)<=MAX_TILES||z<=Math.max(2,zoom-2)){zoom=z;break;}
+  }
+  const n=2**zoom;
   let fetched=0;
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
     if(!alive())throw new Error(STALE);
-    const url=template.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty);
+    // Across the date line the tile column wraps (geometry keeps the unwrapped column, so it
+    // still lands east or west of home correctly).
+    const url=template.replace('{z}',zoom).replace('{x}',((tx%n)+n)%n).replace('{y}',ty);
     let bytes=await net.getBytes(url);
     if(!bytes){await new Promise(r=>setTimeout(r,1500));if(!alive())throw new Error(STALE);bytes=await net.getBytes(url);}
     if(!bytes)throw new Error(`tile ${zoom}/${tx}/${ty} unavailable`);
@@ -4194,19 +4215,22 @@ function saveLogSoon(log,now){
 }
 function updateLog(log,planes,now){
   const day=localDay(now);
-  if(!log||log.day!==day)log={day,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
+  if(!log||log.day!==day)log={day,pk:1,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
   // Today's aircraft (any distance the feed covers): closest approach, type, callsign and
   // origin. Rarest and Farthest pick from those that came within the map radius, so they
   // follow zooming. Older logs (no planes yet): today's local types count as close (0 mi).
   if(!log.planes){log.planes={};for(const t of log.typesToday||[])log.planes[`old-${t}`]={t,d:0};}
+  // Plane keys are 'x'+hex: an all-digit hex is an integer-like key, which objects keep
+  // first, so the 4000 cap evicted those planes first and they were counted again.
+  if(!log.pk){const old=log.planes;log.planes={};for(const [k,v] of Object.entries(old))log.planes[/^[0-9a-f]{6}$/.test(k)?'x'+k:k]=v;log.pk=1;}
   delete log.typesZone;delete log.zoneSeen;
   const night=tonightKey(now);
   if(log.cargo.night!==night||Array.isArray(log.cargo.seen))log.cargo={night,seen:{}};
   for(const a of planes){
     const from=a.route?.from,d=Math.round(a.distance_mi*10)/10;
-    let rec=log.planes[a.hex];
+    let rec=log.planes['x'+a.hex];
     if(!rec){
-      rec=log.planes[a.hex]={d};
+      rec=log.planes['x'+a.hex]={d};
       // All-time type tallies: once per aircraft per day, wherever it was seen.
       if(a.aircraft_type)log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
       const keys=Object.keys(log.planes);if(keys.length>4000)delete log.planes[keys[0]];
@@ -4771,7 +4795,7 @@ const {CONFIG}=__modules["config.js"];
 const {chimeGate}=__modules["core.mjs"];
 const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
 const {start,demo,query,compass,resetLog,setLogRadius,flushLog}=__modules["model.mjs"];
-const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
+const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel,refineZone}=__modules["place.mjs"];
 const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits,STALE}=__modules["mapgen.mjs"];
 const {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit:fitText}=__modules["kit.mjs"];
 // The page. Owns the data (feed model, settings, maps) and the shared
@@ -5556,6 +5580,9 @@ async function boot(){
   useLayout(settings.layout);
   if(settings.place){
     applyPlace(settings.place);
+    // A time zone that was only a stand-in: look it up again (once per launch).
+    refineZone(settings.place).then(p=>{if(p&&settings.place?.latitude===p.latitude&&settings.place?.longitude===p.longitude){
+      settings={...settings,place:p};saveSettings(settings);useSettings(settings);restartFeed();refreshLayout();}});
     if(!settings.confirmed)showWelcome(settings.place);
     // Screenshot hooks: ?screen=settings|picker|welcome|adjust, ?screen=locate&typed=CHICAGO
     const screen=query.get('screen');

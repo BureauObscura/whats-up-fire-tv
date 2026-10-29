@@ -90,17 +90,27 @@ async function tileTemplate(net){
 // A tile that fails twice fails the whole build (a map with a hole was saved for 30 days);
 // `alive()` false (the user moved on) stops it between tiles.
 export const STALE='stale';
+const MAX_TILES=90;
 async function eachTile(home,lim,zoom,template,net,MVT,fn,alive=()=>true){
   const cos=Math.cos(home.latitude*DEG);
   const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
   const c=snapped(home),wide=lim+GRID_PAD_MI,ccos=Math.cos(c.latitude*DEG);
   const dLat=wide/69,dLon=wide/(69.172*ccos);
-  const x0=Math.floor(tileX(c.longitude-dLon,zoom)),x1=Math.floor(tileX(c.longitude+dLon,zoom));
-  const y0=Math.floor(tileY(c.latitude+dLat,zoom)),y1=Math.floor(tileY(c.latitude-dLat,zoom));
+  // Far north or south a mile spans more tiles: step down up to two zooms to stay within
+  // MAX_TILES (Alaska and Nordic homes asked for hundreds).
+  let x0,x1,y0,y1;
+  for(let z=zoom;;z--){
+    x0=Math.floor(tileX(c.longitude-dLon,z));x1=Math.floor(tileX(c.longitude+dLon,z));
+    y0=Math.floor(tileY(c.latitude+dLat,z));y1=Math.floor(tileY(c.latitude-dLat,z));
+    if((x1-x0+1)*(y1-y0+1)<=MAX_TILES||z<=Math.max(2,zoom-2)){zoom=z;break;}
+  }
+  const n=2**zoom;
   let fetched=0;
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
     if(!alive())throw new Error(STALE);
-    const url=template.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty);
+    // Across the date line the tile column wraps (geometry keeps the unwrapped column, so it
+    // still lands east or west of home correctly).
+    const url=template.replace('{z}',zoom).replace('{x}',((tx%n)+n)%n).replace('{y}',ty);
     let bytes=await net.getBytes(url);
     if(!bytes){await new Promise(r=>setTimeout(r,1500));if(!alive())throw new Error(STALE);bytes=await net.getBytes(url);}
     if(!bytes)throw new Error(`tile ${zoom}/${tx}/${ty} unavailable`);

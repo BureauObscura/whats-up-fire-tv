@@ -6,7 +6,7 @@ import {CONFIG} from './config.js';
 import {chimeGate} from './core.mjs';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
 import {start,demo,query,compass,resetLog,setLogRadius,flushLog} from './model.mjs';
-import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
+import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel,refineZone} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits,STALE} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit as fitText} from './kit.mjs';
 
@@ -781,6 +781,9 @@ async function boot(){
   useLayout(settings.layout);
   if(settings.place){
     applyPlace(settings.place);
+    // A time zone that was only a stand-in: look it up again (once per launch).
+    refineZone(settings.place).then(p=>{if(p&&settings.place?.latitude===p.latitude&&settings.place?.longitude===p.longitude){
+      settings={...settings,place:p};saveSettings(settings);useSettings(settings);restartFeed();refreshLayout();}});
     if(!settings.confirmed)showWelcome(settings.place);
     // Screenshot hooks: ?screen=settings|picker|welcome|adjust, ?screen=locate&typed=CHICAGO
     const screen=query.get('screen');

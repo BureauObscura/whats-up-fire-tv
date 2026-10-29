@@ -44,7 +44,7 @@ function makePlace(o){
   return {name:clean(o.name)||'Unknown place',admin:clean(o.admin),country:clean(o.country),
     countryCode:clean(o.countryCode,2).toUpperCase(),latitude,longitude,timeZone,source:o.source,
     elevationM:number(Number(o.elevationM))?Number(o.elevationM):0,street:clean(o.street,80),
-    accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null};
+    accuracyKm:number(Number(o.accuracyKm))?Number(o.accuracyKm):null,...(o.tzGuess===true?{tzGuess:true}:{})};
 }
 
 // Window view reach (Settings > Window distance) and whole-degree bearings.
@@ -96,11 +96,22 @@ export async function searchPlaces(query){
 export const looksLikeAddress=q=>/^\d+[A-Z]?\s+[A-Z]/i.test(clean(q))&&!/^\d{5}(-\d{4})?$/.test(clean(q));
 const title=s=>s.toLowerCase().replace(/\b([a-z])/g,c=>c.toUpperCase());
 
-// Time zone and elevation for a geocoded address (rounded coordinates only).
+// Time zone and elevation for a geocoded address (the snapped grid point only). If the
+// lookup fails, the TV's own time zone stands in, marked tzGuess, and the app looks it up
+// again later (refineZone): a geocoder's default (New York, UTC) was saved for good.
+const deviceTz=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch{return '';}};
 async function addZone(p){
   const g=snapped(p);
   const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
-  return makePlace({...p,timeZone:status===200?payload?.timezone:p.timeZone,elevationM:payload?.elevation});
+  if(status===200&&validTz(payload?.timezone))return makePlace({...p,timeZone:payload.timezone,elevationM:payload?.elevation,tzGuess:false});
+  return makePlace({...p,timeZone:validTz(deviceTz())?deviceTz():p.timeZone,tzGuess:true});
+}
+// A saved place whose time zone was a stand-in: the looked-up one, or null.
+export async function refineZone(p){
+  if(!p?.tzGuess)return null;
+  const g=snapped(p);
+  const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
+  return status===200&&validTz(payload?.timezone)?makePlace({...p,timeZone:payload.timezone,elevationM:payload?.elevation??p.elevationM,tzGuess:false}):null;
 }
 
 // Street address -> matches. US Census first (US addresses; skipped when home is

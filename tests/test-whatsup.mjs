@@ -124,7 +124,7 @@ test('logbook: Rarest and Farthest follow the map radius; Seen stays local',asyn
   let log=updateLog({day,seen:[],highest:null,fastest:null,typesToday:[],typesAll:{A124:5,C172:9,B77W:0},cargo:{night:null,seen:{}}},
     [p('aaa001','C172',5,{code:'LUK',city:'Near',lat:.1,lon:.1}),p('aaa002','B77W',40,{code:'NGO',city:'Tokoname',lat:34.86,lon:136.8})],now);
   log=updateLog(log,[p('aaa002','B77W',30)],now); // closer later: closest approach kept, origin kept
-  assert.equal(log.planes.aaa002.d,30);assert.equal(log.planes.aaa002.o.code,'NGO');
+  assert.equal(log.planes.xaaa002.d,30);assert.equal(log.planes.xaaa002.o.code,'NGO');
   assert.equal(pickRarest(log,15).code,'C172');assert.equal(pickRarest(log,50).code,'B77W');
   assert.equal(pickFarthest(log,15).name,'AAA001');assert.equal(pickFarthest(log,30).from,'Tokoname');
   let r=15;setLogRadius(()=>r);const s=logSummary(log);
@@ -215,4 +215,17 @@ test('clock skew: a TV clock a minute off the feed still shows the planes',async
     assert.equal(got['sensor.aircraft_candidate']?.state??got[Object.keys(got).find(k=>/candidate/.test(k))].state,'abc123',`plane kept with the feed ${off>0?'ahead':'behind'}`);
   }
   delete globalThis.fetch;
+});
+
+test('logbook: the 4000-plane cap drops the oldest, all-digit hexes included',async()=>{
+  const {updateLog}=await import('../web/model.mjs');
+  const now=Date.UTC(2026,9,28,12),day=new Date(now).toLocaleDateString('en-CA',{timeZone:'UTC'});
+  let log=updateLog({day,seen:[],highest:null,fastest:null,typesToday:[],typesAll:{},cargo:{night:null,seen:{}}},[{hex:'123456',distance_mi:5,aircraft_type:'B738'}],now);
+  for(let i=0;i<4000;i++)log=updateLog(log,[{hex:(0xa00000+i).toString(16),distance_mi:5}],now);
+  assert.ok(!log.planes.x123456,'the first plane (all digits) was the one dropped');
+  assert.ok(log.planes['xa00f9f'],'the newest kept');
+  log=updateLog(log,[{hex:'654321',distance_mi:5,aircraft_type:'B738'}],now);
+  assert.equal(log.typesAll.B738,2,'a new plane counts once');
+  log=updateLog(log,[{hex:'654321',distance_mi:5,aircraft_type:'B738'}],now);
+  assert.equal(log.typesAll.B738,2,'and is not counted again while kept');
 });
