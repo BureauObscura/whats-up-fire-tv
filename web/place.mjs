@@ -105,7 +105,17 @@ async function addZone(p){
 
 // Street address -> matches. US Census first (US addresses; skipped when home is
 // clearly elsewhere), then Nominatim: one request per search, never as you type.
-export async function searchAddress(query,{skipCensus=false}={}){
+// Results are kept per query for the session (Nominatim's usage policy asks apps to
+// cache); failures are not kept, so Try again asks again.
+const addressCache=new Map();
+export async function searchAddress(query,opts={}){
+  const key=`${clean(query,120).toLowerCase()}|${!!opts.skipCensus}`;
+  if(addressCache.has(key))return addressCache.get(key);
+  const found=await searchAddressUncached(query,opts);
+  if(found){addressCache.set(key,found);if(addressCache.size>50)addressCache.delete(addressCache.keys().next().value);}
+  return found;
+}
+async function searchAddressUncached(query,{skipCensus=false}={}){
   const q=clean(query,120);
   let failed=false;
   if(!skipCensus){

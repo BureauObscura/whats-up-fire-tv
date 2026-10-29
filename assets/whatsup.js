@@ -185,8 +185,8 @@ function placeLabels(points,width,height,scale=1) {
 
 // Alert zone. 'circle': within `radius` miles all around. 'window': a wedge of compass
 // bearings from `from` to `to` degrees (clockwise; 300 -> 40 crosses north), out to `miles`,
-// for a view from one window; a plane within OVERHEAD_MI is counted either way.
-const OVERHEAD_MI=1;
+// for a view from one window; a plane within ABOVE_MI is counted either way.
+const ABOVE_MI=1;
 const norm=deg=>((deg%360)+360)%360;
 function inBearings(bearing,from,to){
   const b=norm(bearing),f=norm(from),t=norm(to);
@@ -195,7 +195,7 @@ function inBearings(bearing,from,to){
 function inZone(zone,x,y){
   const d=Math.hypot(x,y);
   if(zone?.kind!=='window')return d<=(zone?.radius??3);
-  return d<=OVERHEAD_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
+  return d<=ABOVE_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
 }
 // The zone's outline as [x,y] miles east/north of home (a closed ring).
 function zoneOutline(zone,steps=64){
@@ -230,7 +230,7 @@ const snapped=p=>({latitude:Math.max(-85,Math.min(85,snapDeg(p.latitude))),longi
 const GRID_PAD_NM=2.2;
 const GRID_PAD_MI=GRID_PAD_NM*1.15078;
 
-return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline,chimeGate,GRID_DEG,snapDeg,snapped,GRID_PAD_NM,GRID_PAD_MI};
+return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,ABOVE_MI,norm,inBearings,inZone,zoneOutline,chimeGate,GRID_DEG,snapDeg,snapped,GRID_PAD_NM,GRID_PAD_MI};
 })();
 // ---- silhouettes.mjs
 __modules["silhouettes.mjs"]=(()=>{
@@ -3266,7 +3266,7 @@ function startLive(onUpdate,config){
   const radius=Math.max(1,Math.min(10,Number(config.radiusMiles)||3));
   const ledger=new Ledger(store.get(LEDGER_KEY)),enricher=new Enricher(ledger,url=>getJson(url,8000));
   let history=store.get(HISTORY_KEY)||[],routes=ledger.routes(Date.now()/1000),enriching=false,timer=null,stopped=false;
-  // Recently above: in Window view only planes that passed through the window (or overhead).
+  // Recently above: in Window view only planes that passed through the window (or right above).
   const zone=config.zone?.kind==='window'?config.zone:radius;
   let states=build(null,0,selection([],0,home,zone,0));
   function build(ac,stamp,sel){
@@ -3646,7 +3646,17 @@ async function addZone(p){
 
 // Street address -> matches. US Census first (US addresses; skipped when home is
 // clearly elsewhere), then Nominatim: one request per search, never as you type.
-async function searchAddress(query,{skipCensus=false}={}){
+// Results are kept per query for the session (Nominatim's usage policy asks apps to
+// cache); failures are not kept, so Try again asks again.
+const addressCache=new Map();
+async function searchAddress(query,opts={}){
+  const key=`${clean(query,120).toLowerCase()}|${!!opts.skipCensus}`;
+  if(addressCache.has(key))return addressCache.get(key);
+  const found=await searchAddressUncached(query,opts);
+  if(found){addressCache.set(key,found);if(addressCache.size>50)addressCache.delete(addressCache.keys().next().value);}
+  return found;
+}
+async function searchAddressUncached(query,{skipCensus=false}={}){
   const q=clean(query,120);
   let failed=false;
   if(!skipCensus){
@@ -4057,7 +4067,7 @@ return {MAP_ATTRIBUTION,zoomFor,AIRFIELD_MAX_RANGE,DETAIL_MAX_RANGE,buildMap,sav
 })();
 // ---- model.mjs
 __modules["model.mjs"]=(()=>{
-const {IDS,airspace,recentSightings,number,inZone,OVERHEAD_MI}=__modules["core.mjs"];
+const {IDS,airspace,recentSightings,number,inZone,ABOVE_MI}=__modules["core.mjs"];
 const {RouteLookup}=__modules["routes.mjs"];
 const {startLive,haversine,store}=__modules["live.mjs"];
 const {AIRCRAFT_TYPES}=__modules["aircraft-types.mjs"];
@@ -4141,7 +4151,18 @@ const LOG_KEY='whatsup.logbook.v1';
 const localDay=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:TZ});
 const localHour=t=>Number(new Date(t).toLocaleString('en-US',{hour:'numeric',hourCycle:'h23',timeZone:TZ}));
 const tonightKey=t=>{const h=localHour(t);return h>=18?localDay(t):h<6?localDay(t-86400000):null;};
-const resetLog=()=>store.remove(LOG_KEY);
+const resetLog=()=>{pendingLog=null;store.remove(LOG_KEY);};
+// The logbook lives in memory and is saved every 5 min, at the local midnight change and
+// when the app leaves the screen (flushLog), not on every poll: it can be ~350 KB, and
+// writing it twice per poll wore the stick's flash and stalled the page.
+const LOG_FLUSH_MS=300000;
+let pendingLog=null,lastLogSave=0;
+function flushLog(){if(pendingLog){store.set(LOG_KEY,pendingLog);pendingLog=null;lastLogSave=Date.now();}}
+function saveLogSoon(log,now){
+  const newDay=pendingLog&&pendingLog.day!==log.day;
+  pendingLog=log;
+  if(newDay||now-lastLogSave>=LOG_FLUSH_MS)flushLog();
+}
 function updateLog(log,planes,now){
   const day=localDay(now);
   if(!log||log.day!==day)log={day,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
@@ -4244,7 +4265,7 @@ function enrich(a,raw,route,now){
 
 // The hero: an emergency first, then the nearest inside the alert zone, then the one
 // arriving soonest, then the nearest. In Window view, "inside" means in the window's
-// wedge (or right overhead) and "approaching" means its closest point falls in the wedge.
+// wedge (or right above) and "approaching" means its closest point falls in the wedge.
 function inAlert(a,config){
   const z=config.zone;
   return z?.kind==='window'?inZone(z,a.x,a.y):a.distance_mi<=config.radiusMiles;
@@ -4256,7 +4277,7 @@ function pickHero(planes,config){
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>OVERHEAD_MI?'In your window':'Above you now'):
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>ABOVE_MI?'In your window':'Above you now'):
     approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
@@ -4281,7 +4302,7 @@ function liveSource(config,onModel){
     pruneSamples(now);
     // Today's logbook and cargo tonight count the same local area at every map radius
     // (the original 15 NM feed), so zooming out doesn't inflate them.
-    if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
+    if(fresh){log=updateLog(log,planes,now);saveLogSoon(log,now);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
     const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};
@@ -4368,7 +4389,7 @@ function start(place,config,onModel,airports){
   return demo?demoSource(cfg,onModel,airports):liveSource(cfg,onModel);
 }
 
-return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,updateLog,pickRarest,pickFarthest,setLogRadius,cargoCounts,logSummary,start};
+return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,flushLog,updateLog,pickRarest,pickFarthest,setLogRadius,cargoCounts,logSummary,start};
 })();
 // ---- kit.mjs
 __modules["kit.mjs"]=(()=>{
@@ -4529,9 +4550,9 @@ const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(x,y);re
 const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
-const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
+const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting':m.fresh?'Live':'No signal';
 const fmtWait=s=>s<90?`${s} s`:`${Math.round(s/60)} min`;
-const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':m.retryIn>=5?`No live data right now. Reconnecting in ${fmtWait(m.retryIn)}.`:'No live data right now. Reconnecting.'):
+const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed':m.retryIn>=5?`No live data right now. Reconnecting in ${fmtWait(m.retryIn)}.`:'No live data right now. Reconnecting.'):
   m.noCoverage?'No receiver coverage here. The aircraft feed has no receivers near this location.':
   'Quiet skies. Nothing within range right now.';
 
@@ -4720,11 +4741,11 @@ __modules["app.mjs"]=(()=>{
 const {CONFIG}=__modules["config.js"];
 const {chimeGate}=__modules["core.mjs"];
 const {HISTORY_KEY,MAX_NM,store}=__modules["live.mjs"];
-const {start,demo,query,compass,resetLog,setLogRadius}=__modules["model.mjs"];
+const {start,demo,query,compass,resetLog,setLogRadius,flushLog}=__modules["model.mjs"];
 const {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel}=__modules["place.mjs"];
 const {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits}=__modules["mapgen.mjs"];
 const {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit:fitText}=__modules["kit.mjs"];
-// What's Up: the page. Owns the data (feed model, settings, maps) and the shared
+// The page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
@@ -4860,7 +4881,7 @@ async function ensureDetail(){
   const spec=detailSpec(mapMiles()),saved=savedDetail(place,spec);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
-  setText('layout-note',mapMiles()<=15?'Drawing the street map…':'Filling in map detail…');
+  setText('layout-note',mapMiles()<=15?'Drawing the street map':'Filling in map detail');
   try{
     const built=await buildDetail(place,spec);
     if(token!==detailToken||settings.place!==place)return;
@@ -4921,7 +4942,7 @@ async function applyPlace(place,{fresh=false}={}){
     }catch(e){
       console.error('map',e?.message||e);
       if(token!==placeToken)return;
-      setText('layout-note',attempt?'Map unavailable, retrying…':'Map unavailable');
+      setText('layout-note',attempt?'Map unavailable, retrying':'Map unavailable');
       if(demo)startFeed();
       await new Promise(r=>setTimeout(r,Math.min(300000,30000*(attempt+1))));
     }
@@ -5216,7 +5237,7 @@ async function runSearch(explicit=false){
   }
   const address=looksLikeAddress(q);
   if(address&&!explicit)return show(msg('Street address: press Search when done.'));
-  show(msg(`Searching for “${q}”…`,'msg busy'));
+  show(msg(`Searching for “${q}”`,'msg busy'));
   const elsewhere=settings.place?.countryCode&&settings.place.countryCode!=='US'&&settings.place.source!=='ip';
   const work=(async()=>{
     let found=address?await searchAddress(q,{skipCensus:elsewhere}):await searchPlaces(q);
@@ -5310,7 +5331,7 @@ async function startAdjust(place){
   $('adjust-map').replaceChildren(adj.canvas);
   stage.classList.add('adjusting');
   drawAdjust();syncApp();
-  setText('adjust-note','Loading street map…');
+  setText('adjust-note','Loading street map');
   try{
     const m=await buildMap(place,ADJ_RANGE+.5,{zoom:13,detail:true});
     if(adj?.place===place){adj.map=m;setText('adjust-note','');drawAdjust();}
@@ -5448,7 +5469,8 @@ function eraseAll(){
 }
 
 // The app tells the page when it leaves or returns to the screen: polling pauses meanwhile.
-window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
+window.__whatsupActive=on=>{if(on)feed?.resume?.();else{feed?.pause?.();flushLog();}};
+addEventListener('pagehide',()=>flushLog());
 
 // --- Boot
 async function boot(){
@@ -5485,7 +5507,7 @@ async function boot(){
     if(screen==='locate'){showSettings();open('settings');openLocate();for(const c of (query.get('typed')||'').toUpperCase())typeKey(c===' '?'space':c);runSearch(true);setFocus($('keys').children[2]);}
     return;
   }
-  setText('layout-note','Finding your location…');
+  setText('layout-note','Finding your location');
   const place=await locateByIp();
   setText('layout-note','');
   if(!place)return openLocate('We couldn’t find your location automatically. Type a ZIP or postal code, or a city name.');

@@ -2,7 +2,7 @@
 // with operator, cargo brand, look-up angles, closest approach, trend and a daily
 // logbook. ?demo=1 makes a synthetic sky around whatever home is set (&scene=emergency:
 // a 7700 squawk; &scene=quiet: nothing in range; &scene=long: long names everywhere, to check nothing is cut off).
-import {IDS,airspace,recentSightings,number,inZone,OVERHEAD_MI} from './core.mjs';
+import {IDS,airspace,recentSightings,number,inZone,ABOVE_MI} from './core.mjs';
 import {RouteLookup} from './routes.mjs';
 import {startLive,haversine,store} from './live.mjs';
 import {AIRCRAFT_TYPES} from './aircraft-types.mjs';
@@ -79,7 +79,18 @@ const LOG_KEY='whatsup.logbook.v1';
 const localDay=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:TZ});
 const localHour=t=>Number(new Date(t).toLocaleString('en-US',{hour:'numeric',hourCycle:'h23',timeZone:TZ}));
 const tonightKey=t=>{const h=localHour(t);return h>=18?localDay(t):h<6?localDay(t-86400000):null;};
-export const resetLog=()=>store.remove(LOG_KEY);
+export const resetLog=()=>{pendingLog=null;store.remove(LOG_KEY);};
+// The logbook lives in memory and is saved every 5 min, at the local midnight change and
+// when the app leaves the screen (flushLog), not on every poll: it can be ~350 KB, and
+// writing it twice per poll wore the stick's flash and stalled the page.
+const LOG_FLUSH_MS=300000;
+let pendingLog=null,lastLogSave=0;
+export function flushLog(){if(pendingLog){store.set(LOG_KEY,pendingLog);pendingLog=null;lastLogSave=Date.now();}}
+function saveLogSoon(log,now){
+  const newDay=pendingLog&&pendingLog.day!==log.day;
+  pendingLog=log;
+  if(newDay||now-lastLogSave>=LOG_FLUSH_MS)flushLog();
+}
 export function updateLog(log,planes,now){
   const day=localDay(now);
   if(!log||log.day!==day)log={day,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
@@ -182,7 +193,7 @@ function enrich(a,raw,route,now){
 
 // The hero: an emergency first, then the nearest inside the alert zone, then the one
 // arriving soonest, then the nearest. In Window view, "inside" means in the window's
-// wedge (or right overhead) and "approaching" means its closest point falls in the wedge.
+// wedge (or right above) and "approaching" means its closest point falls in the wedge.
 function inAlert(a,config){
   const z=config.zone;
   return z?.kind==='window'?inZone(z,a.x,a.y):a.distance_mi<=config.radiusMiles;
@@ -194,7 +205,7 @@ function pickHero(planes,config){
   const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
-  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>OVERHEAD_MI?'In your window':'Above you now'):
+  if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>ABOVE_MI?'In your window':'Above you now'):
     approaching(hero)?'Approaching':'Nearest';
   return hero;
 }
@@ -219,7 +230,7 @@ function liveSource(config,onModel){
     pruneSamples(now);
     // Today's logbook and cargo tonight count the same local area at every map radius
     // (the original 15 NM feed), so zooming out doesn't inflate them.
-    if(fresh){log=updateLog(log,planes,now);store.set(LOG_KEY,log);}
+    if(fresh){log=updateLog(log,planes,now);saveLogSoon(log,now);}
     const recent=recentSightings(states,planes.filter(a=>a.inside),now).map(a=>({...a,type:typeName(a.aircraft_type),
       route:routes.get(a),cargo:cargoBrand(a.callsign,''),flight:a.callsign||a.registration||a.hex.toUpperCase()}));
     const model={now,live:true,fresh,noCoverage:!!states.coverage?.none,connecting:!lastOk&&now-started<15000,planes,hero:pickHero(planes,config),recent,log:logSummary(log),retryIn};

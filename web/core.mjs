@@ -163,8 +163,8 @@ export function placeLabels(points,width,height,scale=1) {
 
 // Alert zone. 'circle': within `radius` miles all around. 'window': a wedge of compass
 // bearings from `from` to `to` degrees (clockwise; 300 -> 40 crosses north), out to `miles`,
-// for a view from one window; a plane within OVERHEAD_MI is counted either way.
-export const OVERHEAD_MI=1;
+// for a view from one window; a plane within ABOVE_MI is counted either way.
+export const ABOVE_MI=1;
 export const norm=deg=>((deg%360)+360)%360;
 export function inBearings(bearing,from,to){
   const b=norm(bearing),f=norm(from),t=norm(to);
@@ -173,7 +173,7 @@ export function inBearings(bearing,from,to){
 export function inZone(zone,x,y){
   const d=Math.hypot(x,y);
   if(zone?.kind!=='window')return d<=(zone?.radius??3);
-  return d<=OVERHEAD_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
+  return d<=ABOVE_MI||d<=zone.miles&&inBearings(Math.atan2(x,y)*180/Math.PI,zone.from,zone.to);
 }
 // The zone's outline as [x,y] miles east/north of home (a closed ring).
 export function zoneOutline(zone,steps=64){

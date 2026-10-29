@@ -1,11 +1,11 @@
-// What's Up: the page. Owns the data (feed model, settings, maps) and the shared
+// The page. Owns the data (feed model, settings, maps) and the shared
 // screens (Settings, location, Adjust position, layout picker); the chosen layout
 // (web/layouts/<id>.mjs, loaded on demand, only one at a time) draws the dashboard.
 // Remote: arrows move, Select chooses, Back closes, Select on the dashboard opens Settings.
 import {CONFIG} from './config.js';
 import {chimeGate} from './core.mjs';
 import {HISTORY_KEY,MAX_NM,store} from './live.mjs';
-import {start,demo,query,compass,resetLog,setLogRadius} from './model.mjs';
+import {start,demo,query,compass,resetLog,setLogRadius,flushLog} from './model.mjs';
 import {MAP_RADII,VIEW_MILES,alertFor,loadSettings,saveSettings,locateByIp,searchPlaces,searchAddress,looksLikeAddress,placeLabel} from './place.mjs';
 import {buildMap,savedMap,saveMap,buildDetail,savedDetail,saveDetail,decodeDetail,detailSpec,detailFits} from './mapgen.mjs';
 import {svg,useSettings,fmt,makeCanvas,paintMap,fitLine,themedQr,fit as fitText} from './kit.mjs';
@@ -135,7 +135,7 @@ async function ensureDetail(){
   const spec=detailSpec(mapMiles()),saved=savedDetail(place,spec);
   if(saved){maps.detail=decodeDetail(saved);return mapsChanged();}
   const token=++detailToken;detailBusy=true;
-  setText('layout-note',mapMiles()<=15?'Drawing the street map…':'Filling in map detail…');
+  setText('layout-note',mapMiles()<=15?'Drawing the street map':'Filling in map detail');
   try{
     const built=await buildDetail(place,spec);
     if(token!==detailToken||settings.place!==place)return;
@@ -196,7 +196,7 @@ async function applyPlace(place,{fresh=false}={}){
     }catch(e){
       console.error('map',e?.message||e);
       if(token!==placeToken)return;
-      setText('layout-note',attempt?'Map unavailable, retrying…':'Map unavailable');
+      setText('layout-note',attempt?'Map unavailable, retrying':'Map unavailable');
       if(demo)startFeed();
       await new Promise(r=>setTimeout(r,Math.min(300000,30000*(attempt+1))));
     }
@@ -491,7 +491,7 @@ async function runSearch(explicit=false){
   }
   const address=looksLikeAddress(q);
   if(address&&!explicit)return show(msg('Street address: press Search when done.'));
-  show(msg(`Searching for “${q}”…`,'msg busy'));
+  show(msg(`Searching for “${q}”`,'msg busy'));
   const elsewhere=settings.place?.countryCode&&settings.place.countryCode!=='US'&&settings.place.source!=='ip';
   const work=(async()=>{
     let found=address?await searchAddress(q,{skipCensus:elsewhere}):await searchPlaces(q);
@@ -585,7 +585,7 @@ async function startAdjust(place){
   $('adjust-map').replaceChildren(adj.canvas);
   stage.classList.add('adjusting');
   drawAdjust();syncApp();
-  setText('adjust-note','Loading street map…');
+  setText('adjust-note','Loading street map');
   try{
     const m=await buildMap(place,ADJ_RANGE+.5,{zoom:13,detail:true});
     if(adj?.place===place){adj.map=m;setText('adjust-note','');drawAdjust();}
@@ -723,7 +723,8 @@ function eraseAll(){
 }
 
 // The app tells the page when it leaves or returns to the screen: polling pauses meanwhile.
-window.__whatsupActive=on=>{if(on)feed?.resume?.();else feed?.pause?.();};
+window.__whatsupActive=on=>{if(on)feed?.resume?.();else{feed?.pause?.();flushLog();}};
+addEventListener('pagehide',()=>flushLog());
 
 // --- Boot
 async function boot(){
@@ -760,7 +761,7 @@ async function boot(){
     if(screen==='locate'){showSettings();open('settings');openLocate();for(const c of (query.get('typed')||'').toUpperCase())typeKey(c===' '?'space':c);runSearch(true);setFocus($('keys').children[2]);}
     return;
   }
-  setText('layout-note','Finding your location…');
+  setText('layout-note','Finding your location');
   const place=await locateByIp();
   setText('layout-note','');
   if(!place)return openLocate('We couldn’t find your location automatically. Type a ZIP or postal code, or a city name.');

@@ -71,7 +71,11 @@ test('address search: falls back to Nominatim; both failing is null, no match is
   stub([[/census/,[200,{result:{addressMatches:[]}}]],[/nominatim/,[200,[]]]]);
   assert.deepEqual(await searchAddress('1 Nowhere Lane'),[]);
   stub([]);
-  assert.equal(await searchAddress('1 Nowhere Lane'),null);
+  assert.equal(await searchAddress('2 Nowhere Lane'),null,'both failing is null (and not cached)');
+  // The same search again in this session is answered from the cache (Nominatim policy).
+  const again=stub([]);
+  assert.equal((await searchAddress('10 Downing Street London'))[0].street,'10 Downing Street');
+  assert.equal(again.length,0,'no request for a repeated search');
 });
 test('IP location: GeoJS reply becomes an unconfirmed guess with its accuracy',async()=>{
   stub([[/geojs/,[200,{city:'Cincinnati',region:'Ohio',country:'United States',country_code:'US',latitude:'39.05',longitude:'-84.65',timezone:'America/New_York',accuracy:20}]]]);
@@ -137,7 +141,7 @@ test('keep screen awake: off unless turned on (a saved ON is kept)',()=>{
 });
 
 // --- Alert zone: Window view
-import {inBearings,inZone,zoneOutline,OVERHEAD_MI} from '../web/core.mjs';
+import {inBearings,inZone,zoneOutline,ABOVE_MI} from '../web/core.mjs';
 test('window view: bearings in range, including ranges that cross north',()=>{
   assert.ok(inBearings(74,74,175)&&inBearings(175,74,175)&&inBearings(120,74,175));
   assert.ok(!inBearings(73,74,175)&&!inBearings(176,74,175)&&!inBearings(300,74,175));
@@ -150,7 +154,7 @@ test('window view: wedge reach, overhead always counts, circle unchanged',()=>{
   assert.ok(inZone(z,...at(120,24)));
   assert.ok(!inZone(z,...at(120,26)),'beyond the distance');
   assert.ok(!inZone(z,...at(270,5)),'behind the window');
-  assert.ok(inZone(z,...at(270,OVERHEAD_MI*.9)),'right overhead counts from any side');
+  assert.ok(inZone(z,...at(270,ABOVE_MI*.9)),'right above counts from any side');
   const c={kind:'circle',radius:3};
   assert.ok(inZone(c,...at(270,2.9))&&!inZone(c,...at(90,3.1)));
   const ring=zoneOutline(z);

@@ -152,9 +152,9 @@ export const zonePath=at=>'M'+zoneOutline(alertZone()).map(([x,y])=>{const p=at(
 export const routeText=(r,sep=' → ')=>r?`${r.origin}${sep}${r.destination}`:'';
 export const routeCities=r=>r?[r.from?.city||r.origin,r.to?.city||r.destination]:null;
 // "Live" / "Preview" / "Connecting…" / "No signal", and what to say when nothing is near.
-export const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting…':m.fresh?'Live':'No signal';
+export const statusText=(m,demo)=>demo?'Preview':m.connecting?'Connecting':m.fresh?'Live':'No signal';
 const fmtWait=s=>s<90?`${s} s`:`${Math.round(s/60)} min`;
-export const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed…':m.retryIn>=5?`No live data right now. Reconnecting in ${fmtWait(m.retryIn)}.`:'No live data right now. Reconnecting.'):
+export const quietText=(m,demo)=>!demo&&!m.fresh?(m.connecting?'Connecting to the live feed':m.retryIn>=5?`No live data right now. Reconnecting in ${fmtWait(m.retryIn)}.`:'No live data right now. Reconnecting.'):
   m.noCoverage?'No receiver coverage here. The aircraft feed has no receivers near this location.':
   'Quiet skies. Nothing within range right now.';
 

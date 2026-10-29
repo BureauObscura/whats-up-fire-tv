@@ -105,7 +105,7 @@ function drawMap(){
     labelBoxes.push(box);labels.push(svg('text',{class:'map-shield',x:p.x,y:p.y,'text-anchor':'middle'},ref));
   }
   $.labels.replaceChildren(...labels);
-  setText($.note,m?'':'Drawing the map…');
+  setText($.note,m?'':'Drawing the map');
 }
 
 function blockText(a){

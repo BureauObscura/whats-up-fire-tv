@@ -175,7 +175,7 @@ function drawSatellite(){
 function drawMap(){
   drawSatellite();
   paintMap($.canvas,maps,VIEW,sat?(maps.detail?SAT_DETAIL:SAT_BASE):maps.detail?(dark?DARK_DETAIL:DETAIL):(dark?DARK_BASE:BASE));
-  setText($.note,maps.detail?'':maps.base?'Drawing detail…':'Drawing the map…');
+  setText($.note,maps.detail?'':maps.base?'Drawing detail':'Drawing the map');
   // Labels, set once per map with a halo like print. Up to 15 mi: no place names, just the
   // airports with an official code (IATA/ICAO/FAA), each a ring marker (never a plane
   // shape: planes are the aircraft) with "CODE Name". Wider: those airports, then cities.

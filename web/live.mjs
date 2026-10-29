@@ -283,7 +283,7 @@ export function startLive(onUpdate,config){
   const radius=Math.max(1,Math.min(10,Number(config.radiusMiles)||3));
   const ledger=new Ledger(store.get(LEDGER_KEY)),enricher=new Enricher(ledger,url=>getJson(url,8000));
   let history=store.get(HISTORY_KEY)||[],routes=ledger.routes(Date.now()/1000),enriching=false,timer=null,stopped=false;
-  // Recently above: in Window view only planes that passed through the window (or overhead).
+  // Recently above: in Window view only planes that passed through the window (or right above).
   const zone=config.zone?.kind==='window'?config.zone:radius;
   let states=build(null,0,selection([],0,home,zone,0));
   function build(ac,stamp,sel){
