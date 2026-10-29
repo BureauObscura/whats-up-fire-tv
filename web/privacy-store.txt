@@ -10,7 +10,7 @@ This is a free Fire TV app that shows the aircraft over your home. This policy e
 
 • Your home location, settings and aircraft history are stored only on your TV.
 
-• To show planes and maps, your TV asks public services for data. They get your location rounded to about 5 km (3 miles), map requests for that area, what you type into search, and the flight numbers of nearby aircraft. Each one also sees your TV's internet (IP) address. All of them are listed below.
+• To show planes and maps, your TV asks public services for data. They get your location rounded to about 5 km (3 miles), map requests for that area, what you type into search, and the flight numbers and codes of nearby aircraft. Each one also sees your TV's internet (IP) address. All of them are listed below.
 
 • The app asks before it sends anything.
 
@@ -28,17 +28,17 @@ Spacely Digital LLC, a small company in Ohio, USA ("we", "us"), makes this app a
 
 The app never asks Fire TV for your location, and never uses a microphone, camera or contacts. It works only with what you give it.
 
-• Your home location. After you agree on the "Before we start" screen, the app makes a first guess at your city from your internet address. You confirm it, or search for a city, ZIP code or US street address, and you can nudge the spot on the map. The app uses this location to find aircraft near you, draw the map, and work out your time zone and elevation.
+• Your home location. After you agree on the "Before we start" screen, the app makes a first guess at your city from your internet address. You confirm it, or search for a city, ZIP code or street address, and you can nudge the spot on the map. The app uses this location to find aircraft near you, draw the map, and work out your time zone and elevation.
 
 • What you type into search. It goes to the place-search services below, which turn it into a map position.
 
-• Nearby aircraft. The app downloads the positions of aircraft near you, then looks up each flight's route by its flight number. Aircraft broadcast this information publicly and it isn't about you, but the requests do show roughly where you are.
+• Nearby aircraft. The app downloads the positions of aircraft near you, then looks up each flight's route by its flight number, and a photo of the closest aircraft by its code or registration. Aircraft broadcast this information publicly and it isn't about you, but the requests do show roughly where you are.
 
 • Your aircraft history. A log of what the app has seen near you, so it can show today's planes, records and recent sightings.
 
 • Your preferences, such as layout, units and map size.
 
-Aircraft model photos, fonts and sounds come inside the app. Showing or playing them sends nothing.
+Aircraft model photos, fonts and sounds come inside the app. Showing or playing them sends nothing. Photos of the exact aircraft come from Planespotters.net, listed below.
 
 ## What's stored on your TV
 
@@ -46,31 +46,53 @@ All of this is kept in the app's private storage on your Fire TV. None of it is 
 
 • Your place and settings: the place you chose (its name, region, country, exact coordinates, time zone and elevation, and the street address if you typed one) and your preferences. Kept until you change them or erase them.
 
-• Today's log: aircraft seen today, up to 4,000 (how close each came, its type, flight number and origin), today's records, and an all-time count of aircraft types. Today's part resets at midnight, and changing your location clears the log.
+• Today's log: aircraft seen today, up to 4,000 (how close each came, its type, flight number and origin), a list of up to 3,000 aircraft codes seen today, tonight's cargo flights, today's records, and an all-time count of aircraft types. Today's part resets at midnight, and moving your location more than about 2 miles (3 km) clears the log.
 
-• Recent sightings: up to the last 20 aircraft in your alert zone (aircraft code, flight number, registration, type and time). Sightings older than 6 hours aren't shown. Cleared when you change location.
+• Recent sightings: up to the last 20 aircraft in your alert zone (aircraft code, flight number, registration, type and time), of which the newest 5 are shown. Newer sightings replace older ones. Cleared when you move your location more than about 2 miles (3 km).
 
 • Saved routes: which airports a flight number flies between, kept for 24 hours. Nothing about you.
 
-• Saved maps: map data around your home for your current and previous map sizes, including your home point. Refreshed after 30 days.
+• Photo pause: if Planespotters.net asks the app to slow down, the time when it may ask again. Nothing about you.
 
-Your TV's web engine may also keep temporary copies of satellite pictures. The app uses no cookies. Anyone who uses your TV can open Settings and see your saved place, so if that matters to you, pick a nearby town instead of your street.
+• Saved maps: map data around your home, including your home point: up to two base maps (your current and previous map sizes) and up to three detailed street maps. Refreshed after 30 days.
+
+Your TV's web engine may also keep temporary copies of satellite pictures and aircraft photos. The app uses no cookies. Anyone who uses your TV can open Settings and see your saved place, so if that matters to you, pick a nearby town instead of your street.
 
 ## Services that receive data from your TV
 
 To work, your TV sends requests straight to the services below. We have no contracts with them, and we never see what they receive. Each one handles it under its own privacy policy; what they say about logs is summarized here as of [month year].
 
-Every service also receives your TV's IP address and the time of each request, plus standard technical details such as a label with the app's name and version and our email address, so a service can reach us if something goes wrong. None of these details identify you. The app can only reach the web addresses on a fixed list, and only over encrypted HTTPS.
+Every service also receives your TV's IP address and the time of each request, plus standard technical details. Most requests carry a label with the app's name and version and our email address, so a service can reach us if something goes wrong. Aircraft photos and satellite pictures are loaded by your TV's web engine, which sends its usual browser details instead. None of these details identify you. The app can only reach the web addresses on a fixed list, and only over encrypted HTTPS.
 
-adsb.lol (live aircraft positions and flight routes)
+adsb.fi (live aircraft positions)
 
-• Receives: your location rounded to a grid of about 5 km (3 miles), and the size of the area to search. For routes, the flight number of an aircraft near you.
+• Receives: your location rounded to a grid of about 5 km (3 miles), and the size of the area to search.
 
-• When: every 5 to 15 seconds while the app is on screen. It pauses when you switch to another app. When no aircraft are nearby, one wider check every 2 hours. Routes: at most one lookup every 5 seconds, and each answer is kept for 24 hours.
+• When: every 5 to 15 seconds while the app is on screen, more often on smaller maps. It pauses when you switch to another app. When no aircraft are nearby, a wider check at most every 2 hours, and again after you change the map size, alert zone or place.
 
-• Who: adsb.lol, a community project with servers at Netcup in Germany. Some data is served by GitHub through Cloudflare.
+• Who: adsb.fi, a community flight-tracking network. Its privacy policy doesn't name who runs it or where its servers are.
+
+• Their policy: https://adsb.fi/privacy. It says adsb.fi collects the IP address, internet provider, browser type, operating system, device type and time of access, and may use outside providers for content delivery and traffic management. It doesn't say how long it keeps these.
+
+adsb.lol (flight routes)
+
+• Receives: the flight number of an aircraft near you. No location.
+
+• When: at most one lookup every 5 seconds, and each answer is kept for 24 hours.
+
+• Who: adsb.lol, a community project with servers at Netcup in Germany. Route lookups are served by GitHub through Cloudflare.
 
 • Their policy: https://www.adsb.lol/docs/privacy-license. It says temporary logs are kept for under 30 days.
+
+Planespotters.net (aircraft photos)
+
+• Receives: the code, and if needed the registration, of the aircraft shown under Closest, then requests for its photo. No location.
+
+• When: at most one lookup every 1.5 seconds. Answers are kept in memory for 24 hours and never saved.
+
+• Who: Planespotters.net, based in Germany, and its image servers.
+
+• Their policy: https://www.planespotters.net/legal/privacypolicy
 
 OpenFreeMap (the street map)
 
@@ -80,7 +102,7 @@ OpenFreeMap (the street map)
 
 • Who: Hyperknot Software Kft., Hungary, served through Cloudflare.
 
-• Their policy: https://openfreemap.org/privacy/. It says normal logs don't include IP addresses, and error logs with the IP address are kept for 7 days, or up to 30 days while a problem is investigated.
+• Their policy: https://openfreemap.org/privacy/. It says access logs don't include IP addresses, error logs may include your IP address and the map file requested, and all logs are deleted after 7 days.
 
 U.S. Geological Survey, The National Map (satellite pictures, US only)
 
@@ -92,9 +114,19 @@ U.S. Geological Survey, The National Map (satellite pictures, US only)
 
 • Their policy: https://www.usgs.gov/privacy
 
+EOX (satellite pictures outside the US)
+
+• Receives: requests for satellite tiles around the same rounded point.
+
+• When: only in the Atlas Satellite layout, when your place is outside the US, each time it draws a new view.
+
+• Who: EOX IT Services GmbH, Austria.
+
+• Their policy: https://eox.at/privacy-notice. It doesn't say what their map servers log or for how long.
+
 Open-Meteo (city and ZIP code search, time zone and elevation)
 
-• Receives: what you type into search, after a short pause, unless it looks like a street address. And when the place you pick didn't come from Open-Meteo itself (a street address, or the first guess), that place's rounded location, to get its time zone and elevation.
+• Receives: what you type into search, after a short pause, unless it looks like a street address. And when you pick a street address, that place's rounded location, to get its time zone and elevation.
 
 • Who: Open-Meteo, Switzerland.
 
@@ -110,11 +142,21 @@ U.S. Census Bureau Geocoder (US street addresses)
 
 • Their policy: https://www.census.gov/about/policies/privacy/privacy-policy.html. It says logs may be kept indefinitely.
 
+OpenStreetMap Nominatim (other address searches)
+
+• Receives: what you typed, up to 120 characters.
+
+• When: only when you press Search, and only if what you typed looks like a street address outside the US, or is an address or postcode the other services couldn't find.
+
+• Who: the OpenStreetMap Foundation, UK.
+
+• Their policy: https://osmfoundation.org/wiki/Privacy_Policy. It says search queries may be analyzed to find missing addresses and postcodes, and that its logs are temporary, without giving a period.
+
 GeoJS (the first city guess)
 
 • Receives: only your IP address; that is the whole request.
 
-• When: once, right after you press Agree and continue (and again if you erase and agree again).
+• When: right after you press Agree and continue, and again each time the app starts until you confirm a place. After an erase, the same applies once you agree again.
 
 • Who: GeoJS, Australia, running on Cloudflare and Hetzner and using MaxMind GeoLite2 location data.
 
@@ -122,7 +164,7 @@ GeoJS (the first city guess)
 
 ## QR codes
 
-The app shows QR codes, for example for our Ko-fi tip page and for this policy. A QR code holds only a web address and nothing about you. If you scan one, your phone opens that site, and that site's own privacy policy applies.
+The app shows QR codes, for example for our Ko-fi tip page, for this policy and for an aircraft photo's page on Planespotters.net. A QR code holds only a web address and nothing about you. If you scan one, your phone opens that site, and that site's own privacy policy applies.
 
 ## Amazon
 
@@ -150,7 +192,7 @@ Do Not Track and Global Privacy Control: the app doesn't track you, so there is 
 
 • Settings › Privacy › Erase all data deletes everything under "What's stored on your TV" at once, stops all requests, and takes the app back to the "Before we start" screen. That also withdraws your permission: nothing is sent until you agree again.
 
-• Changing your location clears today's log and your recent sightings.
+• Moving your location more than about 2 miles (3 km) clears today's log and your recent sightings.
 
 • Uninstalling removes everything the app stored, and works even if the app won't open. On Fire TV: Settings › Applications › Manage Installed Applications, then pick this app and choose Uninstall. Menu names vary by model.
 
@@ -216,7 +258,7 @@ The app's data never reaches us, so we can't look it up or delete it for you. If
 
 California. Over the past 12 months:
 
-• Categories: identifiers (your IP address, which the services above see and we don't; your name and email if you email us or tip); precise geolocation (a street address you search for, sent to the Census Bureau, and your saved place on the TV); approximate location (the rounded location and map requests sent to the services above); commercial information (tip records).
+• Categories: identifiers (your IP address, which the services above see and we don't; your name and email if you email us or tip); precise geolocation (a street address you search for, sent to the Census Bureau or OpenStreetMap Nominatim, and your saved place on the TV); approximate location (the rounded location and map requests sent to the services above); commercial information (tip records).
 
 • Sources: you and your TV.
 
@@ -242,7 +284,7 @@ In the United States. Before we offer it anywhere else, we'll update this policy
 
 ## If you own or fly an aircraft
 
-The app shows only what aircraft broadcast publicly and what adsb.lol publishes: aircraft code, flight number, registration, type and position, with generic model photos. It doesn't show owner names or photos of specific aircraft. Sightings are kept only on the viewer's TV. If you'd like your aircraft hidden in the app, email us its registration, and we'll consider adding it to a hide list in a future update.
+The app shows only what aircraft broadcast publicly and what adsb.fi, adsb.lol and Planespotters.net publish: aircraft code, flight number, registration, type, position and photos. It doesn't show owner names. Sightings are kept only on the viewer's TV. If you'd like your aircraft hidden in the app, email us its registration, and we'll consider adding it to a hide list in a future update.
 
 ## Changes to this policy
 

@@ -28,6 +28,8 @@ rm -rf "$NATIVE/build" "$NATIVE/dist" && cp -R "$OUT/native/keep-awake/build" "$
 
 (cd "$OUT" && npm run build:release >/tmp/spacely-build/app.log 2>&1) || { tail -20 /tmp/spacely-build/app.log; exit 1; }
 
-mkdir -p "$SRC/build/armv7-release"
-cp "$OUT/build/armv7-release/whatsup_armv7.vpkg" "$SRC/build/armv7-release/"
-node "$SRC/scripts/check-package.mjs" "$SRC/build/armv7-release/whatsup_armv7.vpkg"
+# WHATSUP_PROFILE=store: the store package goes to build/store/ (never over the TV's build).
+if [ "${WHATSUP_PROFILE:-personal}" = store ]; then DEST="$SRC/build/store"; NAME=whatsup_armv7-store.vpkg; else DEST="$SRC/build/armv7-release"; NAME=whatsup_armv7.vpkg; fi
+mkdir -p "$DEST"
+cp "$OUT/build/armv7-release/whatsup_armv7.vpkg" "$DEST/$NAME"
+node "$SRC/scripts/check-package.mjs" "$DEST/$NAME"
