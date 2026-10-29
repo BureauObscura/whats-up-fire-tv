@@ -195,3 +195,15 @@ export function chimeGate(state,count,now,fresh,quiet=60000){
   if(count>0)emptySince=null;else if(s.count>0||emptySince===null)emptySince=now;
   return {state:{ready:true,count,emptySince},ring};
 }
+
+// Data minimization: every coordinate that leaves the TV (feed queries, the time-zone
+// lookup, the map and satellite tile sets) is the home snapped to a fixed 0.05 degree grid
+// (about 3.5 mi north-south), so a request only reveals the grid cell. The home itself
+// can be up to half a cell's diagonal from the snapped point, so query areas grow by
+// that much and the app filters by true distance on the TV.
+export const GRID_DEG=0.05;
+export const snapDeg=v=>Math.round(Number(v)/GRID_DEG)*GRID_DEG;
+export const snapped=p=>({latitude:Math.max(-85,Math.min(85,snapDeg(p.latitude))),longitude:((snapDeg(p.longitude)+540)%360)-180});
+// Half the cell's diagonal, at most (at the equator): sqrt(2)*0.025 deg*60 NM/deg = 2.12 NM.
+export const GRID_PAD_NM=2.2;
+export const GRID_PAD_MI=GRID_PAD_NM*1.15078;

@@ -4,7 +4,7 @@
 // address (US Census geocoder for US addresses, else Nominatim). Exact coordinates stay
 // on the device; the time-zone lookup and adsb.fi only see them rounded to 2 decimals.
 import {getJson,store} from './live.mjs';
-import {number} from './core.mjs';
+import {number,snapped} from './core.mjs';
 import {CONFIG} from './config.js';
 
 const KEY='whatsup.settings.v1';
@@ -98,7 +98,8 @@ const title=s=>s.toLowerCase().replace(/\b([a-z])/g,c=>c.toUpperCase());
 
 // Time zone and elevation for a geocoded address (rounded coordinates only).
 async function addZone(p){
-  const {status,payload}=await getJson(TZ_URL(p.latitude,p.longitude),6000);
+  const g=snapped(p);
+  const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
   return makePlace({...p,timeZone:status===200?payload?.timezone:p.timeZone,elevationM:payload?.elevation});
 }
 

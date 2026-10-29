@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI}=__modules["kit.mjs"];
 // Layout 2, Atlas Light: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
 // as bold markers and trails, and a slim side column carrying the most data of any
@@ -88,6 +88,7 @@ const SAT_BASE=[
 ];
 // Imagery: USGS The National Map in the US (public domain), else Sentinel-2 cloudless 2016
 // by EOX (Contains modified Copernicus Sentinel data 2016). {z}/{y}/{x} web-mercator tiles.
+const SAT_TILES=48;
 const USGS='https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
 const EOX='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
 const BASE=[
@@ -147,15 +148,22 @@ function drawSatellite(){
   paintMap(c,maps,VIEW,SAT_UNDER);g.setTransform(k,0,0,k,0,0);
   const us=place.countryCode==='US'||place.countryCode==='PR',ppm=ppmOf(VIEW),cos=Math.cos(place.latitude*Math.PI/180);
   const metresPerPx=1609.344/ppm/k;
-  const z=Math.max(3,Math.min(us?16:13,Math.round(Math.log2(156543.03*cos/metresPerPx))));
-  const n=2**z,tx=lon=>(lon+180)/360*n,ty=lat=>{const s=Math.sin(lat*Math.PI/180);return (.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n;};
+  // The tile set is chosen around the snapped grid point (core.mjs), widened to still cover
+  // the view around the true home, so imagery requests only reveal the grid cell. At most
+  // z14 (z13 outside the US) and SAT_TILES tiles: a wide map takes a coarser zoom rather
+  // than going blank.
+  const sc=snapped(place),pad=GRID_PAD_MI;
+  const halfW=(W/2/ppm+pad)/(69.172*cos),halfH=(H/2/ppm+pad)/69;
+  let z=Math.max(3,Math.min(us?14:13,Math.round(Math.log2(156543.03*cos/metresPerPx)))),n,tx,ty,x0,x1,y0,y1;
+  for(;;z--){
+    n=2**z;tx=lon=>(lon+180)/360*n;ty=lat=>{const s=Math.sin(lat*Math.PI/180);return (.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n;};
+    x0=Math.floor(tx(sc.longitude-halfW));x1=Math.floor(tx(sc.longitude+halfW));
+    y0=Math.floor(ty(sc.latitude+halfH));y1=Math.floor(ty(sc.latitude-halfH));
+    if((x1-x0+1)*(y1-y0+1)<=SAT_TILES||z<=3)break;
+  }
   const lonOf=x=>x/n*360-180,latOf=y=>Math.atan(Math.sinh(Math.PI-2*Math.PI*y/n))*180/Math.PI;
-  // Screen point of a lat/lon (same equirectangular miles as the vector maps).
+  // Screen point of a lat/lon (same equirectangular miles as the vector maps, from the true home).
   const px=(lat,lon)=>({x:VIEW.cx+(lon-place.longitude)*69.172*cos*ppm,y:VIEW.cy-(lat-place.latitude)*69*ppm});
-  const halfW=W/2/ppm/(69.172*cos),halfH=H/2/ppm/69;
-  const x0=Math.floor(tx(place.longitude-halfW)),x1=Math.floor(tx(place.longitude+halfW));
-  const y0=Math.floor(ty(place.latitude+halfH)),y1=Math.floor(ty(place.latitude-halfH));
-  if((x1-x0+1)*(y1-y0+1)>48)return;
   for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
     const img=new Image();
     img.onload=()=>{

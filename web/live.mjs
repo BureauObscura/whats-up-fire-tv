@@ -2,13 +2,21 @@
 // reads, from adsb.fi positions and ADSB.lol standing routes. Ports the
 // selection/history template in home_assistant/packages/aircraft-package.yaml
 // and the free (ADSB.lol) part of custom_components/office_aircraft_routes/model.py.
-import {IDS,number,coordinates,inZone} from './core.mjs';
+import {IDS,number,coordinates,inZone,snapped,GRID_PAD_NM} from './core.mjs';
 
 const HOUR=3600,SIX_HOURS=6*HOUR;
 export const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
 // adsb.fi serves at most 250 NM around a point.
 export const MAX_NM=250;
 export const FEED_URL=(lat,lon,nm)=>`https://opendata.adsb.fi/api/v3/lat/${lat.toFixed(2)}/lon/${lon.toFixed(2)}/dist/${nm}`;
+// The feed query for home: the snapped grid point, the distance widened to still cover
+// everything around the true home (filtered by true distance on the TV), at most MAX_NM.
+// Null when anything is malformed, so nothing odd is ever sent.
+export function feedUrlFor(home,nm){
+  const c=snapped(home),d=Math.min(MAX_NM,Math.ceil(Number(nm)+GRID_PAD_NM));
+  if(!coordinates(c.latitude,c.longitude)||!(d>0))return null;
+  return FEED_URL(c.latitude,c.longitude,d);
+}
 export const ROUTE_URL=call=>`https://vrs-standing-data.adsb.lol/routes/${call.slice(0,2)}/${call}.json`;
 const HEX=/^[0-9a-f]{6}$/;
 
@@ -306,13 +314,15 @@ export function startLive(onUpdate,config){
   async function checkCoverage(nowMs){
     if(nowMs-coverage.checked<1800000)return;
     coverage.checked=nowMs;
-    const {status,payload}=await getJson(FEED_URL(home.latitude,home.longitude,MAX_NM),8000);
+    const url=feedUrlFor(home,MAX_NM);if(!url)return;
+    const {status,payload}=await getJson(url,8000);
     if(status===200&&payload&&typeof payload==='object')coverage.none=!(Array.isArray(payload.ac)&&payload.ac.length);
   }
   async function poll(){
     if(stopped)return;
     const started=Date.now();
-    const {status,payload}=await getJson(FEED_URL(home.latitude,home.longitude,config.searchNm),4000);
+    const url=feedUrlFor(home,config.searchNm);
+    const {status,payload}=url?await getJson(url,4000):{status:0};
     if(stopped)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];

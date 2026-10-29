@@ -8,6 +8,7 @@
 //   rail, waterways, landuse, parks, aeroways and place names. Built only when a
 //   layout asks for it (Atlas, Glass, Blueprint, ...).
 import {getJson,getBytes,store} from './live.mjs';
+import {snapped,GRID_PAD_MI} from './core.mjs';
 
 export const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
@@ -83,12 +84,16 @@ async function tileTemplate(net){
 
 // Calls fn(tile, helpers) for each tile at `zoom` covering `lim` miles around home.
 // Tiles are decoded one at a time so only one is in memory. Returns the number fetched.
+// The tile set is chosen around the snapped grid point (core.mjs), widened to still cover
+// `lim` around the true home, so tile requests only reveal the grid cell; geometry is still
+// measured from the true home, and callers keep only what lies within `lim` of it.
 async function eachTile(home,lim,zoom,template,net,MVT,fn){
   const cos=Math.cos(home.latitude*DEG);
   const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
-  const dLat=lim/69,dLon=lim/(69.172*cos);
-  const x0=Math.floor(tileX(home.longitude-dLon,zoom)),x1=Math.floor(tileX(home.longitude+dLon,zoom));
-  const y0=Math.floor(tileY(home.latitude+dLat,zoom)),y1=Math.floor(tileY(home.latitude-dLat,zoom));
+  const c=snapped(home),wide=lim+GRID_PAD_MI,ccos=Math.cos(c.latitude*DEG);
+  const dLat=wide/69,dLon=wide/(69.172*ccos);
+  const x0=Math.floor(tileX(c.longitude-dLon,zoom)),x1=Math.floor(tileX(c.longitude+dLon,zoom));
+  const y0=Math.floor(tileY(c.latitude+dLat,zoom)),y1=Math.floor(tileY(c.latitude-dLat,zoom));
   let fetched=0;
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
     const bytes=await net.getBytes(template.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty));

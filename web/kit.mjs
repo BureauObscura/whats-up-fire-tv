@@ -17,7 +17,8 @@
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
-import {number,zoneOutline} from './core.mjs';
+import {number,zoneOutline,snapped,GRID_PAD_MI} from './core.mjs';
+export {snapped,GRID_PAD_MI};
 import {SILHOUETTES,silhouetteFamily} from './silhouettes.mjs';
 import {photoFor,qrFor,qrColours,modelPhoto} from './photos.mjs';
 export {photoFor,qrFor,modelPhoto};

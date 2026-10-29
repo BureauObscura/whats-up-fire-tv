@@ -56,7 +56,7 @@ test('address search: Census match first, with its time zone looked up',async()=
   assert.equal(placeLabel(p),'Cincinnati, OH');
   assert.equal(p.source,'census');
   assert.ok(!seen.some(u=>/nominatim/.test(u)),'Nominatim not asked when Census matched');
-  assert.ok(seen.some(u=>/latitude=39\.0[56]&longitude=-84\.67/.test(u)),'time zone lookup gets rounded coordinates only');
+  assert.ok(seen.some(u=>/latitude=39\.05&longitude=-84\.65&/.test(u)),'time zone lookup gets the snapped 0.05 degree grid point only');
 });
 test('address search: falls back to Nominatim; both failing is null, no match is []',async()=>{
   stub([

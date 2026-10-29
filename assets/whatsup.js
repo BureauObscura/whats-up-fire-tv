@@ -218,7 +218,19 @@ function chimeGate(state,count,now,fresh,quiet=60000){
   return {state:{ready:true,count,emptySince},ring};
 }
 
-return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline,chimeGate};
+// Data minimization: every coordinate that leaves the TV (feed queries, the time-zone
+// lookup, the map and satellite tile sets) is the home snapped to a fixed 0.05 degree grid
+// (about 3.5 mi north-south), so a request only reveals the grid cell. The home itself
+// can be up to half a cell's diagonal from the snapped point, so query areas grow by
+// that much and the app filters by true distance on the TV.
+const GRID_DEG=0.05;
+const snapDeg=v=>Math.round(Number(v)/GRID_DEG)*GRID_DEG;
+const snapped=p=>({latitude:Math.max(-85,Math.min(85,snapDeg(p.latitude))),longitude:((snapDeg(p.longitude)+540)%360)-180});
+// Half the cell's diagonal, at most (at the equator): sqrt(2)*0.025 deg*60 NM/deg = 2.12 NM.
+const GRID_PAD_NM=2.2;
+const GRID_PAD_MI=GRID_PAD_NM*1.15078;
+
+return {IDS,number,coordinates,localClock,observation,project,mapGeometry,flightLabel,flightNumber,typeName,iconIndex,aircraftIcon,airlineLogo,distanceMiles,airspace,recentSightings,placeLabels,OVERHEAD_MI,norm,inBearings,inZone,zoneOutline,chimeGate,GRID_DEG,snapDeg,snapped,GRID_PAD_NM,GRID_PAD_MI};
 })();
 // ---- silhouettes.mjs
 __modules["silhouettes.mjs"]=(()=>{
@@ -2969,7 +2981,7 @@ return {AIRCRAFT_TYPES,AIRCRAFT_ICONS};
 })();
 // ---- live.mjs
 __modules["live.mjs"]=(()=>{
-const {IDS,number,coordinates,inZone}=__modules["core.mjs"];
+const {IDS,number,coordinates,inZone,snapped,GRID_PAD_NM}=__modules["core.mjs"];
 // Standalone data source: builds the HA-shaped `states` the display already
 // reads, from adsb.fi positions and ADSB.lol standing routes. Ports the
 // selection/history template in home_assistant/packages/aircraft-package.yaml
@@ -2980,6 +2992,14 @@ const HISTORY_KEY='whatsup.history.v1',LEDGER_KEY='whatsup.ledger.v1';
 // adsb.fi serves at most 250 NM around a point.
 const MAX_NM=250;
 const FEED_URL=(lat,lon,nm)=>`https://opendata.adsb.fi/api/v3/lat/${lat.toFixed(2)}/lon/${lon.toFixed(2)}/dist/${nm}`;
+// The feed query for home: the snapped grid point, the distance widened to still cover
+// everything around the true home (filtered by true distance on the TV), at most MAX_NM.
+// Null when anything is malformed, so nothing odd is ever sent.
+function feedUrlFor(home,nm){
+  const c=snapped(home),d=Math.min(MAX_NM,Math.ceil(Number(nm)+GRID_PAD_NM));
+  if(!coordinates(c.latitude,c.longitude)||!(d>0))return null;
+  return FEED_URL(c.latitude,c.longitude,d);
+}
 const ROUTE_URL=call=>`https://vrs-standing-data.adsb.lol/routes/${call.slice(0,2)}/${call}.json`;
 const HEX=/^[0-9a-f]{6}$/;
 
@@ -3277,13 +3297,15 @@ function startLive(onUpdate,config){
   async function checkCoverage(nowMs){
     if(nowMs-coverage.checked<1800000)return;
     coverage.checked=nowMs;
-    const {status,payload}=await getJson(FEED_URL(home.latitude,home.longitude,MAX_NM),8000);
+    const url=feedUrlFor(home,MAX_NM);if(!url)return;
+    const {status,payload}=await getJson(url,8000);
     if(status===200&&payload&&typeof payload==='object')coverage.none=!(Array.isArray(payload.ac)&&payload.ac.length);
   }
   async function poll(){
     if(stopped)return;
     const started=Date.now();
-    const {status,payload}=await getJson(FEED_URL(home.latitude,home.longitude,config.searchNm),4000);
+    const url=feedUrlFor(home,config.searchNm);
+    const {status,payload}=url?await getJson(url,4000):{status:0};
     if(stopped)return;
     if(status===200&&payload&&typeof payload==='object'){
       const now=Date.now()/1000,stamp=feedStamp(payload),ac=Array.isArray(payload.ac)?payload.ac:[];
@@ -3302,7 +3324,7 @@ function startLive(onUpdate,config){
   return {stop(){stopped=true;clearTimeout(timer);}};
 }
 
-return {HISTORY_KEY,MAX_NM,FEED_URL,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
+return {HISTORY_KEY,MAX_NM,FEED_URL,feedUrlFor,ROUTE_URL,getJson,getBytes,store,haversine,feedStamp,selection,mergeHistory,ident,provider,observations,commercialRoute,Ledger,Enricher,startLive};
 })();
 // ---- models.mjs
 __modules["models.mjs"]=(()=>{
@@ -3496,7 +3518,7 @@ return {PHOTO_URL,parsePhoto,photoFor,qrColours,qrFor,modelPhoto};
 // ---- place.mjs
 __modules["place.mjs"]=(()=>{
 const {getJson,store}=__modules["live.mjs"];
-const {number}=__modules["core.mjs"];
+const {number,snapped}=__modules["core.mjs"];
 const {CONFIG}=__modules["config.js"];
 // Where the user is and how they like it shown. Saved on the device (localStorage).
 // First launch: approximate location from the connection's IP (GeoJS, free, no key).
@@ -3597,7 +3619,8 @@ const title=s=>s.toLowerCase().replace(/\b([a-z])/g,c=>c.toUpperCase());
 
 // Time zone and elevation for a geocoded address (rounded coordinates only).
 async function addZone(p){
-  const {status,payload}=await getJson(TZ_URL(p.latitude,p.longitude),6000);
+  const g=snapped(p);
+  const {status,payload}=await getJson(TZ_URL(g.latitude,g.longitude),6000);
   return makePlace({...p,timeZone:status===200?payload?.timezone:p.timeZone,elevationM:payload?.elevation});
 }
 
@@ -3638,6 +3661,7 @@ return {IP_URL,SEARCH_URL,CENSUS_URL,NOMINATIM_URL,TZ_URL,placeLabel,VIEW_MILES,
 // ---- mapgen.mjs
 __modules["mapgen.mjs"]=(()=>{
 const {getJson,getBytes,store}=__modules["live.mjs"];
+const {snapped,GRID_PAD_MI}=__modules["core.mjs"];
 // Maps, built on the device for wherever home is. OpenMapTiles vector tiles from
 // OpenFreeMap (free, no key; attribution required) are decoded with
 // @mapbox/vector-tile + pbf (web/mvt.js) into plain arrays in miles east/north of
@@ -3647,6 +3671,7 @@ const {getJson,getBytes,store}=__modules["live.mjs"];
 // * detail (z12 over ~6.5 mi, plus z14 buildings within ~1.3 mi): every road class,
 //   rail, waterways, landuse, parks, aeroways and place names. Built only when a
 //   layout asks for it (Atlas, Glass, Blueprint, ...).
+
 
 const MAP_ATTRIBUTION='© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
 const TILEJSON='https://tiles.openfreemap.org/planet';
@@ -3722,12 +3747,16 @@ async function tileTemplate(net){
 
 // Calls fn(tile, helpers) for each tile at `zoom` covering `lim` miles around home.
 // Tiles are decoded one at a time so only one is in memory. Returns the number fetched.
+// The tile set is chosen around the snapped grid point (core.mjs), widened to still cover
+// `lim` around the true home, so tile requests only reveal the grid cell; geometry is still
+// measured from the true home, and callers keep only what lies within `lim` of it.
 async function eachTile(home,lim,zoom,template,net,MVT,fn){
   const cos=Math.cos(home.latitude*DEG);
   const toMiles=(lon,lat)=>[(lon-home.longitude)*69.172*cos,(lat-home.latitude)*69.0];
-  const dLat=lim/69,dLon=lim/(69.172*cos);
-  const x0=Math.floor(tileX(home.longitude-dLon,zoom)),x1=Math.floor(tileX(home.longitude+dLon,zoom));
-  const y0=Math.floor(tileY(home.latitude+dLat,zoom)),y1=Math.floor(tileY(home.latitude-dLat,zoom));
+  const c=snapped(home),wide=lim+GRID_PAD_MI,ccos=Math.cos(c.latitude*DEG);
+  const dLat=wide/69,dLon=wide/(69.172*ccos);
+  const x0=Math.floor(tileX(c.longitude-dLon,zoom)),x1=Math.floor(tileX(c.longitude+dLon,zoom));
+  const y0=Math.floor(tileY(c.latitude+dLat,zoom)),y1=Math.floor(tileY(c.latitude-dLat,zoom));
   let fetched=0;
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){
     const bytes=await net.getBytes(template.replace('{z}',zoom).replace('{x}',tx).replace('{y}',ty));
@@ -4318,7 +4347,7 @@ return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,upda
 })();
 // ---- kit.mjs
 __modules["kit.mjs"]=(()=>{
-const {number,zoneOutline}=__modules["core.mjs"];
+const {number,zoneOutline,snapped,GRID_PAD_MI}=__modules["core.mjs"];
 const {SILHOUETTES,silhouetteFamily}=__modules["silhouettes.mjs"];
 const {photoFor,qrFor,qrColours,modelPhoto}=__modules["photos.mjs"];
 const {MAP_ATTRIBUTION}=__modules["mapgen.mjs"];
@@ -4343,7 +4372,6 @@ const {tz,compass,offset}=__modules["model.mjs"];
 // north of home), ground (miles), bearing, elevation (deg up), cpa {seconds,miles,
 // receding}, inside (within the alert radius), trend {alt,speed,trail[]}, year;
 // hero also has status ('Above you now', 'Approaching', 'Nearest', 'Emergency').
-
 
 
 
@@ -4654,7 +4682,7 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {themedQr,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+return {themedQr,photoSlot,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,snapped,GRID_PAD_MI,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{
