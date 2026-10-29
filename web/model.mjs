@@ -56,7 +56,8 @@ export const compass=deg=>['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','
 
 // Miles east/north of home.
 export function offset(lat,lon){
-  return {x:(lon-HOME.longitude)*69.172*Math.cos(HOME.latitude*Math.PI/180),y:(lat-HOME.latitude)*69.0};
+  const dLon=((lon-HOME.longitude+540)%360)-180; // across the date line the short way round
+  return {x:dLon*69.172*Math.cos(HOME.latitude*Math.PI/180),y:(lat-HOME.latitude)*69.0};
 }
 function derive(a){
   const {x,y}=offset(a.latitude,a.longitude),ground=Math.hypot(x,y);
@@ -110,7 +111,11 @@ export function updateLog(log,planes,now){
     if(!rec){
       rec=log.planes['x'+a.hex]={d};
       // All-time type tallies: once per aircraft per day, wherever it was seen.
-      if(a.aircraft_type)log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
+      if(a.aircraft_type&&/^[A-Z0-9]{2,4}$/.test(a.aircraft_type)){
+        log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
+        // Bounded: ICAO designators only, at most 600 kept (the rarest-ever pick reads it).
+        const ks=Object.keys(log.typesAll);if(ks.length>600){ks.sort((x,y)=>log.typesAll[y]-log.typesAll[x]);for(const k of ks.slice(600))delete log.typesAll[k];}
+      }
       const keys=Object.keys(log.planes);if(keys.length>4000)delete log.planes[keys[0]];
     }
     rec.d=Math.min(rec.d,d);
@@ -174,7 +179,7 @@ function trend(a,now){
 function pruneSamples(now){for(const [k,l] of samples)if(now-l[l.length-1].t>120000)samples.delete(k);}
 
 function enrich(a,raw,route,now){
-  const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.trim():'';
+  const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.slice(0,80).trim():''; // capped: remote text through regexes
   const call=(a.callsign||'').toUpperCase();
   const airline=/^[A-Z]{3}\d/.test(call)?OPERATORS[call.slice(0,3)]:'';
   const cargo=cargoBrand(call,owner);
@@ -182,7 +187,10 @@ function enrich(a,raw,route,now){
     (owner&&!/BANK|TRUST|LEAS|FINANCE|CAPITAL|WELLS FARGO|WILMINGTON|HOLDINGS/i.test(owner)?titleCase(owner):'');
   const flight=a.callsign||a.registration||a.hex.toUpperCase();
   const squawk=typeof r.squawk==='string'?r.squawk:'';
-  const emergency=EMERGENCY[squawk]||(r.emergency&&r.emergency!=='none'?String(r.emergency).toUpperCase():'');
+  // Emergencies: the 7500/7600/7700 squawks, or a declared emergency (lifeguard and minimum
+  // fuel are priority flights, not emergencies). Own keys only: "constructor" is no squawk.
+  const declared={general:'EMERGENCY',nordo:'RADIO FAILURE',unlawful:'HIJACK',downed:'EMERGENCY'}[String(r.emergency||'')];
+  const emergency=(Object.prototype.hasOwnProperty.call(EMERGENCY,squawk)?EMERGENCY[squawk]:'')||(Object.prototype.hasOwnProperty.call({general:1,nordo:1,unlawful:1,downed:1},String(r.emergency||''))?declared:'');
   let progress=null;
   if(route?.from&&route?.to&&number(route.from.lat)&&number(route.to.lat)){
     const flown=haversine(route.from.lat,route.from.lon,a.latitude,a.longitude),left=haversine(a.latitude,a.longitude,route.to.lat,route.to.lon);
@@ -205,7 +213,7 @@ function pickHero(planes,config){
   const z=config.zone,win=z?.kind==='window';
   const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.ground<=config.rangeMiles&&(win?inZone(z,a.cpa.x,a.cpa.y):
     a.cpa.miles<config.radiusMiles+1);
-  const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
+  const hero=planes.find(a=>a.emergency&&a.ground<=config.rangeMiles)||planes.find(a=>a.inside)|| // an emergency off the map stays off the card
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
   if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>ABOVE_MI?'In your window':'Above you now'):

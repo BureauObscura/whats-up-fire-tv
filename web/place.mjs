@@ -86,7 +86,7 @@ export async function searchPlaces(query){
   if(q.length<2)return [];
   const {status,payload}=await getJson(SEARCH_URL(q),6000);
   if(status!==200||!Array.isArray(payload?.results))return status===200?[]:null;
-  return payload.results.map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
+  return payload.results.slice(0,10).map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
     latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean)
     // Same name in the same region (a city and its prefecture): keep the first, biggest.
     .filter((p,i,all)=>all.findIndex(q=>placeLabel(q)===placeLabel(p)&&q.admin===p.admin)===i);

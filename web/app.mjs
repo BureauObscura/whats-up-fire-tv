@@ -418,8 +418,9 @@ let editing=null;
 function editKey(e){
   const k=e.key,dir={ArrowLeft:-1,ArrowRight:1,ArrowDown:-10,ArrowUp:10}[k];
   e.preventDefault();
-  // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
-  if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
+  // Up/Down: 10 at a time on bearings; on Map radius Up zooms in as on the dashboard;
+  // otherwise the same as Right/Left.
+  if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:editing.id==='set-map'&&Math.abs(dir)===10?-Math.sign(dir):Math.sign(dir));
   if(k==='Enter'||k===' ')return stopEdit(true);
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
@@ -551,6 +552,7 @@ async function runSearch(explicit=false){
 }
 let lastQuery='';
 function openLocate(help){
+  searchSeq++;clearTimeout(searchTimer); // a search from an earlier visit must not fill this one
   entry='';setText('entry-text','');$('results').replaceChildren();
   setText('entry-help',help||'Type a ZIP or postal code, a city, or your street address, then Search.');
   open('locate');
@@ -589,8 +591,10 @@ function select(el){
 
 let lastBack=0;
 function back(){
+  // The app and the page may both report one press: de-duplicate first, so one Back while
+  // editing only cancels the edit (it also closed Settings).
+  const now=Date.now();if(now-lastBack<350)return;lastBack=now;
   if(editing)return cancelEdit();
-  const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();
 }
@@ -667,6 +671,8 @@ const DIRS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
 document.addEventListener('keydown',e=>{
   if(busyNow){e.preventDefault();return;}
   const k=e.key,dir=DIRS[k];
+  // A held OK repeats: it would open and close the picker, or run through screens.
+  if(e.repeat&&(k==='Enter'||k===' ')){e.preventDefault();return;}
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4){e.preventDefault();return back();}
   // Play/Pause toggles Settings: Vega never passes the remote's Menu (≡) key to the page.
   if(k==='MediaPlayPause'||e.keyCode===179){

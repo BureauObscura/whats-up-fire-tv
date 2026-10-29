@@ -187,6 +187,10 @@ export function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
+  // Still too long at the smallest size (a 400-character name): drop whole words from the
+  // end, never ending in "…", so at least it isn't cut through a word.
+  let t=e.textContent;
+  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];

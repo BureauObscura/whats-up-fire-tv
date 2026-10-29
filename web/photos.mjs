@@ -13,7 +13,7 @@ export {modelPhoto};
 
 export const PHOTO_URL=(kind,id)=>`https://api.planespotters.net/pub/photos/${kind}/${id}`;
 const IMG=/^https:\/\/(cdn\.planespotters\.net|[a-z0-9-]+\.plnspttrs\.net)\/[^\s"'<>]+\.(jpe?g|png|webp)$/i;
-const LINK=/^https:\/\/www\.planespotters\.net\/photo\/[^\s"'<>]+$/;
+const LINK=/^https:\/\/www\.planespotters\.net\/photo\/[^\s"'<>]{1,200}$/; // length-capped: it becomes a QR code
 const cache=new Map(),DAY=86400000;
 
 // A photo record {src,width,height,link,photographer} from an API reply, or null.

@@ -117,11 +117,11 @@ function airspace(states,now,connected) {
   const byHex=new Map();
   for(const a of fresh&&Array.isArray(raw)?raw:[]) {
     if(!a||typeof a.hex!=='string'||!(/^[a-f0-9]{6}$/i.test(a.hex))||
-      !coordinates(a.lat,a.lon)||!number(a.alt_baro)||!number(a.seen_pos)||a.seen_pos<0||
+      !coordinates(a.lat,a.lon)||!number(a.alt_baro)||a.alt_baro>60000||a.alt_baro<-1500||!number(a.seen_pos)||a.seen_pos<0||
       age+a.seen_pos<0||age+a.seen_pos>20)continue;
     const record={hex:a.hex.toLowerCase(),callsign:clean(a.flight),registration:clean(a.r),
       aircraft_type:clean(a.t),category:clean(a.category),latitude:a.lat,longitude:a.lon,altitude_ft:a.alt_baro,
-      speed_kt:number(a.gs)&&a.gs>=0?a.gs:null,heading:number(a.track)?((a.track%360)+360)%360:null,
+      speed_kt:number(a.gs)&&a.gs>=0&&a.gs<=1500?a.gs:null, // impossible readings are no readingheading:number(a.track)?((a.track%360)+360)%360:null,
       position_timestamp:stamp-a.seen_pos};
     record.distance_mi=distanceMiles(home,record);
     record.inside=record.distance_mi<=radius;
@@ -3486,7 +3486,7 @@ const {modelPhoto}=__modules["models.mjs"];
 
 const PHOTO_URL=(kind,id)=>`https://api.planespotters.net/pub/photos/${kind}/${id}`;
 const IMG=/^https:\/\/(cdn\.planespotters\.net|[a-z0-9-]+\.plnspttrs\.net)\/[^\s"'<>]+\.(jpe?g|png|webp)$/i;
-const LINK=/^https:\/\/www\.planespotters\.net\/photo\/[^\s"'<>]+$/;
+const LINK=/^https:\/\/www\.planespotters\.net\/photo\/[^\s"'<>]{1,200}$/; // length-capped: it becomes a QR code
 const cache=new Map(),DAY=86400000;
 
 // A photo record {src,width,height,link,photographer} from an API reply, or null.
@@ -3641,7 +3641,7 @@ async function searchPlaces(query){
   if(q.length<2)return [];
   const {status,payload}=await getJson(SEARCH_URL(q),6000);
   if(status!==200||!Array.isArray(payload?.results))return status===200?[]:null;
-  return payload.results.map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
+  return payload.results.slice(0,10).map(r=>makePlace({name:r.name,admin:r.admin1,country:r.country,countryCode:r.country_code,
     latitude:r.latitude,longitude:r.longitude,timeZone:r.timezone,elevationM:r.elevation,source:'search'})).filter(Boolean)
     // Same name in the same region (a city and its prefecture): keep the first, biggest.
     .filter((p,i,all)=>all.findIndex(q=>placeLabel(q)===placeLabel(p)&&q.admin===p.admin)===i);
@@ -4178,7 +4178,8 @@ const compass=deg=>['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WS
 
 // Miles east/north of home.
 function offset(lat,lon){
-  return {x:(lon-HOME.longitude)*69.172*Math.cos(HOME.latitude*Math.PI/180),y:(lat-HOME.latitude)*69.0};
+  const dLon=((lon-HOME.longitude+540)%360)-180; // across the date line the short way round
+  return {x:dLon*69.172*Math.cos(HOME.latitude*Math.PI/180),y:(lat-HOME.latitude)*69.0};
 }
 function derive(a){
   const {x,y}=offset(a.latitude,a.longitude),ground=Math.hypot(x,y);
@@ -4232,7 +4233,11 @@ function updateLog(log,planes,now){
     if(!rec){
       rec=log.planes['x'+a.hex]={d};
       // All-time type tallies: once per aircraft per day, wherever it was seen.
-      if(a.aircraft_type)log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
+      if(a.aircraft_type&&/^[A-Z0-9]{2,4}$/.test(a.aircraft_type)){
+        log.typesAll[a.aircraft_type]=(log.typesAll[a.aircraft_type]||0)+1;
+        // Bounded: ICAO designators only, at most 600 kept (the rarest-ever pick reads it).
+        const ks=Object.keys(log.typesAll);if(ks.length>600){ks.sort((x,y)=>log.typesAll[y]-log.typesAll[x]);for(const k of ks.slice(600))delete log.typesAll[k];}
+      }
       const keys=Object.keys(log.planes);if(keys.length>4000)delete log.planes[keys[0]];
     }
     rec.d=Math.min(rec.d,d);
@@ -4296,7 +4301,7 @@ function trend(a,now){
 function pruneSamples(now){for(const [k,l] of samples)if(now-l[l.length-1].t>120000)samples.delete(k);}
 
 function enrich(a,raw,route,now){
-  const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.trim():'';
+  const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.slice(0,80).trim():''; // capped: remote text through regexes
   const call=(a.callsign||'').toUpperCase();
   const airline=/^[A-Z]{3}\d/.test(call)?OPERATORS[call.slice(0,3)]:'';
   const cargo=cargoBrand(call,owner);
@@ -4304,7 +4309,10 @@ function enrich(a,raw,route,now){
     (owner&&!/BANK|TRUST|LEAS|FINANCE|CAPITAL|WELLS FARGO|WILMINGTON|HOLDINGS/i.test(owner)?titleCase(owner):'');
   const flight=a.callsign||a.registration||a.hex.toUpperCase();
   const squawk=typeof r.squawk==='string'?r.squawk:'';
-  const emergency=EMERGENCY[squawk]||(r.emergency&&r.emergency!=='none'?String(r.emergency).toUpperCase():'');
+  // Emergencies: the 7500/7600/7700 squawks, or a declared emergency (lifeguard and minimum
+  // fuel are priority flights, not emergencies). Own keys only: "constructor" is no squawk.
+  const declared={general:'EMERGENCY',nordo:'RADIO FAILURE',unlawful:'HIJACK',downed:'EMERGENCY'}[String(r.emergency||'')];
+  const emergency=(Object.prototype.hasOwnProperty.call(EMERGENCY,squawk)?EMERGENCY[squawk]:'')||(Object.prototype.hasOwnProperty.call({general:1,nordo:1,unlawful:1,downed:1},String(r.emergency||''))?declared:'');
   let progress=null;
   if(route?.from&&route?.to&&number(route.from.lat)&&number(route.to.lat)){
     const flown=haversine(route.from.lat,route.from.lon,a.latitude,a.longitude),left=haversine(a.latitude,a.longitude,route.to.lat,route.to.lon);
@@ -4327,7 +4335,7 @@ function pickHero(planes,config){
   const z=config.zone,win=z?.kind==='window';
   const approaching=a=>a.cpa&&!a.cpa.receding&&a.cpa.seconds<600&&a.ground<=config.rangeMiles&&(win?inZone(z,a.cpa.x,a.cpa.y):
     a.cpa.miles<config.radiusMiles+1);
-  const hero=planes.find(a=>a.emergency)||planes.find(a=>a.inside)||
+  const hero=planes.find(a=>a.emergency&&a.ground<=config.rangeMiles)||planes.find(a=>a.inside)|| // an emergency off the map stays off the card
     planes.filter(approaching).sort((a,b)=>a.cpa.seconds-b.cpa.seconds)[0]||
     planes.find(a=>a.ground<=config.rangeMiles)||null; // 'Nearest' only from planes on the map
   if(hero)hero.status=hero.emergency?'Emergency':hero.inside?(win&&hero.ground>ABOVE_MI?'In your window':'Above you now'):
@@ -4638,6 +4646,10 @@ function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
+  // Still too long at the smallest size (a 400-character name): drop whole words from the
+  // end, never ending in "…", so at least it isn't cut through a word.
+  let t=e.textContent;
+  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
@@ -5217,8 +5229,9 @@ let editing=null;
 function editKey(e){
   const k=e.key,dir={ArrowLeft:-1,ArrowRight:1,ArrowDown:-10,ArrowUp:10}[k];
   e.preventDefault();
-  // Up/Down: 10 at a time on bearings, otherwise the same as Right/Left.
-  if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:Math.sign(dir));
+  // Up/Down: 10 at a time on bearings; on Map radius Up zooms in as on the dashboard;
+  // otherwise the same as Right/Left.
+  if(dir)return adjustSetting(editing,editing.dataset.big!==undefined?dir:editing.id==='set-map'&&Math.abs(dir)===10?-Math.sign(dir):Math.sign(dir));
   if(k==='Enter'||k===' ')return stopEdit(true);
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4)return cancelEdit();
 }
@@ -5350,6 +5363,7 @@ async function runSearch(explicit=false){
 }
 let lastQuery='';
 function openLocate(help){
+  searchSeq++;clearTimeout(searchTimer); // a search from an earlier visit must not fill this one
   entry='';setText('entry-text','');$('results').replaceChildren();
   setText('entry-help',help||'Type a ZIP or postal code, a city, or your street address, then Search.');
   open('locate');
@@ -5388,8 +5402,10 @@ function select(el){
 
 let lastBack=0;
 function back(){
+  // The app and the page may both report one press: de-duplicate first, so one Back while
+  // editing only cancels the edit (it also closed Settings).
+  const now=Date.now();if(now-lastBack<350)return;lastBack=now;
   if(editing)return cancelEdit();
-  const now=Date.now();if(now-lastBack<350)return;lastBack=now; // the app and the page may both report one press
   if(adj)return endAdjust();
   close();
 }
@@ -5466,6 +5482,8 @@ const DIRS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
 document.addEventListener('keydown',e=>{
   if(busyNow){e.preventDefault();return;}
   const k=e.key,dir=DIRS[k];
+  // A held OK repeats: it would open and close the picker, or run through screens.
+  if(e.repeat&&(k==='Enter'||k===' ')){e.preventDefault();return;}
   if(['Escape','GoBack','BrowserBack','Back'].includes(k)||e.keyCode===4){e.preventDefault();return back();}
   // Play/Pause toggles Settings: Vega never passes the remote's Menu (≡) key to the page.
   if(k==='MediaPlayPause'||e.keyCode===179){
