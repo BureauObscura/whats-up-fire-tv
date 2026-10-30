@@ -52,17 +52,17 @@ function ui(){
   const quiet=card('gl-quiet','<div class="gl-kicker">Sky</div><div class="gl-quiet-t"></div>');quiet.hidden=true;
   const near=card('gl-near','<div class="gl-kicker">In range</div><div class="gl-list"></div>');
   const tally=el('div','gl-tally');
-  tally.append(card('gl-mini','<span>Today</span><b class="gl-seen"></b><i>aircraft</i>'),card('gl-mini cargo','<span>Cargo</span><b class="gl-cargo"></b><i class="gl-cargo-by"></i>'),
+  tally.append(card('gl-mini','<span>Today</span><b class="gl-seen"></b><i class="gl-seen-by">aircraft</i>'),card('gl-mini cargo','<span>Cargo</span><b class="gl-cargo"></b><i class="gl-cargo-by"></i>'),
     card('gl-mini mil','<span>Military</span><b class="gl-mil"></b><i class="gl-mil-by"></i>'));
   col.append($.alert,hero,quiet,near,tally);
   // Aircraft photo: its own glass card, bottom left, only while there is a picture.
   $.photo=card('gl-photo','');$.photo.hidden=true;$.photo.append($.pic=photoSlot());
   root.append($.canvas,el('div','gl-vignette'),$.labels,$.over,top,col,$.photo);
   Object.assign($,{hero,quiet,near});
-  for(const c of ['clock','city','status','date','kicker','flight','sub','o','oc','d','dc','line','alt','spd','look','cpa','quiet-t','list','seen','mil','mil-by','cargo','cargo-by'])
+  for(const c of ['clock','city','status','date','kicker','flight','sub','o','oc','d','dc','line','alt','spd','look','cpa','quiet-t','list','seen','seen-by','mil','mil-by','cargo','cargo-by'])
     $[c]=root.querySelector('.gl-'+c);
   $.lineFill=$.line.firstChild;
-  fit($.city,$.flight,$.alt,$.spd,$.look,$.cpa,$['cargo-by']);
+  fit($.city,$.flight,$.alt,$.spd,$.look,$.cpa);
 }
 
 function drawMap(){
@@ -131,8 +131,14 @@ function render(m){
   while(col.scrollHeight>col.clientHeight+1&&$.list.children.length>1)$.list.lastElementChild.remove();
   const L=m.log;
   setText($.seen,fmt.int(L.today));setText($.cargo,L.cargoTonight);
-  setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,2).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'none yet':'from 6 pm');
-  setText($.mil,L.militaryToday||0);$['mil-by']._alts=militaryAlts(L);$['mil-by'].textContent=$['mil-by']._alts[0];fitLine($['mil-by']);
+  // The cards' bottom lines fit their card (cargo drops brands, military drops types), then
+  // all three take the smallest size so none is bigger than its neighbours.
+  const brands=n=>L.cargoBy.slice(0,n).map(([b,n])=>`${b} ${n}`).join(' · ');
+  $['cargo-by']._alts=L.cargoBy.length?[...new Set([brands(2),brands(1)])]:[L.night?'none yet':'from 6 pm'];
+  setText($.mil,L.militaryToday||0);$['mil-by']._alts=militaryAlts(L);
+  const lines=[$['seen-by'],$['cargo-by'],$['mil-by']];
+  for(const e of lines){e.textContent=(e._alts||[e.textContent])[0];fitLine(e);}
+  const size=Math.min(...lines.map(e=>parseFloat(getComputedStyle(e).fontSize)));for(const e of lines)e.style.fontSize=`${size}px`;
 }
 
 export default {

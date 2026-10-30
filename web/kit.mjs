@@ -188,6 +188,11 @@ export function silhouette(a,cls='sil'){
 }
 // One line, never cut: try each wording (e._alts, longest first) shrinking the type down
 // to 11 px; if none fits, the shortest one goes down to 9 px.
+// Wider than its box: scrollWidth rounds, so the text's own measured width decides too
+// (a 1.5 px overrun cut the last digit).
+const over=e=>{if(e.scrollWidth>e.clientWidth)return true;const r=document.createRange();r.selectNodeContents(e);
+  const cs=getComputedStyle(e),inner=e.getBoundingClientRect().width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-parseFloat(cs.borderLeftWidth)-parseFloat(cs.borderRightWidth);
+  return r.getBoundingClientRect().width>inner+.5;};
 export function fitLine(e){
   const alts=e._alts||[e.textContent];
   // Not laid out (hidden): show the full wording and fit again at the next setText.
@@ -197,17 +202,17 @@ export function fitLine(e){
     const floor=i===alts.length-1?9:11;
     e.textContent=alts[i];e.style.fontSize='';
     let size=parseFloat(getComputedStyle(e).fontSize);
-    while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
-    if(e.scrollWidth<=e.clientWidth+1)return;
+    while(over(e)&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
+    if(!over(e))return;
   }
   // Text that must stay whole (a photo credit, e._whole) wraps onto another line instead.
   if(e._whole){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';return;}
   // Still too long at the smallest size (a 400-character name): drop whole words from the
   // end, never ending in "…" (or a dangling slash), so at least it isn't cut through a word.
   let t=e.textContent;
-  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–\/-]+$/,'');e.textContent=t;}
+  while(over(e)&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–\/-]+$/,'');e.textContent=t;}
   // One unbroken word longer than the row: it wraps rather than being cut.
-  if(e.scrollWidth>e.clientWidth+1){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';}
+  if(over(e)){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';}
 }
 // The planes worth labelling first: hero, then those inside the alert ring, then nearest.
 export const byInterest=m=>[...new Set([m.hero,...m.planes.filter(a=>a.inside),...m.planes].filter(Boolean))];
