@@ -342,7 +342,7 @@ function render(m){
   }
   const L=m.log;
   setText($['cargo-n'],L.cargoTonight);
-  const brands=n=>L.cargoBy.slice(0,n).map(([b,c])=>`${b} ${c}`).join(' · ');
+  const brands=n=>L.cargoBy.slice(0,n).map(([b,c])=>`${c} ${b}`).join(' · '); // count first, like Military
   $['cargo-by']._alts=L.cargoBy.length?[brands(4),brands(3),brands(2)]:[L.night?'none yet':'counted 6 pm – 6 am'];
   setText($['mil-n'],L.militaryToday||0);$['mil-by']._alts=militaryAlts(L);
   const cell=(k,v,cls='',alts)=>{const d=el('div',cls),dd=el('dd','',v);dd._alts=alts;d.append(el('dt','',k),dd);return d;};

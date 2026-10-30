@@ -214,7 +214,7 @@ function render(m){
   const L=m.log;
   setText($.cargo,String(L.cargoTonight));setText($.seen,fmt.int(L.today));setText($.mil,String(L.militaryToday||0));
   $['mil-by']._alts=(L.militaryTypes||[]).length?militaryAlts(L).map(t=>`Military: ${t}`):['No military today'];$['mil-by'].textContent=$['mil-by']._alts[0];fitLine($['mil-by']);
-  setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'No cargo yet tonight':'Cargo counts 6 pm – 6 am');
+  setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${n} ${b}`).join(' · '):L.night?'No cargo yet tonight':'Cargo counts 6 pm – 6 am');
 }
 
 export default {

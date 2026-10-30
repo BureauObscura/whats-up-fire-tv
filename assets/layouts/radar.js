@@ -183,7 +183,7 @@ function render(m){
   const L=m.log;
   setText($['cargo-n'],String(L.cargoTonight).padStart(2,'0'));
   $['cargo-by'].replaceChildren(...(L.cargoBy.length?L.cargoBy.slice(0,4).map(([brand,n])=>{
-    const d=el('div');d.append(`${brand} `,el('em','',n));return d;
+    const d=el('div');d.append(el('em','',n),` ${brand}`);return d; // count first, like Military
   }):[el('div','',L.night?'none yet':'counts 6 pm to 6 am')]));
   setText($['mil-n'],String(L.militaryToday||0).padStart(2,'0'));
   // Count first ("2 C-17"), most seen first, one type a row like the cargo brands.

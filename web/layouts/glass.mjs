@@ -133,7 +133,7 @@ function render(m){
   setText($.seen,fmt.int(L.today));setText($.cargo,L.cargoTonight);
   // The cards' bottom lines fit their card (cargo drops brands, military drops types), then
   // all three take the smallest size so none is bigger than its neighbours.
-  const brands=n=>L.cargoBy.slice(0,n).map(([b,n])=>`${b} ${n}`).join(' · ');
+  const brands=n=>L.cargoBy.slice(0,n).map(([b,n])=>`${n} ${b}`).join(' · '); // count first, like Military
   $['cargo-by']._alts=L.cargoBy.length?[...new Set([brands(2),brands(1)])]:[L.night?'none yet':'from 6 pm'];
   setText($.mil,L.militaryToday||0);$['mil-by']._alts=militaryAlts(L);
   const lines=[$['seen-by'],$['cargo-by'],$['mil-by']];
