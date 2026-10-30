@@ -83,7 +83,8 @@ function remark(a){
 }
 // "Cincinnati/Northern Kentucky International" -> "Cincinnati"
 const city=s=>String(s||'').split(/[\/(,]/)[0].replace(/\s+(International|Regional|Municipal|Airport|Intl)\b.*$/i,'').trim();
-const dest=a=>a.route?city(a.route.to?.city)||a.route.destination:a.operator?a.operator:'PRIVATE';
+// No route: the operator, MILITARY for a military aircraft ("US AIR" read like US Airways), or PRIVATE.
+const dest=a=>a.route?city(a.route.to?.city)||a.route.destination:a.military?'MILITARY':a.operator?a.operator:'PRIVATE';
 const altText=ft=>!number(ft)?'':fmt.altUnit()==='m'?String(Math.round(ft*.3048)):String(Math.round(ft/10)*10);
 // Four flaps: one decimal under 100, whole numbers above ("123." was the old cut).
 const distText=mi=>{if(!number(mi))return '';const d=metric()?mi*KM:mi;return d<99.95?d.toFixed(1):String(Math.min(9999,Math.round(d)));};

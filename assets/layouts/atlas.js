@@ -2,7 +2,7 @@
 (()=>{
 const __modules=window.__whatsupModules;
 const {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt,militaryAlts}=__modules["kit.mjs"];
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt,militaryAlts,psCredit}=__modules["kit.mjs"];
 const {PROFILE}=__modules["profile.mjs"];
 // Layout 2, Atlas Light: a light, fully detailed printed city map (landuse, parks, water,
 // buildings, every road class with casings, rail, aeroways, place names) with planes
@@ -144,6 +144,7 @@ function ui(){
     <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
     'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','mil-n','mil-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+  $.credit._whole=true; // attribution: wraps rather than losing words
   $.barFill=$.bar.firstChild;fit($.city);
   root.append(map,side);
 }
@@ -261,7 +262,7 @@ function showPhoto(a){
     $.img.onerror=()=>{if(picHex!==hex||$.pic.classList.contains('model'))return;if(useModel()){$.credit.textContent=$.credit._alts[0];fitLine($.credit);}};
     if(p&&qr){
       photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
-      $.credit._alts=[`Photo © ${p.photographer} / Planespotters.net`,`© ${p.photographer} / Planespotters.net`];
+      $.credit._alts=psCredit(p.photographer);
     }else if(!useModel())return;
     $.credit.textContent=$.credit._alts[0];
   });

@@ -5,7 +5,7 @@
 // Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt,militaryAlts} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt,militaryAlts,psCredit} from '../kit.mjs';
 import {PROFILE} from '../profile.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
@@ -140,6 +140,7 @@ function ui(){
     <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
     'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','mil-n','mil-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+  $.credit._whole=true; // attribution: wraps rather than losing words
   $.barFill=$.bar.firstChild;fit($.city);
   root.append(map,side);
 }
@@ -257,7 +258,7 @@ function showPhoto(a){
     $.img.onerror=()=>{if(picHex!==hex||$.pic.classList.contains('model'))return;if(useModel()){$.credit.textContent=$.credit._alts[0];fitLine($.credit);}};
     if(p&&qr){
       photo=p;$.img.src=p.src;$.qr.src=qr;$.img.alt=photoAlt(a);$.qr.alt='QR code for this photo on Planespotters.net';
-      $.credit._alts=[`Photo © ${p.photographer} / Planespotters.net`,`© ${p.photographer} / Planespotters.net`];
+      $.credit._alts=psCredit(p.photographer);
     }else if(!useModel())return;
     $.credit.textContent=$.credit._alts[0];
   });

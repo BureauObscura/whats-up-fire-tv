@@ -293,7 +293,7 @@ function demoSource(config,onModel,airports){
     ['a03b7e','N451PA','N451PA','C172','','1977',2.5,3.1,2400,96,300,300,null],
     ['a0c9f5','N8UH','N8UH','EC35','UNIVERSITY HOSPITAL','2009',-1.2,3.7,1300,118,20,0,null],
     ['ae1471','RCH481','05-5143','C17','','2005',-4.6,-3.9,12500,330,40,1200,null],
-    ['ae04c2','PKSN21','58-0010','K35R','','1958',5.6,2.2,21000,380,250,0,null],
+    ['ae04c2','PKSN21','58-0010','K35R','','1958',1.5,-7.0,21000,380,250,0,null], // south of home, clear of the other tags
   ];
   const MILITARY=new Set(['ae1471','ae04c2']);
   const started=Date.now(),log={today:184,highest:{name:'UAE2VL',value:41000},fastest:{name:'SWA1987',value:512},

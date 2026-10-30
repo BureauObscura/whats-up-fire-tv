@@ -33,10 +33,14 @@ export function themedQr(link){
 // layout keeps its own text). Styled per layout via .ph / .ph-img / .ph-qr / .ph-cap.
 // A model photo's author, shortened for a tight caption: an agency credit keeps the
 // agency ("U.S. Air Force photo"), a person becomes "J. Herzog".
+// A Planespotters credit, longest first; every wording keeps the photographer and the site.
+export const psCredit=name=>[...new Set([`Photo © ${name} / Planespotters.net`,`© ${name} / Planespotters.net`,
+  `© ${shortAuthor(name)} / Planespotters.net`,`© ${shortAuthor(name)} / Planespotters`])];
 export const shortAuthor=a=>/^Author unknown$/.test(a)?a:/ photo( by |$)/.test(a)?a.replace(/ by .*$/,''):a.replace(/^(\S)\S*\s+(?=\S)/,'$1. ').replace(/,.*$/,'');
 export function photoSlot(cls=''){
   const s=el('div',`ph ${cls}`);s.hidden=true;
   s.append(s._img=el('img','ph-img'),s._qr=el('img','ph-qr'),s._cap=el('div','ph-cap'));
+  s._cap._whole=true; // attribution: wraps rather than losing words
   s._img.alt='';s._qr.alt='';return s;
 }
 // Alt text for an aircraft's photo, for screen readers: "Photo of a Boeing 737-800".
@@ -55,7 +59,7 @@ export function showPhotoIn(s,a,relayout=()=>{}){
       if(!m){s.hidden=true;relayout();return;}
       s.classList.add('model');s._qr.removeAttribute('src');s._img.src=m.src;s._img.alt=`Typical ${m.model}`;
       s._cap._alts=[`Typical ${m.model} · ${m.author} · ${m.license}`,`${m.author} · ${m.license}`,`${shortAuthor(m.author)} · ${m.license}`];fitLine(s._cap);};
-    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=[`Photo © ${p.photographer} / Planespotters.net`,`© ${p.photographer} / Planespotters.net`];}
+    if(p&&qr){s._img.src=p.src;s._qr.src=qr;s._img.alt=photoAlt(a);s._qr.alt='QR code for this photo on Planespotters.net';s._cap._alts=psCredit(p.photographer);}
     else{
       const m=modelPhoto(a);if(!m)return;
       const short=shortAuthor(m.author);
@@ -196,10 +200,12 @@ export function fitLine(e){
     while(e.scrollWidth>e.clientWidth+1&&size>floor){size-=.5;e.style.fontSize=`${size}px`;}
     if(e.scrollWidth<=e.clientWidth+1)return;
   }
+  // Text that must stay whole (a photo credit, e._whole) wraps onto another line instead.
+  if(e._whole){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';return;}
   // Still too long at the smallest size (a 400-character name): drop whole words from the
-  // end, never ending in "…", so at least it isn't cut through a word.
+  // end, never ending in "…" (or a dangling slash), so at least it isn't cut through a word.
   let t=e.textContent;
-  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–-]+$/,'');e.textContent=t;}
+  while(e.scrollWidth>e.clientWidth+1&&/\s\S+\s*$/.test(t.trim())){t=t.trim().replace(/\s+\S+$/,'').replace(/[\s,·:;–\/-]+$/,'');e.textContent=t;}
   // One unbroken word longer than the row: it wraps rather than being cut.
   if(e.scrollWidth>e.clientWidth+1){e.style.whiteSpace='normal';e.style.overflowWrap='anywhere';}
 }
