@@ -268,3 +268,21 @@ test('airspace keeps the heading (a comment once swallowed it)', async () => {
   const [a]=airspace(states,now*1000,true).all;
   assert.equal(a.heading,90);assert.equal(a.speed_kt,200);
 });
+
+test('military: dbFlags bit 1, counted once a day in the local area, by type, count first', async () => {
+  const {isMilitary,shortType,updateLog,logSummary}=await import('../web/model.mjs');
+  const {militaryAlts}=await import('../web/kit.mjs');
+  assert.equal(isMilitary({dbFlags:1}),true);assert.equal(isMilitary({dbFlags:3}),true);
+  assert.equal(isMilitary({dbFlags:2}),false);assert.equal(isMilitary({}),false);assert.equal(isMilitary(null),false);
+  assert.equal(shortType('C17'),'C-17');assert.equal(shortType('K35R'),'KC-135');
+  const now=new Date(2026,9,29,15).getTime();
+  const p=(hex,t,mi)=>({hex,aircraft_type:t,military:true,distance_mi:mi,flight:'RCH1',altitude_ft:10000,speed_kt:300});
+  let log=updateLog(null,[p('ae0001','C17',3),p('ae0002','C17',5),p('ae0003','K35R',9),p('ae0004','C17',40)],now);
+  log=updateLog(log,[p('ae0001','C17',2)],now+60000); // the same aircraft again: once
+  let L=logSummary(log);
+  assert.equal(L.militaryToday,3);assert.deepEqual(L.militaryTypes,[['C-17',2],['KC-135',1]]);
+  assert.deepEqual(militaryAlts(L),['2 C-17 · 1 KC-135','2 C-17']);
+  assert.deepEqual(militaryAlts({militaryTypes:[]}),['none yet']);
+  log=updateLog(log,[],new Date(2026,9,30,0,5).getTime()); // after midnight: a new day
+  assert.equal(logSummary(log).militaryToday,0);
+});

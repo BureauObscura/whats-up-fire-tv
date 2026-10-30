@@ -5,7 +5,7 @@
 // Layout 1, Atlas Dark, is the same code with the DARK palette and atlas-dark.css; layout 3,
 // Atlas Satellite, puts satellite imagery under a light road overlay (atlas-satellite.css).
 import {svg,el,setText,fmt,placeName,statusText,quietText,planeIcon,byInterest,makeCanvas,paintMap,toView,placesNear,
-  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt} from '../kit.mjs';
+  airfieldsNear,shortField,cityName,compass,number,TrailBook,placeBox,metric,KM,alertRadius,ppmOf,niceDistance,range,overlap,zonePath,windowView,silhouette,photoFor,qrFor,modelPhoto,fitLine,themedQr,fit,snapped,GRID_PAD_MI,shortAuthor,photoAlt,militaryAlts} from '../kit.mjs';
 import {PROFILE} from '../profile.mjs';
 
 const DETAIL_MAX=15; // the street map is drawn up to this map radius (mapgen DETAIL_MAX_RANGE)
@@ -128,17 +128,18 @@ function ui(){
         <div><dt>Climb</dt><dd class="at-vs"></dd></div><div><dt>Heading</dt><dd class="at-hdg"></dd></div>
         <div><dt>Look</dt><dd class="at-look"></dd></div><div><dt>Closest</dt><dd class="at-cpa"></dd></div>
       </dl>
-      <div class="at-type"><span class="at-typet"></span></div><div class="at-reg"></div>
-      <div class="at-pic" hidden><img class="at-img" alt=""><img class="at-qr" alt=""><div class="at-credit"></div></div>
+      <div class="at-id"><div class="at-type"><span class="at-typet"></span></div><div class="at-reg"></div>
+        <div class="at-pic" hidden><img class="at-img" alt=""><img class="at-qr" alt=""></div><div class="at-credit"></div></div>
     </section>
     <section class="at-quiet" hidden></section>
     <section class="at-books">
-      <div class="at-cargo"><b class="at-cargo-n"></b><div><h4>Cargo tonight</h4><div class="at-cargo-by"></div></div></div>
-      <h4>Today</h4><dl class="at-log"></dl>
+      <div class="at-counts"><b class="at-cargo-n"></b><div class="at-ct"><h4>Cargo</h4><div class="at-cargo-by"></div></div>
+        <b class="at-mil-n"></b><div class="at-ct"><h4>Military</h4><div class="at-mil-by"></div></div></div>
+      <dl class="at-log"></dl>
     </section>
     <section class="at-recent"><h4 class="at-rech">Recently above</h4><div class="at-rec"></div></section>`;
   for(const c of ['city','clock','status','date','hero','alert','kicker','fl','op','route','prog','bar','progt','alt','spd','vs','hdg','look','cpa',
-    'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','log','rec'])$[c]=side.querySelector('.at-'+c);
+    'type','typet','reg','pic','img','qr','credit','quiet','cargo-n','cargo-by','mil-n','mil-by','log','rec'])$[c]=side.querySelector('.at-'+c);
   $.barFill=$.bar.firstChild;fit($.city);
   root.append(map,side);
 }
@@ -287,7 +288,7 @@ function render(m){
     const isHero=a===hero,t=trails.get(a.hex);
     if(t.length>1)lines.push(svg('polyline',{class:`at-trail${isHero?' hero':''}`,points:[...t.map(s=>toView(VIEW,s.x,s.y)),p].map(q=>`${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ')}));
     if(isHero)marks.push(svg('circle',{class:'at-target',cx:p.x,cy:p.y,r:19}));
-    marks.push(planeIcon(a,p,isHero?28:21,`at-plane${isHero?' hero':''}${a.cargo?' cargo':''}`));
+    marks.push(planeIcon(a,p,isHero?28:21,`at-plane${isHero?' hero':''}${a.cargo?' cargo':''}${a.military?' mil':''}`));
     if(tags.length>=7*2&&!isHero)continue;
     const text=`${a.flight}  ${fmt.alt(a.altitude_ft)}`,w=text.length*7.1+14,hh=22;
     const b=placeBox(boxes,p,w,hh,[[16,-hh-6],[-w-16,-hh-6],[16,8],[-w-16,8]],bounds);
@@ -328,20 +329,21 @@ function render(m){
     setText($.look,`${compass(hero.bearing)} ${Math.max(0,Math.round(hero.elevation))}°`);
     const c=hero.cpa;setText($.cpa,!c?'—':c.receding?'passed':`${fmt.mmss(c.seconds)} · ${fmt.dist(c.miles)}`);
     const typeName=hero.type||hero.aircraft_type||'Unknown type',regLine=[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean);
-    // With a photo the registration joins the type line (one line) to make room.
-    $.typet._alts=[[typeName,...regLine].join(' · '),[typeName,regLine[0]].filter(Boolean).join(' · '),typeName];
-    setText($.typet,typeName);
+    // The type shrinks to fit its line; the registration keeps its own line beside the photo
+    // and shortens to just the registration when needed.
+    $.typet._alts=[typeName];setText($.typet,typeName);
     // A small side-profile picture of the aircraft family beside the type, until (or
     // unless) a real photo of this aircraft arrives.
     const sil=silhouette(hero,'at-sil');
     if($.type.lastElementChild?.dataset?.family!==sil.dataset.family){$.type.querySelector('.at-sil')?.remove();$.type.append(sil);}
     showPhoto(hero);
-    setText($.reg,[hero.registration,hero.year&&`built ${hero.year}`].filter(Boolean).join(' · '));
+    $.reg._alts=[regLine.join(' · '),regLine[0]||''];setText($.reg,regLine.join(' · '));
   }
   const L=m.log;
   setText($['cargo-n'],L.cargoTonight);
   const brands=n=>L.cargoBy.slice(0,n).map(([b,c])=>`${b} ${c}`).join(' · ');
   $['cargo-by']._alts=L.cargoBy.length?[brands(4),brands(3),brands(2)]:[L.night?'none yet':'counted 6 pm – 6 am'];
+  setText($['mil-n'],L.militaryToday||0);$['mil-by']._alts=militaryAlts(L);
   const cell=(k,v,cls='',alts)=>{const d=el('div',cls),dd=el('dd','',v);dd._alts=alts;d.append(el('dt','',k),dd);return d;};
   const far=L.farthest,farMi=far&&fmt.far(far.value);
   $.log.replaceChildren(cell('Seen',fmt.int(L.today)),cell('Highest',L.highest?fmt.alt(L.highest.value):'—'),
@@ -353,7 +355,7 @@ function render(m){
     const d=el('div','at-rr');d.append(el('b','',a.flight),el('span','',[a.route&&`${a.route.origin}–${a.route.destination}`,a.aircraft_type].filter(Boolean).join(' ')),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','at-rr none',windowView()?'Nothing through your window yet.':'Nothing inside the alert zone yet.')]));
   // One-line rows (cargo by brand, Rarest, Farthest): the type shrinks until they fit.
-  for(const e of [$['cargo-by'],...$.log.querySelectorAll('dd'),...root.querySelectorAll('.at-stats dd')])fitLine(e);
+  fitAll();
   // Nothing is cut short: long names wrap, and the sections spread down the full
   // column. If a busy hero leaves no room, Recent goes (its space is shared out by
   // the column), then the type tightens.
@@ -366,8 +368,16 @@ function render(m){
   if(over())side.classList.add('tighter');
   // Still no room: the photo gives way (the silhouette stays) rather than a stat row.
   if(over()&&!$.pic.hidden){$.pic.hidden=true;side.classList.remove('photo');}
-  if(!$.pic.hidden){fitLine($.credit);fitLine($.typet);}
-  for(const e of [$['cargo-by'],...$.log.querySelectorAll('dd'),...side.querySelectorAll('.at-stats dd')])fitLine(e);
+  fitAll();
+}
+// One-line rows (cargo and military, the stats, the type and registration beside the photo,
+// the photo credit): each shrinks, then shortens, until it fits. Rarest and Farthest then
+// share the smaller of their two sizes, so they read as a pair.
+function fitAll(){
+  for(const e of [$['cargo-by'],$['mil-by'],$.typet,$.reg,...$.log.querySelectorAll('dd'),...root.querySelectorAll('.at-stats dd')])fitLine(e);
+  if(!$.pic.hidden)fitLine($.credit);
+  for(const pair of [[...$.log.querySelectorAll('.wide dd')],[$['cargo-by'],$['mil-by']]])
+    if(pair.length===2){const size=Math.min(...pair.map(e=>parseFloat(getComputedStyle(e).fontSize)));for(const e of pair)e.style.fontSize=`${size}px`;}
 }
 
 export default {

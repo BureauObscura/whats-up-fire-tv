@@ -118,12 +118,12 @@ function render(m){
     const rt=r?` · ${from} → ${to}`:'',op=hero.operator?` · ${hero.operator}`:'';
     ticker($['hero-line'],[`${hero.status}: ${hero.flight}${op}${rt}`,`${hero.flight}${op}${rt}`,`${hero.flight}${rt}`]);
     const c=hero.cpa,parts=[hero.type||hero.aircraft_type,fmt.alt(hero.altitude_ft),fmt.speed(hero.speed_kt),
-      c&&!c.receding?`closest in ${fmt.mmss(c.seconds)} at ${fmt.dist(c.miles)}`:'',`cargo tonight ${m.log.cargoTonight}`].filter(Boolean);
+      c&&!c.receding?`closest in ${fmt.mmss(c.seconds)} at ${fmt.dist(c.miles)}`:'',`cargo ${m.log.cargoTonight}`,`military ${m.log.militaryToday||0}`].filter(Boolean);
     ticker($['sub-line'],parts.map((_,i)=>parts.slice(0,parts.length-i).join(' · ')));
   }else{
     const q=quietText(m,demo);
     ticker($['hero-line'],[q,q.split('. ')[0]]);
-    ticker($['sub-line'],[`Seen today ${fmt.int(m.log.today)} · cargo tonight ${m.log.cargoTonight}`]);
+    ticker($['sub-line'],[`Seen today ${fmt.int(m.log.today)} · cargo ${m.log.cargoTonight} · military ${m.log.militaryToday||0}`,`Seen today ${fmt.int(m.log.today)} · cargo ${m.log.cargoTonight}`]);
   }
   showPhotoIn($.pic,hero,()=>{fitLine($['hero-line']);fitLine($['sub-line']);});
   // Inset: home and plane dots.
@@ -131,7 +131,7 @@ function render(m){
   for(const a of m.planes){
     const p=toView(view,a.x,a.y);
     if(p.x<0||p.y<0||p.x>INSET.w||p.y>INSET.h)continue;
-    dots.push(svg('circle',{class:a===hero?'dot hero':'dot','data-hex':a.hex,cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:a===hero?3.4:2.2}));
+    dots.push(svg('circle',{class:`dot${a===hero?' hero':''}${a.military?' mil':''}`,'data-hex':a.hex,cx:p.x.toFixed(1),cy:p.y.toFixed(1),r:a===hero?3.4:2.2}));
   }
   $.dots.replaceChildren(...dots);
 }

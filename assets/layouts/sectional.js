@@ -3,7 +3,7 @@
 const __modules=window.__whatsupModules;
 const {zoneOutline}=__modules["core.mjs"];
 const {svg,el,setText,overlap,fmt,metric,KM,placeName,alertRadius,statusText,quietText,planeIcon,byInterest,
-  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn,fit,placeAlts}=__modules["kit.mjs"];
+  makeCanvas,paintMap,airportsNear,placesNear,offset,compass,zoom,range,niceDistance,zonePath,windowView,alertZone,photoSlot,showPhotoIn,fit,placeAlts,militaryAlts,fitLine}=__modules["kit.mjs"];
 // Layout 10, Sectional: a cream VFR sectional chart around home. Towns in chart
 // yellow, water in chart blue, airspace-style rings around nearby airports, a VOR-style
 // compass rose on home, a lat/long graticule, and the data in chart-legend boxes.
@@ -53,8 +53,8 @@ function ui(){
       </section>
       <section class="box tonight">
         <header><span class="tl">Tonight &amp; today</span></header>
-        <div class="tn"><div><b class="cargo"></b><span>cargo flights</span></div><div><b class="seen"></b><span>aircraft today</span></div></div>
-        <div class="cargo-by"></div>
+        <div class="tn"><div><b class="cargo"></b><span>cargo</span></div><div><b class="mil"></b><span>military</span></div><div><b class="seen"></b><span>aircraft today</span></div></div>
+        <div class="cargo-by"></div><div class="mil-by"></div>
       </section>
       <section class="box key">
         <header><span class="tl">Legend</span></header>
@@ -76,7 +76,7 @@ function ui(){
   $.svg=svg('svg',{class:'chart-svg',viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});
   for(const id of ['grat','air','rose','places','trails','planes','tags','scale'])$.svg.append($[id]=svg('g'));
   chart.append($.canvas,$.svg);
-  for(const c of ['city','clock','date','status','hero-st','notam','tbody','fl','op','rt','alt','gs','dist','look','cpa','type','none','quiet','cargo','seen','cargo-by'])
+  for(const c of ['city','clock','date','status','hero-st','notam','tbody','fl','op','rt','alt','gs','dist','look','cpa','type','none','quiet','cargo','seen','cargo-by','mil','mil-by'])
     $[c]=root.querySelector('.'+c);
   fit([...root.querySelectorAll('.grid dd')],$.city);
 }
@@ -186,7 +186,7 @@ function render(m){
     const pts=a.trend.trail.map(s=>{const o=offset(s.lat,s.lon);const q=P(o.x,o.y);return `${q.x.toFixed(1)} ${q.y.toFixed(1)}`;});
     if(pts.length>1)trails.push(svg('path',{class:'trail',d:`M${pts.join('L')}`}));
     if(isHero)planes.push(svg('circle',{class:'hero-ring',cx:p.x,cy:p.y,r:17}));
-    planes.push(planeIcon(a,p,isHero?26:20,`ac${isHero?' hero':''}${a.inside?' inside':''}`));
+    planes.push(planeIcon(a,p,isHero?26:20,`ac${isHero?' hero':''}${a.inside?' inside':''}${a.military?' mil':''}`));
   }
   for(const a of tagged){
     const p=P(a.x,a.y),isHero=a===hero;
@@ -216,7 +216,8 @@ function render(m){
   }
   showPhotoIn($.pic,hero,()=>{$.photo.hidden=$.pic.hidden;$.key.hidden=!$.pic.hidden;});
   const L=m.log;
-  setText($.cargo,String(L.cargoTonight));setText($.seen,fmt.int(L.today));
+  setText($.cargo,String(L.cargoTonight));setText($.seen,fmt.int(L.today));setText($.mil,String(L.militaryToday||0));
+  $['mil-by']._alts=(L.militaryTypes||[]).length?militaryAlts(L).map(t=>`Military: ${t}`):['No military today'];$['mil-by'].textContent=$['mil-by']._alts[0];fitLine($['mil-by']);
   setText($['cargo-by'],L.cargoBy.length?L.cargoBy.slice(0,4).map(([b,n])=>`${b} ${n}`).join(' · '):L.night?'No cargo yet tonight':'Cargo counts 6 pm – 6 am');
 }
 

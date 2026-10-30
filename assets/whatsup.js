@@ -4373,7 +4373,7 @@ function saveLogSoon(log,now){
 }
 function updateLog(log,planes,now){
   const day=localDay(now);
-  if(!log||log.day!==day)log={day,pk:1,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}}};
+  if(!log||log.day!==day)log={day,pk:1,seen:[],planes:{},highest:null,fastest:null,typesToday:[],typesAll:log?.typesAll||{},cargo:log?.cargo||{night:null,seen:{}},mil:{}};
   // Today's aircraft (any distance the feed covers): closest approach, type, callsign and
   // origin. Rarest and Farthest pick from those that came within the map radius, so they
   // follow zooming. Older logs (no planes yet): today's local types count as close (0 mi).
@@ -4411,6 +4411,8 @@ function updateLog(log,planes,now){
     if(number(a.altitude_ft)&&(!log.highest||a.altitude_ft>log.highest.value))log.highest={name,value:a.altitude_ft};
     if(number(a.speed_kt)&&(!log.fastest||a.speed_kt>log.fastest.value))log.fastest={name,value:a.speed_kt};
     if(night&&a.cargo&&!log.cargo.seen[a.hex])log.cargo.seen[a.hex]=a.cargo;
+    // Military today: once per aircraft per day, same local area as Seen; kept with its type.
+    if(a.military){log.mil=log.mil||{};if(!(a.hex in log.mil)){log.mil[a.hex]=String(a.aircraft_type||'').slice(0,4);const k=Object.keys(log.mil);if(k.length>500)delete log.mil[k[0]];}}
   }
   return log;
 }
@@ -4437,13 +4439,18 @@ function cargoCounts(seen){
   const counts={};for(const brand of Object.values(seen||{}))counts[brand]=(counts[brand]||0)+1;
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
 }
+// Military today by type, most seen first: [[short name, count]] ("C-17", 2).
+function militaryTypes(mil){
+  const n={};for(const t of Object.values(mil||{})){const k=shortType(t)||'Unknown';n[k]=(n[k]||0)+1;}
+  return Object.entries(n).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
 function logSummary(log){
-  if(!log)return {today:0,highest:null,fastest:null,farthest:null,rarest:null,cargoTonight:0,cargoBy:[],night:false};
+  if(!log)return {today:0,highest:null,fastest:null,farthest:null,rarest:null,cargoTonight:0,cargoBy:[],night:false,militaryToday:0,militaryTypes:[]};
   const cargoBy=cargoCounts(log.cargo.seen);
   // Rarest/Farthest are read when drawn, so zooming the map changes them at once.
   return {today:log.seen.length,highest:log.highest,fastest:log.fastest,night:!!log.cargo.night,
     get rarest(){return pickRarest(log,logRadius());},get farthest(){return pickFarthest(log,logRadius());},
-    cargoTonight:cargoBy.reduce((s,[,n])=>s+n,0),cargoBy};
+    cargoTonight:cargoBy.reduce((s,[,n])=>s+n,0),cargoBy,militaryToday:Object.keys(log.mil||{}).length,militaryTypes:militaryTypes(log.mil)};
 }
 
 // Trend: compare with the reading ~30 s ago; the samples double as the trail.
@@ -4457,6 +4464,11 @@ function trend(a,now){
 }
 function pruneSamples(now){for(const [k,l] of samples)if(now-l[l.length-1].t>120000)samples.delete(k);}
 
+// Military: adsb.fi marks it in the readsb dbFlags field, bit 1 (the same flag behind its
+// /api/v2/mil list); the field is only present when it isn't 0.
+const isMilitary=raw=>(Number(raw?.dbFlags)&1)===1;
+// A type's short name, as the app writes it elsewhere: "C-17 Globemaster III" -> "C-17".
+const shortType=code=>{const n=typeName(code),w=n.split(' ')[0];return /\d/.test(w)?w:code||'';};
 function enrich(a,raw,route,now){
   const r=raw||{},owner=typeof r.ownOp==='string'?r.ownOp.slice(0,80).trim():''; // capped: remote text through regexes
   const call=(a.callsign||'').toUpperCase();
@@ -4477,7 +4489,8 @@ function enrich(a,raw,route,now){
     progress={flown,left,share:flown/Math.max(1,flown+left)};
   }
   const vertical=number(r.baro_rate)?r.baro_rate:number(r.geom_rate)?r.geom_rate:null;
-  return {...a,flight,operator,registration:a.registration||r.r||'',type:typeName(a.aircraft_type),
+  const military=isMilitary(r);
+  return {...a,flight,operator,military,registration:a.registration||r.r||'',type:typeName(a.aircraft_type),
     year:/^\d{4}$/.test(String(r.year||''))?String(r.year):'',squawk,emergency,vertical,
     cargo,route,progress,...derive(a),trend:trend(a,now)};
 }
@@ -4559,9 +4572,12 @@ function demoSource(config,onModel,airports){
     ['a7c3b9','SWA1987','N8817L','B38M','SOUTHWEST AIRLINES CO','2019',6.9,-5.2,37000,462,198,0,leg(h4,h2)],
     ['a03b7e','N451PA','N451PA','C172','','1977',2.5,3.1,2400,96,300,300,null],
     ['a0c9f5','N8UH','N8UH','EC35','UNIVERSITY HOSPITAL','2009',-1.2,3.7,1300,118,20,0,null],
+    ['ae1471','RCH481','05-5143','C17','','2005',-4.6,-3.9,12500,330,40,1200,null],
+    ['ae04c2','PKSN21','58-0010','K35R','','1958',5.6,2.2,21000,380,250,0,null],
   ];
+  const MILITARY=new Set(['ae1471','ae04c2']);
   const started=Date.now(),log={today:184,highest:{name:'UAE2VL',value:41000},fastest:{name:'SWA1987',value:512},
-    rarest:{code:'C130',name:typeName('C130'),count:1},farthest:{name:'DHK283',value:4207,from:'Leipzig',code:'LEJ'},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]]};
+    rarest:{code:'C130',name:typeName('C130'),count:1},farthest:{name:'DHK283',value:4207,from:'Leipzig',code:'LEJ'},night:true,cargoTonight:23,cargoBy:[['UPS',8],['FedEx',6],['DHL',5],['Amazon',4]],militaryToday:3,militaryTypes:[['C-17',2],['KC-135',1]]};
   if(scene==='long')Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},
     farthest:{name:'GEC8401',value:4310,from:'Frankfurt am Main',code:'FRA'},cargoBy:[['UPS',9],['FedEx',5],['Amazon',3],['ABX',2],['DHL',2]]});
   const recentRows=[['a6d1e2','UAL1840','B739',leg('DEN','BOS'),3],['a3c4d5','ATN3121','B763',leg('LAX','HOME'),12],
@@ -4575,7 +4591,8 @@ function demoSource(config,onModel,airports){
     DEMO[0]=['0d0a1b','MAA6521','XA-MAAZZ','A124','AEROTRANSPORTES MAS DE CARGA SA DE CV','1991',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
     DEMO[1]=['a1b2c3','N1234567','N1234567','GLF6','INTERNATIONAL BUSINESS AVIATION SERVICES LLC','2021',-3,2,45000,520,90,0,null];
     Object.assign(log,{rarest:{code:'A124',name:typeName('A124'),count:1},farthest:{name:'MAA6521',value:9876,from:'Santa Cruz de la Sierra',code:'VVI'},
-      cargoBy:[['UPS',19],['FedEx',15],['Amazon',13],['ABX',12],['DHL',12],['Atlas',10]]});
+      cargoBy:[['UPS',19],['FedEx',15],['Amazon',13],['ABX',12],['DHL',12],['Atlas',10]],
+      militaryToday:22,militaryTypes:[['KC-135',9],['C-130J',7],['UH-60',4],['CH-47',2]]});
   }
   if(scene==='long'){
     DEMO[0]=['3c4b26','GEC8401','D-ALFH','B77L','LUFTHANSA CARGO AG','2013',1.6,-1.9,34000,451,331,0,leg('FRA','DFW')];
@@ -4589,7 +4606,7 @@ function demoSource(config,onModel,airports){
       const a={hex,callsign,registration,aircraft_type,latitude,longitude,altitude_ft:Math.round(alt+fpm*t/60),speed_kt:gs,
         heading:track,position_timestamp:now/1000-1};
       a.distance_mi=Math.hypot(east,north);a.inside=a.distance_mi<=config.radiusMiles;
-      const raw={ownOp,year,squawk:scene==='emergency'&&hex===DEMO[0][0]?'7700':'2214',baro_rate:fpm};
+      const raw={ownOp,year,squawk:scene==='emergency'&&hex===DEMO[0][0]?'7700':'2214',baro_rate:fpm,dbFlags:MILITARY.has(hex)?1:0};
       const p=enrich(a,raw,route?{...route,flight:callsign}:null,now);p.inside=inAlert(p,config);return p;
     }).filter(a=>a.distance_mi<config.rangeMiles+3&&scene!=='quiet')
       .sort((a,b)=>Number(b.inside)-Number(a.inside)||a.distance_mi-b.distance_mi);
@@ -4609,7 +4626,7 @@ function start(place,config,onModel,airports){
   return demo?demoSource(cfg,onModel,airports):liveSource(cfg,onModel);
 }
 
-return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,flushLog,updateLog,pickRarest,pickFarthest,setLogRadius,cargoCounts,logSummary,start};
+return {query,demo,tz,cargoBrand,EMERGENCY,typeName,compass,offset,resetLog,flushLog,updateLog,pickRarest,pickFarthest,setLogRadius,cargoCounts,militaryTypes,logSummary,isMilitary,shortType,start};
 })();
 // ---- kit.mjs
 __modules["kit.mjs"]=(()=>{
@@ -4970,7 +4987,15 @@ function credits(cls='credits',{oneLine=false}={}){
   return e;
 }
 
-return {themedQr,shortAuthor,photoSlot,photoAlt,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,snapped,GRID_PAD_MI,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
+// Military today's sub-line, count first ("2 C-17 · 1 KC-135": "C-17 2" reads like C-172),
+// most seen first; shorter wordings drop types. With none: "none yet".
+const militaryAlts=L=>{
+  const t=L?.militaryTypes||[];if(!t.length)return ['none yet'];
+  const w=n=>t.slice(0,n).map(([k,c])=>`${c} ${k}`).join(' · ');
+  return [...new Set([w(4),w(3),w(2),w(1)])];
+};
+
+return {themedQr,shortAuthor,photoSlot,photoAlt,showPhotoIn,DATA_ATTRIBUTION,BASE_RANGE,range,zoom,svg,el,setText,fit,placeAlts,airlineAlts,overlap,placeBox,useSettings,KM,metric,fmt,placeName,cityName,alertRadius,alertZone,windowView,zonePath,routeText,routeCities,statusText,quietText,PLANE,HELI,SINGLE,isHeli,isLight,shapeFor,planeIcon,silhouette,fitLine,byInterest,TrailBook,pixelRatio,makeCanvas,mapShift,ppmOf,niceStep,niceDistance,paintMap,toView,placeKinds,placesNear,shortField,airfieldsNear,airportsNear,credits,militaryAlts,snapped,GRID_PAD_MI,photoFor,qrFor,modelPhoto,number,compass,offset,placeLabel,MAP_ATTRIBUTION};
 })();
 // ---- app.mjs
 __modules["app.mjs"]=(()=>{

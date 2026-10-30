@@ -71,7 +71,7 @@ function render(m){
   for(const a of m.planes){
     const p=toView(view,a.x,a.y);
     if(p.x<4||p.y<4||p.x>MAPSIZE-4||p.y>MAPSIZE-4)continue;
-    marks.push(planeIcon(a,p,a===hero?16:9,a===hero?'plane hero':'plane'));
+    marks.push(planeIcon(a,p,a===hero?16:9,`plane${a===hero?' hero':''}${a.military?' mil':''}`));
   }
   $.marks.replaceChildren(...marks);
   showPhotoIn($.pic,hero);

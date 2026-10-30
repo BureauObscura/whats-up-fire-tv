@@ -54,6 +54,7 @@ function ui(){
       <div class="log">
         <div><span class="k">TODAY</span><b class="l-seen"></b></div>
         <div><span class="k">CARGO</span><b class="l-cargo"></b></div>
+        <div><span class="k">MIL</span><b class="l-mil"></b></div>
         <div><span class="k">HIGH</span><b class="l-high"></b></div>
       </div>
     </div>`;
@@ -63,7 +64,7 @@ function ui(){
   for(const id of ['rose','apts','line','traffic','own'])$.svg.append($[id]=svg('g'));
   nd.prepend($.canvas,$.svg);
   for(const c of ['gs','nd-alt','trk','wpt','wpt-d','wpt-t','warn','warn-b','tfc','status','range-v','city','clock','spd-tape','alt-tape',
-    'fl','op','rt','vs','type','nodata','quiet','pfd-mid','f-gs','f-trk','f-alt','f-dist','f-brg','f-cpa','l-seen','l-cargo','l-high','recent'])$[c]=root.querySelector('.'+c);
+    'fl','op','rt','vs','type','nodata','quiet','pfd-mid','f-gs','f-trk','f-alt','f-dist','f-brg','f-cpa','l-seen','l-cargo','l-mil','l-high','recent'])$[c]=root.querySelector('.'+c);
   root.querySelector('.side').append($.pic=photoSlot());
   fit($.city,$.fl,$.op,$.rt,$.type,$['f-gs'],$['f-trk'],$['f-alt'],$['f-dist'],$['f-brg'],$['f-cpa']);
 }
@@ -146,7 +147,7 @@ function render(m){
   for(const a of visible){
     const p=P(a.x,a.y),isHero=a===hero;
     const kind=a.emergency?'ra':a.inside?'ta':'other';
-    const g=svg('g',{class:`tcas ${kind}${isHero?' hero':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
+    const g=svg('g',{class:`tcas ${kind}${isHero?' hero':''}${a.military?' mil':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
     if(kind==='ra')g.append(svg('rect',{x:-8,y:-8,width:16,height:16}));
     else if(kind==='ta')g.append(svg('circle',{r:8}));
     else g.append(svg('path',{d:'M0 -10L8 0L0 10L-8 0Z'}));
@@ -211,7 +212,7 @@ function render(m){
   for(const s of $.recent.querySelectorAll('.rec span'))fitLine(s);
   const L=m.log;
   setText($['l-seen'],fmt.int(L.today));
-  setText($['l-cargo'],String(L.cargoTonight));
+  setText($['l-cargo'],String(L.cargoTonight));setText($['l-mil'],String(L.militaryToday||0));
   setText($['l-high'],L.highest?fmt.alt(L.highest.value).toUpperCase():'---');
 }
 

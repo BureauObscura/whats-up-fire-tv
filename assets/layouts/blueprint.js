@@ -131,7 +131,7 @@ function render(m){
   const shown=byInterest(m).filter(a=>{const p=toView(VIEW,a.x,a.y);return p.x>-10&&p.x<W+10&&p.y>-10&&p.y<H+10;});
   for(const a of shown){
     const p=toView(VIEW,a.x,a.y),isHero=a===hero;
-    const g=svg('g',{class:`bp-plane${isHero?' hero':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${(isHero?32:22)/64})`});
+    const g=svg('g',{class:`bp-plane${isHero?' hero':''}${a.military?' mil':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.heading||0}) scale(${(isHero?32:22)/64})`});
     g.append(svg('path',{d:shapeFor(a)}));planes.push(g);
     // Heading vector: a short construction line ahead of the nose.
     if(number(a.heading)){const r=a.heading*Math.PI/180,l=isHero?34:22;

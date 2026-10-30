@@ -48,12 +48,13 @@ function ui(){
     </div>
     <div class="empty-sky" hidden></div>
     <div class="lower">
-      <div class="cargo"><div class="label">Cargo tonight</div><div class="cargo-row"><b class="cargo-n"></b><div class="cargo-by"></div></div></div>
-      <div class="today-log"><div class="label">Today</div><div class="log"></div></div>
+      <div class="cargo"><div class="label">Cargo</div><div class="cargo-row"><b class="cargo-n"></b><div class="cargo-by"></div></div>
+        <div class="label mil-label">Military</div><div class="cargo-row mil-row"><b class="mil-n"></b><div class="mil-by"></div></div></div>
+      <div class="today-log"><div class="log"></div></div>
     </div>
     <div class="recent-wrap"><div class="label">Recently above</div><div class="recent"></div></div>`;
   for(const c of ['city','clock','today','status','hero','hero-label','alert','fl','op','route','progress','bar','prog','alt','spd','look','cpa',
-    'aircraft','empty-sky','cargo-n','cargo-by','log','recent'])$[c]=panel.querySelector('.'+c);
+    'aircraft','empty-sky','cargo-n','cargo-by','mil-n','mil-by','log','recent'])$[c]=panel.querySelector('.'+c);
   fit([...panel.querySelectorAll('.stats b')],$.city,$.op,$.route,$.aircraft);
   $.barFill=$.bar.firstChild;
 }
@@ -134,7 +135,7 @@ function render(m){
       dots.append(svg('circle',{cx:q.x.toFixed(1),cy:q.y.toFixed(1),r:1.3}));
     });
     trails.push(dots);
-    blips.push(planeIcon(a,p,isHero?20:a.inside?16:13,`blip${a.inside?'':' context'}${a.cargo?' cargo':''}${isHero?' hero':''}`));
+    blips.push(planeIcon(a,p,isHero?20:a.inside?16:13,`blip${a.inside?'':' context'}${a.cargo?' cargo':''}${a.military?' mil':''}${isHero?' hero':''}`));
     if(!labelled.has(a))continue;
     const lines=blockText(a),w=Math.max(...lines.map(l=>l.length))*7+4,h=38;
     const spots=[[14,-h-2],[-w-14,-h-2],[14,8],[-w-14,8]];
@@ -184,6 +185,11 @@ function render(m){
   $['cargo-by'].replaceChildren(...(L.cargoBy.length?L.cargoBy.slice(0,4).map(([brand,n])=>{
     const d=el('div');d.append(`${brand} `,el('em','',n));return d;
   }):[el('div','',L.night?'none yet':'counts 6 pm to 6 am')]));
+  setText($['mil-n'],String(L.militaryToday||0).padStart(2,'0'));
+  // Count first ("2 C-17"), most seen first, one type a row like the cargo brands.
+  $['mil-by'].replaceChildren(...((L.militaryTypes||[]).length?L.militaryTypes.slice(0,3).map(([t,n])=>{
+    const d=el('div');d.append(el('em','',n),` ${t}`);return d;
+  }):[el('div','','none yet')]));
   const cell=(text,tag='span',cls='')=>el(tag,cls,text);
   $.log.replaceChildren(cell('Seen'),cell(`${fmt.int(L.today)} aircraft`,'b'),
     cell('High'),cell(L.highest?`${L.highest.name} ${fmt.alt(L.highest.value)}`:'—','b'),
@@ -198,7 +204,9 @@ function render(m){
   // One line each, never cut; Recently rows go (oldest first) until the panel fits.
   for(const b of $.log.querySelectorAll('b'))fitLine(b);
   for(const s of $.recent.querySelectorAll('span:not(.t)'))fitLine(s);
-  const panel=$.recent.closest('.panel');
+  // Measured with the list shown: hidden from the last tick, it would make the panel look
+  // roomy, show again and flip every tick.
+  const panel=$.recent.closest('.panel');$.recent.parentNode.hidden=false;
   while(panel.scrollHeight>panel.clientHeight+1&&$.recent.children.length>3)for(let i=0;i<3;i++)$.recent.lastElementChild.remove();
   $.recent.parentNode.hidden=panel.scrollHeight>panel.clientHeight+1;
 }

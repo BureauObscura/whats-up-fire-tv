@@ -85,3 +85,4 @@
 .L-blueprint .bp-fig .ph-img{height:62px;border:1px solid rgba(230,245,255,.5)}
 .L-blueprint .bp-fig .ph-qr{width:62px;height:62px}
 .L-blueprint .bp-fig .ph-cap{font:600 11px 'Barlow Condensed';letter-spacing:.06em;color:var(--bp-dim);opacity:1}
+.L-blueprint .bp-plane.mil path{stroke:#cfe6a0;fill:rgba(140,170,70,.35)}

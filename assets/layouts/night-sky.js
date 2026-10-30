@@ -43,7 +43,7 @@ function ui(){
   $.canvas=makeCanvas(W,H,'sky');root.prepend($.canvas);
   $.svg=svg('svg',{class:'stars',viewBox:`0 0 ${W} ${H}`,'aria-hidden':'true'});
   const defs=svg('defs');
-  for(const [id,c] of [['ns-halo','#dfeaff'],['ns-halo-warm','#ffd9a0'],['ns-halo-red','#ff5a4a']]){
+  for(const [id,c] of [['ns-halo','#dfeaff'],['ns-halo-warm','#ffd9a0'],['ns-halo-mil','#cfe6a0'],['ns-halo-red','#ff5a4a']]){
     const r=svg('radialGradient',{id});
     r.append(svg('stop',{offset:'0','stop-color':c,'stop-opacity':.55}),svg('stop',{offset:'.35','stop-color':c,'stop-opacity':.16}),svg('stop',{offset:'1','stop-color':c,'stop-opacity':0}));
     defs.append(r);
@@ -84,7 +84,7 @@ function render(m){
     const fade=a?1:Math.max(0,1-(now-pts[pts.length-1].t)/TRAIL_AGE);
     const head=list[list.length-1],tail=list[0],id=`ns-g${gi++}`;
     const grad=svg('linearGradient',{id,gradientUnits:'userSpaceOnUse',x1:tail.x.toFixed(1),y1:tail.y.toFixed(1),x2:head.x.toFixed(1),y2:head.y.toFixed(1)});
-    const tone=a?.emergency?'#ff6b5c':a?.cargo?'#ffe0b0':'#dbe8ff';
+    const tone=a?.emergency?'#ff6b5c':a?.military?'#d6ebab':a?.cargo?'#ffe0b0':'#dbe8ff';
     grad.append(svg('stop',{offset:'0','stop-color':tone,'stop-opacity':0}),svg('stop',{offset:'1','stop-color':tone,'stop-opacity':(.6*fade).toFixed(2)}));
     grads.push(grad);
     const d=`M${list.map(p=>`${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('L')}`;
@@ -99,7 +99,7 @@ function render(m){
     const p=toView(VIEW,a.x,a.y);
     if(p.x<-20||p.y<-20||p.x>W+20||p.y>H+20)continue;
     const low=number(a.altitude_ft)?Math.max(0,Math.min(1,1-a.altitude_ft/40000)):.5,isHero=a===hero;
-    const halo=a.emergency?'ns-halo-red':a.cargo?'ns-halo-warm':'ns-halo';
+    const halo=a.emergency?'ns-halo-red':a.military?'ns-halo-mil':a.cargo?'ns-halo-warm':'ns-halo';
     const g=svg('g',{class:`star${isHero?' hero':''}${a.emergency?' sos':''}`,'data-hex':a.hex,transform:`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`});
     g.append(svg('circle',{class:'halo',r:(isHero?26:12+low*8).toFixed(1),fill:`url(#${halo})`}),
       svg('circle',{class:'dot',r:(isHero?3.2:1.6+low*1.2).toFixed(1)}));

@@ -47,3 +47,4 @@
 .L-swiss .ph-qr{width:60px;height:60px}
 .L-swiss .ph-cap{text-align:left;font:400 11px 'Inter';color:var(--grey);opacity:1}
 .L-swiss .emergency .ph{border-color:#fff}.L-swiss .emergency .ph-cap{color:rgba(255,255,255,.8)}
+.L-swiss .marks .plane.mil path{fill:#56682b}

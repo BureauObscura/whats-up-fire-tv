@@ -84,3 +84,5 @@
 .L-synthwave .ph-img,.L-synthwave .ph-qr{border:1px solid var(--cyan);box-shadow:0 0 8px rgba(33,240,255,.55);background:#12032b}
 .L-synthwave .ph-img{height:62px}.L-synthwave .ph-qr{width:62px;height:62px}
 .L-synthwave .ph-cap{text-align:right;font:500 10px var(--orb);color:rgba(255,220,250,.85);opacity:1;text-shadow:0 0 3px #0b0221,0 0 6px #0b0221}
+.L-synthwave .jet.mil{stroke:#b9e07a;filter:drop-shadow(0 0 5px #b9e07a);fill:rgba(185,224,122,.25)}
+.L-synthwave .strip b.s-mil{text-shadow:0 0 6px #b9e07a}

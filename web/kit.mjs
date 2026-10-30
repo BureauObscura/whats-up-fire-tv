@@ -350,3 +350,11 @@ export function credits(cls='credits',{oneLine=false}={}){
   e.append(el('div','credit-data',DATA_ATTRIBUTION),el('div','credit-map',oneLine?`Map ${MAP_ATTRIBUTION}`:MAP_ATTRIBUTION));
   return e;
 }
+
+// Military today's sub-line, count first ("2 C-17 · 1 KC-135": "C-17 2" reads like C-172),
+// most seen first; shorter wordings drop types. With none: "none yet".
+export const militaryAlts=L=>{
+  const t=L?.militaryTypes||[];if(!t.length)return ['none yet'];
+  const w=n=>t.slice(0,n).map(([k,c])=>`${c} ${k}`).join(' · ');
+  return [...new Set([w(4),w(3),w(2),w(1)])];
+};

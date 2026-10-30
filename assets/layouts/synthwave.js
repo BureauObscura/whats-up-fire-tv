@@ -51,7 +51,8 @@ function ui(){
     <div class="mayday" hidden><div class="m1">MAYDAY</div><div class="m2"></div></div>
     <div class="quiet" hidden><div class="q1">QUIET SKIES</div><div class="q2"></div></div>
     <div class="strip">
-      <span><i>CARGO TONIGHT</i><b class="s-cargo"></b></span>
+      <span><i>CARGO</i><b class="s-cargo"></b></span>
+      <span><i>MILITARY</i><b class="s-mil"></b></span>
       <span><i>SEEN TODAY</i><b class="s-seen"></b></span>
       <span><i>HIGHEST</i><b class="s-high"></b></span>
       <span><i>LAST ABOVE</i><b class="s-last"></b></span>
@@ -65,7 +66,7 @@ function ui(){
   for(const id of ['marks','stalks','jets','tags'])$.svg.append($[id]=svg('g'));
   root.querySelector('.world').after($.svg);
   for(const c of ['city','clock','date','hcard','h-label','h-fl','h-rt','h-alt','h-spd','h-cpa','h-type','mayday','m2','quiet','q2',
-    's-cargo','s-seen','s-high','s-last','s-status'])$[c]=root.querySelector('.'+c);
+    's-cargo','s-mil','s-seen','s-high','s-last','s-status'])$[c]=root.querySelector('.'+c);
   $.hcard.append($.pic=photoSlot());
   fit($.city);
 }
@@ -112,7 +113,7 @@ function render(m){
     const g=project(a.x,a.y);
     let off=false,gx=g.x,gy=g.y;
     if(gy>522||gx<14||gx>946){off=true;gx=Math.max(24,Math.min(936,gx));gy=Math.min(gy,522);}
-    const isHero=a===hero,cls=`${isHero?'hero':''}${a.inside?' inside':''}${a.cargo?' cargo':''}${off?' off':''}`;
+    const isHero=a===hero,cls=`${isHero?'hero':''}${a.inside?' inside':''}${a.cargo?' cargo':''}${a.military?' mil':''}${off?' off':''}`;
     const lift=off?0:Math.min(70,(a.altitude_ft||0)/40000*70)*Math.min(1.25,g.s);
     const px=gx,py=gy-lift;
     if(!off){
@@ -152,7 +153,7 @@ function render(m){
     if(hero.emergency)setText($.m2,`${hero.flight} · SQUAWK ${hero.squawk} · ${hero.emergency}`);
   }
   const L=m.log;
-  setText($['s-cargo'],String(L.cargoTonight));setText($['s-seen'],fmt.int(L.today));
+  setText($['s-cargo'],String(L.cargoTonight));setText($['s-mil'],String(L.militaryToday||0));setText($['s-seen'],fmt.int(L.today));
   setText($['s-high'],L.highest?fmt.alt(L.highest.value):'—');
   const r=m.recent[0];setText($['s-last'],r?`${r.flight} ${fmt.ago(r.last_seen,now)}`:'—');
 }
