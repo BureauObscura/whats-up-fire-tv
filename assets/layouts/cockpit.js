@@ -204,16 +204,28 @@ function render(m){
     setText($['f-brg'],`${deg(hero.bearing)}° ${compass(hero.bearing)}`);
     setText($['f-cpa'],!c?'---':c.receding?'OUTBND':`${fmt.mmss(c.seconds)} ${fmt.dist(c.miles).toUpperCase()}`);
   }
-  showPhotoIn($.pic,hero);
+  showPhotoIn($.pic,hero,fitSide);
   const rec=m.recent.slice(0,2);
   $.recent.replaceChildren(el('div','k','RECENT ABOVE'),...(rec.length?rec.map(a=>{
     const d=el('div','rec');d.append(el('b','',a.flight),el('span','',a.route?`${a.route.origin}▸${a.route.destination}`:a.aircraft_type||''),el('i','',fmt.ago(a.last_seen,now)));return d;
   }):[el('div','rec none','NONE YET')]));
   for(const s of $.recent.querySelectorAll('.rec span'))fitLine(s);
+  $.recent._all=[...$.recent.children];
   const L=m.log;
   setText($['l-seen'],fmt.int(L.today));
   setText($['l-cargo'],String(L.cargoTonight));setText($['l-mil'],String(L.militaryToday||0));
   setText($['l-high'],L.highest?fmt.alt(L.highest.value).toUpperCase():'---');
+  fitSide();
+}
+
+// The side column ends inside the screen: with a photo up, Recent above shows two rows, then
+// one, then none, until the photo, its QR and credit fit (checked again when a photo loads).
+function fitSide(){
+  const side=$.recent?.closest('.side');if(!side||!$.recent._all)return;
+  $.recent.replaceChildren(...$.recent._all);$.recent.hidden=false;
+  const over=()=>side.scrollHeight>side.clientHeight+1;
+  while(over()&&$.recent.children.length>1)$.recent.lastElementChild.remove();
+  if(over())$.recent.hidden=true;
 }
 
 
